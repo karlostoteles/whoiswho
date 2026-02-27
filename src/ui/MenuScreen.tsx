@@ -3,8 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from './common/Button';
 import { OnlineLobbyScreen } from './OnlineLobbyScreen';
 import { useGameActions } from '../store/selectors';
-import { useWalletStatus, useIsWalletReady } from '../starknet/walletStore';
-import { useWalletConnection } from '../starknet/hooks';
 import { MEME_CHARACTERS } from '../data/memeCharacters';
 
 type View = 'menu' | 'online';
@@ -12,22 +10,13 @@ type View = 'menu' | 'online';
 export function MenuScreen() {
   const [view, setView] = useState<View>('menu');
   const { startSetup, setGameMode } = useGameActions();
-  const walletStatus = useWalletStatus();
-  const isWalletReady = useIsWalletReady();
-  const { connectWallet } = useWalletConnection();
-
-  const isConnecting = walletStatus === 'connecting' || walletStatus === 'loading_nfts';
 
   const handleFreePlay = () => {
     setGameMode('free', MEME_CHARACTERS);
     startSetup();
   };
 
-  const handlePlayOnline = async () => {
-    if (isConnecting) return;
-    if (!isWalletReady) {
-      await connectWallet();
-    }
+  const handlePlayOnline = () => {
     setView('online');
   };
 
@@ -42,7 +31,6 @@ export function MenuScreen() {
         {view === 'menu' && (
           <MenuMain
             key="menu"
-            isConnecting={isConnecting}
             onFreePlay={handleFreePlay}
             onPlayOnline={handlePlayOnline}
           />
@@ -62,12 +50,11 @@ export function MenuScreen() {
 // ─── Main menu view ───────────────────────────────────────────────────────────
 
 interface MenuMainProps {
-  isConnecting: boolean;
   onFreePlay: () => void;
   onPlayOnline: () => void;
 }
 
-function MenuMain({ isConnecting, onFreePlay, onPlayOnline }: MenuMainProps) {
+function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -140,9 +127,8 @@ function MenuMain({ isConnecting, onFreePlay, onPlayOnline }: MenuMainProps) {
           {/* Play Online — primary CTA */}
           <motion.button
             onClick={onPlayOnline}
-            disabled={isConnecting}
-            whileHover={isConnecting ? {} : { scale: 1.03, filter: 'brightness(1.15)' }}
-            whileTap={isConnecting ? {} : { scale: 0.97 }}
+            whileHover={{ scale: 1.03, filter: 'brightness(1.15)' }}
+            whileTap={{ scale: 0.97 }}
             style={{
               fontSize: 18,
               padding: '18px 48px',
@@ -153,8 +139,7 @@ function MenuMain({ isConnecting, onFreePlay, onPlayOnline }: MenuMainProps) {
               color: '#FFFFFE',
               fontFamily: "'Space Grotesk', sans-serif",
               fontWeight: 700,
-              cursor: isConnecting ? 'not-allowed' : 'pointer',
-              opacity: isConnecting ? 0.7 : 1,
+              cursor: 'pointer',
               backdropFilter: 'blur(10px)',
               letterSpacing: '0.01em',
               outline: 'none',
@@ -165,17 +150,8 @@ function MenuMain({ isConnecting, onFreePlay, onPlayOnline }: MenuMainProps) {
               boxShadow: '0 0 40px rgba(124,58,237,0.3)',
             }}
           >
-            {isConnecting ? (
-              <>
-                <ConnectingSpinner />
-                Connecting…
-              </>
-            ) : (
-              <>
-                🌐 Play Online
-                <span style={{ opacity: 0.6, fontSize: 13, fontWeight: 500 }}>1v1</span>
-              </>
-            )}
+            🌐 Play Online
+            <span style={{ opacity: 0.6, fontSize: 13, fontWeight: 500 }}>1v1</span>
           </motion.button>
 
           {/* Play Free vs CPU — secondary */}
@@ -194,18 +170,3 @@ function MenuMain({ isConnecting, onFreePlay, onPlayOnline }: MenuMainProps) {
   );
 }
 
-function ConnectingSpinner() {
-  return (
-    <motion.div
-      animate={{ rotate: 360 }}
-      transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
-      style={{
-        width: 16,
-        height: 16,
-        border: '2px solid rgba(255,255,255,0.2)',
-        borderTopColor: 'rgba(255,255,255,0.8)',
-        borderRadius: '50%',
-      }}
-    />
-  );
-}
