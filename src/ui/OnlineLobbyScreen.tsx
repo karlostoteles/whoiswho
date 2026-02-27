@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './common/Card';
 import { Button } from './common/Button';
-import { useWalletAddress, useWalletStatus, useOwnedNFTs } from '../starknet/walletStore';
+import { useWalletAddress, useWalletStatus, useOwnedNFTs, useWalletStore } from '../starknet/walletStore';
 import { useWalletConnection } from '../starknet/hooks';
 import { createGame, joinGame, subscribeToGame } from '../supabase/gameService';
 import { isSupabaseConfigured, supabase } from '../supabase/client';
@@ -49,6 +49,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
   }
 
   if (!walletAddress) {
+    const walletError = useWalletStore.getState().error;
     return (
       <LobbyWrapper onBack={onBack}>
         <div style={{ textAlign: 'center', padding: 32 }}>
@@ -60,10 +61,10 @@ export function OnlineLobbyScreen({ onBack }: Props) {
             fontSize: 20,
             marginBottom: 8,
           }}>
-            Connect your wallet to play online
+            Log in to play online
           </div>
           <div style={{ color: 'rgba(255,255,254,0.4)', fontSize: 13, marginBottom: 32 }}>
-            Uses Cartridge Controller — free, no gas needed
+            Powered by Cartridge Controller — free, no gas needed
           </div>
           <motion.button
             onClick={connectWallet}
@@ -88,14 +89,24 @@ export function OnlineLobbyScreen({ onBack }: Props) {
               boxShadow: '0 0 30px rgba(124,58,237,0.35)',
             }}
           >
-            {isConnecting ? (
-              <>
-                <Spinner /> Connecting…
-              </>
-            ) : (
-              '🔐 Connect Wallet'
-            )}
+            {isConnecting ? <><Spinner /> Logging in…</> : '🔐 Log in'}
           </motion.button>
+          {walletError && (
+            <div style={{
+              marginTop: 16,
+              padding: '8px 14px',
+              background: 'rgba(239,68,68,0.15)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: 8,
+              fontSize: 12,
+              color: '#FCA5A5',
+              maxWidth: 320,
+              margin: '16px auto 0',
+              wordBreak: 'break-word',
+            }}>
+              {walletError}
+            </div>
+          )}
         </div>
       </LobbyWrapper>
     );
