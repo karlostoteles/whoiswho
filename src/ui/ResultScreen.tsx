@@ -1,15 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from './common/Card';
 import { Button } from './common/Button';
-import { useWinner, useGuessedCharacterId, useGameActions, usePlayerState, useGameCharacters } from '../store/selectors';
+import { useWinner, useGuessedCharacterId, useGameActions, usePlayerState, useGameCharacters, useGameMode, useGameSessionId } from '../store/selectors';
 import { useCharacterPreviews } from '../hooks/useCharacterPreviews';
 import { COLORS } from '../utils/constants';
 import { sfx } from '../audio/sfx';
+import { getCommitment, verifyReveal } from '../starknet/commitReveal';
 
 export function ResultScreen() {
   const winner = useWinner();
   const guessedId = useGuessedCharacterId();
+  const mode = useGameMode();
+  const gameSessionId = useGameSessionId();
 
   useEffect(() => { sfx.win(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -19,6 +22,22 @@ export function ResultScreen() {
   const characters = useGameCharacters();
   const previews = useCharacterPreviews();
 
+  // In NFT mode: verify both players honoured their commitments
+  const [p1Verified, setP1Verified] = useState<boolean | null>(null);
+  const [p2Verified, setP2Verified] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (mode !== 'nft') return;
+    if (p1State.secretCharacterId) {
+      const c = getCommitment('player1', gameSessionId);
+      if (c) setP1Verified(verifyReveal('player1', p1State.secretCharacterId, c.salt, gameSessionId));
+    }
+    if (p2State.secretCharacterId) {
+      const c = getCommitment('player2', gameSessionId);
+      if (c) setP2Verified(verifyReveal('player2', p2State.secretCharacterId, c.salt, gameSessionId));
+    }
+  }, [mode, gameSessionId, p1State.secretCharacterId, p2State.secretCharacterId]);
+
   if (!winner) return null;
 
   const winnerLabel = winner === 'player1' ? 'Player 1' : 'CPU / Player 2';
@@ -27,6 +46,7 @@ export function ResultScreen() {
   const p1Secret = characters.find((c) => c.id === p1State.secretCharacterId);
   const p2Secret = characters.find((c) => c.id === p2State.secretCharacterId);
   const guessedChar = characters.find((c) => c.id === guessedId);
+  const showCommitProof = mode === 'nft' && (p1Verified !== null || p2Verified !== null);
 
   return (
     <motion.div
@@ -135,6 +155,44 @@ export function ResultScreen() {
               </motion.div>
             ))}
           </div>
+
+          {/* Commit-reveal integrity badge (NFT mode only) */}
+          {showCommitProof && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginBottom: 20,
+                padding: '8px 16px',
+                background: p1Verified && p2Verified
+                  ? 'rgba(76, 175, 80, 0.12)'
+                  : 'rgba(224, 85, 85, 0.12)',
+                border: `1px solid ${p1Verified && p2Verified ? 'rgba(76,175,80,0.3)' : 'rgba(224,85,85,0.3)'}`,
+                borderRadius: 10,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>
+                {p1Verified && p2Verified ? '✅' : '⚠️'}
+              </span>
+              <span style={{
+                fontSize: 11,
+                color: p1Verified && p2Verified
+                  ? 'rgba(76,175,80,0.9)'
+                  : 'rgba(224,85,85,0.9)',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+              }}>
+                {p1Verified && p2Verified
+                  ? 'Commit-reveal verified — fair play confirmed'
+                  : 'Commitment mismatch detected!'}
+              </span>
+            </motion.div>
+          )}
 
           <Button variant="accent" size="lg" onClick={resetGame}>
             Play Again

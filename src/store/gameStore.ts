@@ -4,6 +4,7 @@ import { GamePhase, GameState, GameActions, PlayerId } from './types';
 import { QUESTIONS } from '../data/questions';
 import { CHARACTERS } from '../data/characters';
 import { evaluateQuestion } from '../utils/evaluateQuestion';
+import { createCommitment, generateGameSessionId, clearCommitments, getCommitment } from '../starknet/commitReveal';
 
 function getOpponent(player: PlayerId): PlayerId {
   return player === 'player1' ? 'player2' : 'player1';
@@ -24,6 +25,8 @@ const initialState: GameState = {
   questionHistory: [],
   winner: null,
   guessedCharacterId: null,
+  gameSessionId: generateGameSessionId(),
+  commitmentStatus: 'none',
 };
 
 export const useGameStore = create<GameState & GameActions>()(
@@ -48,17 +51,30 @@ export const useGameStore = create<GameState & GameActions>()(
     selectSecretCharacter: (player, characterId) =>
       set((state) => {
         state.players[player].secretCharacterId = characterId;
+
+        // Create a cryptographic commitment for this character selection.
+        // In NFT mode this is the core anti-cheat mechanism — players can't
+        // change their character after committing. In free mode it's a no-op
+        // commitment (no enforcement needed since it's vs CPU).
+        if (state.mode === 'nft') {
+          createCommitment(player, characterId, state.gameSessionId);
+        }
+
         if (player === 'player1') {
           if (state.mode === 'free') {
             // CPU (player2) picks a random character automatically
             const pool = state.characters.filter((c) => c.id !== characterId);
             const cpuPick = pool[Math.floor(Math.random() * pool.length)];
             if (cpuPick) state.players.player2.secretCharacterId = cpuPick.id;
+            state.commitmentStatus = 'both';
             state.phase = GamePhase.HANDOFF_START;
           } else {
+            state.commitmentStatus = 'partial';
             state.phase = GamePhase.HANDOFF_P1_TO_P2;
           }
         } else {
+          // Player 2 has now committed — both players are locked in
+          state.commitmentStatus = 'both';
           state.phase = GamePhase.HANDOFF_START;
         }
       }),
@@ -222,6 +238,9 @@ export const useGameStore = create<GameState & GameActions>()(
 
     resetGame: () =>
       set((state) => {
+        // Clear commitments for the old session before generating a new one
+        clearCommitments(state.gameSessionId);
+
         // Preserve mode and characters across game resets
         const currentMode = state.mode;
         const currentChars = state.characters;
@@ -234,6 +253,9 @@ export const useGameStore = create<GameState & GameActions>()(
           player2: { secretCharacterId: null, eliminatedCharacterIds: [] },
         };
         state.questionHistory = [];
+        // Fresh session ID for new game
+        state.gameSessionId = generateGameSessionId();
+        state.commitmentStatus = 'none';
       }),
   }))
 );

@@ -50,6 +50,10 @@ export interface GameState {
   questionHistory: QuestionRecord[];
   winner: PlayerId | null;
   guessedCharacterId: string | null;
+  // Commit-reveal: unique ID per game session for commitment storage
+  gameSessionId: string;
+  // Whether both players have valid on-chain (or local) commitments
+  commitmentStatus: 'none' | 'partial' | 'both';
 }
 
 export interface GameActions {

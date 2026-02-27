@@ -4,10 +4,7 @@
  * Uses the Cartridge Controller class directly for reliable connection,
  * session reuse (probe), and proper mainnet chain configuration.
  */
-import { RPC_URL, SESSION_POLICIES } from './config';
-
-// Mainnet Chain ID (hex)
-const SN_MAINNET_CHAIN_ID = '0x534e5f4d41494e4e4554';
+import { RPC_URL, SESSION_POLICIES, SN_MAIN_CHAIN_ID } from './config';
 
 // Controller singleton — typed as any since @cartridge/controller is dynamic
 let controllerInstance: any = null;
@@ -43,11 +40,10 @@ export async function connectCartridgeWallet(): Promise<ConnectedWallet> {
     }
 
     controllerInstance = new CtrlClass({
-      defaultChainId: SN_MAINNET_CHAIN_ID,
+      defaultChainId: SN_MAIN_CHAIN_ID,
       chains: [{ rpcUrl: RPC_URL }],
       policies: SESSION_POLICIES,
       slot: 'whoiswho',
-      signupOptions: ['webauthn', 'google', 'discord'],
     });
 
     console.log('[cartridge] Controller initialized');

@@ -11,6 +11,8 @@ export const useCurrentQuestion = () => useGameStore((s) => s.currentQuestion);
 export const useQuestionHistory = () => useGameStore((s) => s.questionHistory);
 export const useWinner = () => useGameStore((s) => s.winner);
 export const useGuessedCharacterId = () => useGameStore((s) => s.guessedCharacterId);
+export const useGameSessionId = () => useGameStore((s) => s.gameSessionId);
+export const useCommitmentStatus = () => useGameStore((s) => s.commitmentStatus);
 
 export const usePlayerState = (player: PlayerId) =>
   useGameStore((s) => s.players[player]);
