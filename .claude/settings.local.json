@@ -49,7 +49,14 @@
       "Bash(npm show @cartridge/controller version)",
       "Bash(npm show @cartridge/connector version)",
       "Bash(npm show get-starknet-core version)",
-      "Bash(git push origin feat/starknet-phase1)"
+      "Bash(git push origin feat/starknet-phase1)",
+      "Bash(git push origin master)",
+      "Bash(git checkout feat/starknet-phase1)",
+      "Bash(git stash pop)",
+      "Bash(git pull origin master --rebase)",
+      "Bash(git fetch origin master)",
+      "Bash(git checkout --ours -- src/data/nftCharacterAdapter.ts src/starknet/config.ts src/starknet/hooks.ts src/starknet/sdk.ts src/store/gameStore.ts src/store/types.ts src/ui/AutoEliminatingOverlay.tsx src/ui/CharacterSelectScreen.tsx src/ui/GuessPanel.tsx src/ui/MenuScreen.tsx src/ui/QuestionPanel.tsx src/ui/ResultScreen.tsx src/ui/RiskItButton.tsx src/ui/UIOverlay.tsx src/ui/WalletButton.tsx package.json)",
+      "Bash(git checkout --ours -- package-lock.json)"
     ]
   }
 }
