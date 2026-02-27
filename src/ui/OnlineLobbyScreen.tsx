@@ -8,13 +8,13 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './common/Card';
 import { Button } from './common/Button';
-import { useWalletAddress } from '../starknet/walletStore';
+import { useWalletAddress, useWalletStatus, useOwnedNFTs } from '../starknet/walletStore';
+import { useWalletConnection } from '../starknet/hooks';
 import { createGame, joinGame, subscribeToGame } from '../supabase/gameService';
 import { isSupabaseConfigured, supabase } from '../supabase/client';
 import { useGameActions } from '../store/selectors';
 import { MEME_CHARACTERS } from '../data/memeCharacters';
 import { selectGameCharacters } from '../data/nftCharacterAdapter';
-import { useOwnedNFTs } from '../starknet/walletStore';
 
 interface Props {
   onBack: () => void;
@@ -30,8 +30,11 @@ export function OnlineLobbyScreen({ onBack }: Props) {
   const [loading, setLoading] = useState(false);
 
   const walletAddress = useWalletAddress();
+  const walletStatus = useWalletStatus();
   const ownedNFTs = useOwnedNFTs();
+  const { connectWallet } = useWalletConnection();
   const { setGameMode, setOnlineGame, startSetup } = useGameActions();
+  const isConnecting = walletStatus === 'connecting' || walletStatus === 'loading_nfts';
 
   if (!isSupabaseConfigured) {
     return (
@@ -48,10 +51,51 @@ export function OnlineLobbyScreen({ onBack }: Props) {
   if (!walletAddress) {
     return (
       <LobbyWrapper onBack={onBack}>
-        <div style={{ textAlign: 'center', color: 'rgba(255,255,254,0.5)', fontSize: 14, padding: 32 }}>
-          <div style={{ fontSize: 32, marginBottom: 16 }}>🔐</div>
-          <div style={{ color: '#FFFFFE', marginBottom: 8 }}>Wallet required for online play</div>
-          <div>Connect your Starknet wallet from the menu first.</div>
+        <div style={{ textAlign: 'center', padding: 32 }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🎮</div>
+          <div style={{
+            color: '#FFFFFE',
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontWeight: 700,
+            fontSize: 20,
+            marginBottom: 8,
+          }}>
+            Connect your wallet to play online
+          </div>
+          <div style={{ color: 'rgba(255,255,254,0.4)', fontSize: 13, marginBottom: 32 }}>
+            Uses Cartridge Controller — free, no gas needed
+          </div>
+          <motion.button
+            onClick={connectWallet}
+            disabled={isConnecting}
+            whileHover={isConnecting ? {} : { scale: 1.04, filter: 'brightness(1.1)' }}
+            whileTap={isConnecting ? {} : { scale: 0.97 }}
+            style={{
+              background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+              border: '1px solid rgba(124,58,237,0.5)',
+              borderRadius: 12,
+              padding: '14px 36px',
+              color: '#FFFFFE',
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: isConnecting ? 'wait' : 'pointer',
+              opacity: isConnecting ? 0.7 : 1,
+              outline: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              boxShadow: '0 0 30px rgba(124,58,237,0.35)',
+            }}
+          >
+            {isConnecting ? (
+              <>
+                <Spinner /> Connecting…
+              </>
+            ) : (
+              '🔐 Connect Wallet'
+            )}
+          </motion.button>
         </div>
       </LobbyWrapper>
     );
@@ -336,6 +380,21 @@ function LobbyWrapper({ children, onBack }: { children: React.ReactNode; onBack:
         {children}
       </Card>
     </motion.div>
+  );
+}
+
+function Spinner() {
+  return (
+    <motion.div
+      animate={{ rotate: 360 }}
+      transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
+      style={{
+        width: 16, height: 16,
+        border: '2px solid rgba(255,255,255,0.2)',
+        borderTopColor: 'rgba(255,255,255,0.8)',
+        borderRadius: '50%',
+      }}
+    />
   );
 }
 
