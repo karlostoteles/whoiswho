@@ -41,8 +41,13 @@ export function SecretCardPanel() {
 
   if (!GAMEPLAY_PHASES.has(phase) || !myChar) return null;
 
-  const imageUrl = (myChar as any).imageUrl as string | undefined;
-  const tokenId  = (myChar as any).tokenId as string | undefined;
+  // Derive tokenId from id (e.g. 'nft_53' → '53') or explicit tokenId field
+  const tokenId: string | undefined =
+    (myChar as any).tokenId ?? (secretId?.startsWith('nft_') ? secretId.replace('nft_', '') : undefined);
+
+  // imageUrl: explicit field on character, or construct via serverless proxy
+  const imageUrl: string | undefined =
+    (myChar as any).imageUrl ?? (tokenId ? `/api/nft-art/${tokenId}` : undefined);
 
   return (
     <AnimatePresence>
