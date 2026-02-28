@@ -4,7 +4,7 @@ import { useActivePlayer, usePlayerState } from '../store/selectors';
 import { BOARD } from '../utils/constants';
 
 interface MysteryCardProps {
-  textures: Map<string, THREE.CanvasTexture>;
+  textures: Map<string, THREE.Texture>;
   cardBackTexture: THREE.CanvasTexture;
 }
 
