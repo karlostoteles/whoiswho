@@ -33,11 +33,21 @@ export interface Commitment {
   gameSessionId: string;
 }
 
-/** Generate a cryptographically random 32-byte salt as hex */
+/**
+ * Generate a cryptographically random salt guaranteed to be within the
+ * Stark field: 0 <= salt < P  (P ≈ 2^251.58).
+ *
+ * Generate 32 raw bytes then reduce mod P — this keeps the full entropy
+ * distribution while preventing the "PedersenArg should be 0 <= value <
+ * CURVE.P" crash that starknet.js throws when the salt exceeds the prime.
+ */
+const STARK_PRIME = BigInt('0x800000000000011000000000000000000000000000000000000000000000001');
+
 function generateSalt(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
-  return '0x' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const raw = BigInt('0x' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join(''));
+  return '0x' + (raw % STARK_PRIME).toString(16);
 }
 
 /**
