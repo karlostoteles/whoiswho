@@ -8,7 +8,7 @@ import { usePhase, useActivePlayer, useEliminatedIds, useGameActions } from '../
 interface CharacterTileProps {
   characterId: string;
   characterName: string;
-  texture: THREE.CanvasTexture;
+  texture: THREE.Texture;
   position: [number, number, number];
 }
 

@@ -3,15 +3,27 @@ import { useGameCharacters } from '../store/selectors';
 import { renderPortrait } from '../canvas/PortraitRenderer';
 
 /**
- * Generates 2D preview data URLs for all characters.
+ * Generates portrait preview URLs for all characters.
+ * - NFT characters with a real imageUrl → use the URL directly (real art)
+ * - All others → procedural canvas data URL
+ *
  * Used in UI panels (character select, guess panel) where we need
- * 2D thumbnails rather than Three.js textures.
+ * thumbnails rather than Three.js textures.
  */
 export function useCharacterPreviews(): Map<string, string> {
   const characters = useGameCharacters();
+
   return useMemo(() => {
     const map = new Map<string, string>();
     for (const char of characters) {
+      // Prefer real NFT image URL when available
+      const imageUrl = (char as any).imageUrl as string | undefined;
+      if (imageUrl) {
+        map.set(char.id, imageUrl);
+        continue;
+      }
+
+      // Fall back to procedural canvas portrait
       const texture = renderPortrait(char);
       if (texture.image instanceof HTMLCanvasElement) {
         const small = document.createElement('canvas');

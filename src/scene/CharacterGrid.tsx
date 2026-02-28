@@ -4,7 +4,7 @@ import { TILE, BOARD } from '../utils/constants';
 import { CharacterTile } from './CharacterTile';
 
 interface CharacterGridProps {
-  textures: Map<string, THREE.CanvasTexture>;
+  textures: Map<string, THREE.Texture>;
 }
 
 export function CharacterGrid({ textures }: CharacterGridProps) {
