@@ -17,6 +17,7 @@ import { RiskItButton } from './RiskItButton';
 import { WalletButton } from './WalletButton';
 import { CPUThinkingIndicator } from './CPUThinkingIndicator';
 import { OnlineWaitingScreen } from './OnlineWaitingScreen';
+import { SecretCardPanel } from './SecretCardPanel';
 import { useOnlineGameSync } from '../hooks/useOnlineGameSync';
 
 export function UIOverlay() {
@@ -42,6 +43,7 @@ export function UIOverlay() {
 
       {/* CPU thinking indicator — free mode only */}
       <CPUThinkingIndicator />
+      <SecretCardPanel />
 
       <AnimatePresence mode="wait">
         {phase === GamePhase.MENU && <MenuScreen key="menu" />}

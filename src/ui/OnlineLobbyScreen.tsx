@@ -10,23 +10,20 @@ import { Card } from './common/Card';
 import { Button } from './common/Button';
 import { useWalletAddress, useWalletStatus, useOwnedNFTs, useWalletStore } from '../starknet/walletStore';
 import { useWalletConnection } from '../starknet/hooks';
-import { createGame, joinGame, subscribeToGame } from '../supabase/gameService';
-import { isSupabaseConfigured, supabase } from '../supabase/client';
+import { createGame, joinGame } from '../supabase/gameService';
+import { isSupabaseConfigured } from '../supabase/client';
 import { useGameActions } from '../store/selectors';
-import { MEME_CHARACTERS } from '../data/memeCharacters';
-import { selectGameCharacters } from '../data/nftCharacterAdapter';
 import { generateAllCollectionCharacters } from '../starknet/collectionService';
 
 interface Props {
   onBack: () => void;
 }
 
-type LobbyView = 'mode_select' | 'choice' | 'create' | 'join' | 'waiting-p2';
+type LobbyView = 'mode_select' | 'choice' | 'create' | 'join';
 
 export function OnlineLobbyScreen({ onBack }: Props) {
   const [view, setView] = useState<LobbyView>('mode_select');
   const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [createdRoomCode, setCreatedRoomCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +36,6 @@ export function OnlineLobbyScreen({ onBack }: Props) {
   const [bypassShake, setBypassShake]         = useState(false);
 
   const handleBypassSubmit = () => {
-    // Simple string comparison — obfuscated enough for a client-side secret
     if (btoa(bypassInput.trim()) === btoa('starknethas8users')) {
       localStorage.setItem('whoiswho_bypass', '1');
       setBypassActive(true);
@@ -199,7 +195,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
             Get SCHIZODIO →
           </motion.a>
 
-          {/* ── Access code bypass ─────────────────────────── */}
+          {/* Access code bypass */}
           <div style={{ marginTop: 32 }}>
             {!showBypassInput ? (
               <button
@@ -226,10 +222,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
               >
                 <motion.div
-                  animate={bypassShake ? {
-                    x: [-6, 6, -5, 5, -3, 3, 0],
-                    transition: { duration: 0.4 },
-                  } : {}}
+                  animate={bypassShake ? { x: [-6, 6, -5, 5, -3, 3, 0], transition: { duration: 0.4 } } : {}}
                   style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 260 }}
                 >
                   <input
@@ -285,29 +278,17 @@ export function OnlineLobbyScreen({ onBack }: Props) {
     );
   }
 
-  // Characters = full 999-token collection (adaptive board shows all SCHIZODIOs)
-  // Own NFTs determine eligibility (gated above) but the BOARD uses all 999 tokens.
-  const getCharacters = () => generateAllCollectionCharacters();
-
   const handleCreate = async () => {
     setError('');
     setLoading(true);
     try {
-      const characters = getCharacters();
+      const characters = generateAllCollectionCharacters();
       const { game, playerNum } = await createGame(walletAddress, characters);
       setGameMode('online', characters);
       setOnlineGame(game.id, game.room_code, playerNum);
-      setCreatedRoomCode(game.room_code);
-      setView('waiting-p2');
-
-      // Subscribe to game updates to detect when P2 joins
-      const sub = subscribeToGame(game.id, (updatedGame) => {
-        if (updatedGame.status === 'ready' || updatedGame.status === 'in_progress') {
-          // P2 joined — kick off the setup phase
-          supabase.removeChannel(sub);
-          startSetup();
-        }
-      });
+      // Both P1 and P2 go through character select immediately.
+      // Room code is prominently shown in OnlineWaitingScreen after selection.
+      startSetup();
     } catch (err: any) {
       setError(err.message ?? 'Failed to create game');
     } finally {
@@ -324,7 +305,8 @@ export function OnlineLobbyScreen({ onBack }: Props) {
     setLoading(true);
     try {
       const { game, playerNum } = await joinGame(roomCodeInput, walletAddress);
-      const characters = (game.characters ?? MEME_CHARACTERS) as any[];
+      // Always use the deterministic 999-token collection (same as creator)
+      const characters = generateAllCollectionCharacters();
       setGameMode('online', characters);
       setOnlineGame(game.id, game.room_code, playerNum);
       startSetup();
@@ -345,7 +327,6 @@ export function OnlineLobbyScreen({ onBack }: Props) {
     <LobbyWrapper onBack={handleBack}>
       <AnimatePresence mode="wait">
 
-        {/* ── Mode selection ──────────────────────────────── */}
         {view === 'mode_select' && (
           <motion.div
             key="mode_select"
@@ -364,7 +345,6 @@ export function OnlineLobbyScreen({ onBack }: Props) {
               Choose your game mode
             </div>
 
-            {/* Normal Mode */}
             <motion.button
               onClick={() => setView('choice')}
               whileHover={{ scale: 1.02, borderColor: 'rgba(124,58,237,0.6)' }}
@@ -385,9 +365,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 28 }}>🎮</span>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>
-                    Normal Mode
-                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>Normal Mode</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,254,0.45)', lineHeight: 1.4 }}>
                     Classic 1v1 — guess your opponent's SCHIZODIO first
                   </div>
@@ -395,7 +373,6 @@ export function OnlineLobbyScreen({ onBack }: Props) {
               </div>
             </motion.button>
 
-            {/* SCHIZO Mode — coming soon */}
             <div style={{ position: 'relative' }}>
               <motion.button
                 disabled
@@ -416,31 +393,12 @@ export function OnlineLobbyScreen({ onBack }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 28 }}>⚔️</span>
                   <div>
-                    <div style={{
-                      fontWeight: 700,
-                      fontSize: 15,
-                      marginBottom: 3,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
                       SCHIZO Mode
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        background: 'linear-gradient(135deg, #E8A444, #C47B1A)',
-                        color: '#0F0E17',
-                        padding: '2px 7px',
-                        borderRadius: 20,
-                        letterSpacing: '0.04em',
-                      }}>
-                        SOON
-                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 700, background: 'linear-gradient(135deg, #E8A444, #C47B1A)', color: '#0F0E17', padding: '2px 7px', borderRadius: 20, letterSpacing: '0.04em' }}>SOON</span>
                     </div>
                     <div style={{ fontSize: 12, color: 'rgba(255,255,254,0.3)', lineHeight: 1.4 }}>
-                      {bypassActive
-                        ? 'Requires a real SCHIZODIO NFT to bet'
-                        : 'Bet your SCHIZODIO NFT — winner takes all'}
+                      {bypassActive ? 'Requires a real SCHIZODIO NFT to bet' : 'Bet your SCHIZODIO NFT — winner takes all'}
                     </div>
                   </div>
                 </div>
@@ -457,12 +415,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
             exit={{ opacity: 0, y: -10 }}
             style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
           >
-            <Button
-              variant="accent"
-              size="lg"
-              onClick={() => setView('create')}
-              style={{ width: '100%' }}
-            >
+            <Button variant="accent" size="lg" onClick={() => setView('create')} style={{ width: '100%' }}>
               Create Room
             </Button>
             <button
@@ -493,18 +446,12 @@ export function OnlineLobbyScreen({ onBack }: Props) {
             exit={{ opacity: 0, y: -10 }}
             style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}
           >
-            <div style={{ fontSize: 14, color: 'rgba(255,255,254,0.5)', textAlign: 'center' }}>
-              A room code will be generated. Share it with your opponent.
+            <div style={{ fontSize: 13, color: 'rgba(255,255,254,0.5)', textAlign: 'center', lineHeight: 1.6 }}>
+              You'll select your SCHIZODIO first. Your room code will be shown on the next screen to share with your opponent.
             </div>
             {error && <ErrorMsg>{error}</ErrorMsg>}
-            <Button
-              variant="accent"
-              size="lg"
-              onClick={handleCreate}
-              disabled={loading}
-              style={{ width: '100%' }}
-            >
-              {loading ? 'Creating…' : 'Create Game Room'}
+            <Button variant="accent" size="lg" onClick={handleCreate} disabled={loading} style={{ width: '100%' }}>
+              {loading ? 'Creating…' : 'Create Room & Select Character →'}
             </Button>
           </motion.div>
         )}
@@ -555,70 +502,10 @@ export function OnlineLobbyScreen({ onBack }: Props) {
             </Button>
           </motion.div>
         )}
-
-        {view === 'waiting-p2' && (
-          <motion.div
-            key="waiting-p2"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center' }}
-          >
-            <div style={{ fontSize: 14, color: 'rgba(255,255,254,0.5)', textAlign: 'center' }}>
-              Share this code with your opponent:
-            </div>
-
-            {/* Room code display */}
-            <motion.div
-              animate={{ scale: [1, 1.02, 1] }}
-              transition={{ repeat: Infinity, duration: 2.5 }}
-              style={{
-                fontFamily: "'Space Grotesk', monospace",
-                fontSize: 48,
-                fontWeight: 900,
-                letterSpacing: '0.3em',
-                color: '#E8A444',
-                filter: 'drop-shadow(0 0 20px rgba(232,164,68,0.4))',
-                background: 'rgba(232,164,68,0.08)',
-                border: '2px solid rgba(232,164,68,0.3)',
-                borderRadius: 16,
-                padding: '20px 36px',
-                cursor: 'pointer',
-              }}
-              onClick={() => {
-                navigator.clipboard.writeText(createdRoomCode).catch(() => {});
-              }}
-              title="Click to copy"
-            >
-              {createdRoomCode}
-            </motion.div>
-
-            <div style={{ fontSize: 12, color: 'rgba(255,255,254,0.3)' }}>
-              Click the code to copy · Waiting for opponent…
-            </div>
-
-            {/* Pulsing dots */}
-            <motion.div style={{ display: 'flex', gap: 6 }}>
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  animate={{ y: [0, -6, 0], opacity: [0.4, 1, 0.4] }}
-                  transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.2 }}
-                  style={{
-                    width: 8, height: 8, borderRadius: '50%',
-                    background: '#E8A444',
-                  }}
-                />
-              ))}
-            </motion.div>
-          </motion.div>
-        )}
       </AnimatePresence>
     </LobbyWrapper>
   );
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function LobbyWrapper({ children, onBack }: { children: React.ReactNode; onBack: () => void }) {
   return (
@@ -634,16 +521,11 @@ function LobbyWrapper({ children, onBack }: { children: React.ReactNode; onBack:
         justifyContent: 'center',
         pointerEvents: 'auto',
         zIndex: 20,
+        padding: 16,
       }}
     >
-      <Card style={{ width: 'min(420px, calc(100vw - 32px))' }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: 28,
-          gap: 12,
-        }}>
+      <Card style={{ width: 'min(420px, 100%)', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28, gap: 12 }}>
           <button
             onClick={onBack}
             style={{
@@ -655,20 +537,15 @@ function LobbyWrapper({ children, onBack }: { children: React.ReactNode; onBack:
               cursor: 'pointer',
               fontSize: 13,
               fontFamily: "'Space Grotesk', sans-serif",
+              flexShrink: 0,
             }}
           >
             ← Back
           </button>
-          <div style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontSize: 20,
-            fontWeight: 700,
-            color: '#FFFFFE',
-          }}>
+          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 700, color: '#FFFFFE' }}>
             Play Online
           </div>
         </div>
-
         {children}
       </Card>
     </motion.div>

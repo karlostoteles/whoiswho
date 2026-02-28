@@ -35,3 +35,36 @@ html, body, #root {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* ── Mobile responsiveness ─────────────────────────────────────────────────── */
+
+/* Smooth touch scrolling in modals */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent double-tap zoom on buttons */
+button, a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure nothing breaks out of viewport */
+@media (max-width: 480px) {
+  /* Shrink the 3D canvas overlay so panels don't clip */
+  body {
+    overflow: hidden;
+  }
+
+  /* Safe area on notched phones */
+  #root {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* iOS prevents 100vh overlays from covering the nav bar without this */
+@supports (-webkit-touch-callout: none) {
+  .fullscreen-overlay {
+    min-height: -webkit-fill-available;
+  }
+}

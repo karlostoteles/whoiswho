@@ -3,13 +3,25 @@
  *
  * Shown in ONLINE_WAITING phase — local player has committed their character,
  * waiting for the opponent to do the same.
+ * For P1 (creator): prominently shows the room code to share with opponent.
  */
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useOnlineRoomCode, useOnlinePlayerNum } from '../store/selectors';
 
 export function OnlineWaitingScreen() {
-  const roomCode = useOnlineRoomCode();
-  const playerNum = useOnlinePlayerNum();
+  const roomCode    = useOnlineRoomCode();
+  const playerNum   = useOnlinePlayerNum();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!roomCode) return;
+    navigator.clipboard.writeText(roomCode).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const isCreator = playerNum === 1;
 
   return (
     <motion.div
@@ -19,7 +31,7 @@ export function OnlineWaitingScreen() {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.85)',
+        background: 'rgba(0,0,0,0.88)',
         backdropFilter: 'blur(12px)',
         display: 'flex',
         flexDirection: 'column',
@@ -27,42 +39,111 @@ export function OnlineWaitingScreen() {
         justifyContent: 'center',
         pointerEvents: 'auto',
         zIndex: 20,
-        gap: 24,
+        gap: 28,
+        padding: 24,
       }}
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-        style={{ textAlign: 'center' }}
+        style={{ textAlign: 'center', width: '100%', maxWidth: 380 }}
       >
+        {/* Status header */}
         <div style={{
           fontFamily: "'Space Grotesk', sans-serif",
-          fontSize: 36,
+          fontSize: 28,
           fontWeight: 800,
           color: '#E8A444',
-          marginBottom: 12,
+          marginBottom: 8,
           textShadow: '0 0 40px rgba(232,164,68,0.4)',
         }}>
           Character Locked In ✓
         </div>
 
         <div style={{
-          fontSize: 15,
-          color: 'rgba(255,255,254,0.5)',
-          marginBottom: 32,
+          fontSize: 14,
+          color: 'rgba(255,255,254,0.45)',
+          marginBottom: 28,
         }}>
-          You're Player {playerNum} · Waiting for opponent to choose…
+          You're Player {playerNum} · Waiting for opponent to choose their SCHIZODIO…
         </div>
 
-        {/* Room code reminder */}
+        {/* Room code — prominent for creator, subtle for joiner */}
         {roomCode && (
           <div style={{
-            fontSize: 13,
-            color: 'rgba(255,255,254,0.3)',
-            marginBottom: 32,
+            background: isCreator
+              ? 'rgba(232,164,68,0.08)'
+              : 'rgba(255,255,255,0.04)',
+            border: isCreator
+              ? '2px solid rgba(232,164,68,0.3)'
+              : '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 16,
+            padding: isCreator ? '20px 24px' : '12px 20px',
+            marginBottom: 16,
           }}>
-            Room: <span style={{ color: '#E8A444', fontWeight: 700, letterSpacing: '0.12em' }}>{roomCode}</span>
+            {isCreator && (
+              <div style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'rgba(232,164,68,0.6)',
+                marginBottom: 8,
+              }}>
+                Share this code with your opponent
+              </div>
+            )}
+
+            {/* Clickable room code */}
+            <motion.button
+              onClick={handleCopy}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              title="Click to copy"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                width: '100%',
+              }}
+            >
+              <span style={{
+                fontFamily: "'Space Grotesk', monospace",
+                fontSize: isCreator ? 52 : 32,
+                fontWeight: 900,
+                letterSpacing: '0.25em',
+                color: '#E8A444',
+                filter: 'drop-shadow(0 0 16px rgba(232,164,68,0.35))',
+                display: 'block',
+              }}>
+                {roomCode}
+              </span>
+
+              {/* Copy feedback */}
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={copied ? 'copied' : 'hint'}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18 }}
+                  style={{
+                    fontSize: 12,
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    color: copied ? '#4ADE80' : 'rgba(255,255,254,0.3)',
+                    fontWeight: copied ? 600 : 400,
+                  }}
+                >
+                  {copied ? '✓ Copied to clipboard!' : 'Tap to copy'}
+                </motion.span>
+              </AnimatePresence>
+            </motion.button>
           </div>
         )}
 

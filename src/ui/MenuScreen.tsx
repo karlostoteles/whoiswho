@@ -79,7 +79,7 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
         {/* Title */}
         <div style={{
           fontFamily: "'Space Grotesk', sans-serif",
-          fontSize: 64,
+          fontSize: 'clamp(38px, 10vw, 64px)',
           fontWeight: 800,
           letterSpacing: '-0.02em',
           background: 'linear-gradient(135deg, #E8A444 0%, #F0C060 50%, #E8A444 100%)',
@@ -132,7 +132,7 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
             style={{
               fontSize: 18,
               padding: '18px 48px',
-              minWidth: 280,
+              minWidth: 'min(280px, calc(100vw - 64px))',
               background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
               border: '1px solid rgba(124,58,237,0.5)',
               borderRadius: 14,
@@ -159,7 +159,7 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
             variant="accent"
             size="lg"
             onClick={onFreePlay}
-            style={{ minWidth: 280, fontSize: 15, opacity: 0.85 }}
+            style={{ minWidth: 'min(280px, calc(100vw - 64px))', fontSize: 15, opacity: 0.85 }}
           >
             Try CT version for Free
           </Button>
