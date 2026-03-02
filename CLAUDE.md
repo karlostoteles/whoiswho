@@ -163,3 +163,120 @@ Reference contracts: `/projects/beefchain-zypherpunk/starknet/src/`, `/projects/
 - `useNFTTextures.ts`, `SchizodioPickerScreen.tsx`, `NoNFTScreen.tsx` — not yet wired in
 - `HANDOFF_TO_OPPONENT` and `ELIMINATION` phases — reserved for future game modes
 - Phase 2 stubs in `commitReveal.ts` and several unused Supabase functions
+
+---
+
+## Design System
+
+All visual code must use these exact values. Never invent new colors, fonts, or styles.
+
+### Colors (`src/core/rules/constants.ts` → `COLORS`)
+
+| Token | Hex | Use |
+|---|---|---|
+| `player1.primary` | `#E8A444` | Gold — P1 accent, CTAs, highlights |
+| `player2.primary` | `#44A8E8` | Blue — P2 accent |
+| `background` | `#0f0e17` | Page/canvas background |
+| `surface` | `rgba(255,255,255,0.08)` | Card inner sections, subtle panels |
+| `surfaceHover` | `rgba(255,255,255,0.14)` | Hover state on surface elements |
+| `text` | `#FFFFFE` | Primary text |
+| `textMuted` | `rgba(255,255,254,0.6)` | Secondary text, labels |
+| `yes` | `#4CAF50` | Correct / YES answers |
+| `no` | `#E05555` | Wrong / NO answers |
+
+### Typography
+
+- **Headings & labels:** `'Space Grotesk', 'Inter', sans-serif` — weight 600–700
+- **Body text:** `'Space Grotesk', 'Inter', sans-serif` — weight 400–500
+- **Code/IDs:** system monospace
+
+### Spacing rhythm
+
+4 · 8 · 12 · 16 · 24 · 32px. Stick to these values for padding and gaps.
+
+### Components (`src/ui/common/`)
+
+**`<Card>`** — the base panel container. Always use it for floating UI elements.
+- Auto-animates in/out (spring, opacity + y)
+- Style: `rgba(15,14,23,0.85)` bg, `blur(20px)`, 16px radius, 24px padding
+- Pass custom `style` prop to override position/size only
+
+**`<Button>`** — the only button in the game. Has 5 variants:
+- `accent` — gold gradient, use for primary actions ("Ask", "Guess")
+- `primary` — white glass, use for secondary actions
+- `secondary` — dimmer glass, use for cancel/back
+- `yes` — green gradient, use for YES answers
+- `no` — red gradient, use for NO answers
+- Has 3 sizes: `sm`, `md` (default), `lg`
+
+### Framer Motion conventions
+
+- All panels/overlays enter/exit via `<AnimatePresence mode="wait">` in `UIOverlay.tsx`
+- Use `Card` for animated containers — it handles enter/exit automatically
+- For custom animations: `initial={{ opacity: 0, y: 20 }}`, `animate={{ opacity: 1, y: 0 }}`, `exit={{ opacity: 0, y: 20 }}`
+- Spring preset: `{ type: 'spring', stiffness: 300, damping: 30 }`
+
+---
+
+## Scope Discipline
+
+These rules apply to every task, no exceptions:
+
+- **Touch only what was asked.** If the task is "add a question", don't refactor the question panel layout.
+- **Never clean adjacent code** — no formatting fixes, no comment cleanup, no variable renames outside your task scope.
+- **Never delete files** without explicit user confirmation.
+- **Never add abstractions** the task didn't ask for (no new hooks, utils, or components "for future use").
+- **Run `npm run build`** before saying the task is done. Zero TypeScript errors = done.
+- **One task = one focused change.** If you discover a bug while working, note it and keep going — don't fix it unless asked.
+
+---
+
+## Never Do This (WhoisWho-specific)
+
+| Never | Why |
+|---|---|
+| Import `three` or `@react-three/fiber` in `src/ui/` | 3D lives in `rendering/` only |
+| Write game logic in `ui/` components | Logic lives in `core/`, UI just reads state |
+| Set `state.phase = GamePhase.X` directly | Always use store actions (in `gameStore.ts`) |
+| Cross module boundaries with `../` | Use `@/module/file` for cross-module imports |
+| Call `useGameStore(s => s.X)` directly in UI components | Use selectors from `core/store/selectors.ts` |
+| Use `array.includes()` for `eliminatedIds` loops | Use `new Set(eliminatedIds)` for O(1) lookup |
+| Add logic inside `useFrame()` callbacks | `useFrame` is render-only — pure visual updates |
+| Skip `.dispose()` on Three.js textures | Memory leak — every `THREE.CanvasTexture` must be disposed on unmount |
+| Add a new UI component outside `ui/screens/`, `ui/panels/`, `ui/overlays/`, or `ui/widgets/` | Must fit the established categories |
+
+---
+
+## Performance Rules
+
+- **Texture disposal:** Every `THREE.CanvasTexture` created in `rendering/canvas/` must be disposed when its component unmounts. Use `useEffect(() => () => texture.dispose(), [texture])`.
+- **Set lookups:** `eliminatedIds` is an array in the store but must be converted to `Set` before any loop: `const elim = new Set(eliminatedIds)`.
+- **useFrame is hot:** Never call React state setters, store actions, or do async work inside `useFrame`. Pure math + Three.js mutations only.
+- **LOD tiers:** `tileW < 0.38` = minimal (1 draw call via InstancedMesh). `0.38–1.0` = flat. `> 1.0` = full. Don't add per-tile DOM elements in minimal mode.
+- **Re-renders:** Don't create new objects/arrays in selectors — Zustand will re-render on every reference change.
+
+---
+
+## NFT Trait Pipeline
+
+Understanding this chain is mandatory before touching any trait, question, or NFT code.
+
+```
+NFT metadata (on-chain)
+  ↓  services/starknet/collectionService.ts  — fetches token metadata
+  ↓  core/data/nftCharacterAdapter.ts        — maps NFT attributes → CharacterTraits
+  ↓  core/data/traits.ts                     — defines valid trait types and values
+  ↓  core/data/characters.ts                 — Character interface (id, name, traits)
+  ↓  core/data/questions.ts                  — each Question maps to one traitKey + traitValue
+  ↓  core/rules/evaluateQuestion.ts          — returns boolean: does char have this trait?
+  ↓  core/store/gameStore.ts                 — eliminates chars whose trait doesn't match answer
+  ↓  rendering/scene/CharacterGrid.tsx       — removes tile from board with animation
+```
+
+**Key rules:**
+- Every `Question` has exactly one `traitKey` (field name) and one `traitValue` (the value to match)
+- `evaluateQuestion(q, char)` returns `true` if `char.traits[q.traitKey] === q.traitValue`
+- NFT adapter (`nftCharacterAdapter.ts`) tries to match NFT attribute names via fuzzy matching, then falls back to deterministic hash from `tokenId` — same NFT always gets same traits
+- SCHIZODIO known attribute names: `Background`, `Body`, `Head`, `Eyes`, `Mouth`, `Accessories`
+- When adding support for a new collection: add its attribute name mappings to `findAttribute()` calls in `nftCharacterAdapter.ts`
+- Never hardcode character IDs — they are `nft_<tokenId>` for NFTs, or named IDs for mock characters

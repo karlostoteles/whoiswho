@@ -240,6 +240,25 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
         if (isEliminated && st.phase === 'alive') {
           st.phase = 'flipping';
         }
+        // When the active player switches and this character is not eliminated in
+        // the new player's view, revive it so it appears on their board.
+        // (Each player has independent eliminated sets — a tile dead in P1's view
+        // must be visible in P2's view if P2 hasn't eliminated it, and vice versa.)
+        if (!isEliminated && st.phase !== 'alive') {
+          const [tx, tz] = target ? [target[0], target[1]] : [st.tx, st.tz];
+          st.phase = 'alive';
+          st.scale = 1;
+          st.flipAngle = 0;
+          st.x = tx; st.z = tz; st.tx = tx; st.tz = tz;
+          const group = groupRefs.current.get(char.id);
+          if (group) {
+            group.visible = true;
+            group.scale.setScalar(1);
+            group.position.set(tx, 0, tz);
+          }
+          const pivot = pivotRefs.current.get(char.id);
+          if (pivot) pivot.rotation.x = 0;
+        }
       }
     }
   }, [characters, eliminatedIds, targets]);
