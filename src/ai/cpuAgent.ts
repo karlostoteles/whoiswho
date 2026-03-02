@@ -6,11 +6,11 @@
  *
  * Calls game store actions directly after a human-like delay.
  */
-import { useGameStore } from '../store/gameStore';
-import { QUESTIONS } from '../data/questions';
-import { evaluateQuestion } from '../utils/evaluateQuestion';
-import type { Character } from '../data/characters';
-import type { Question } from '../data/questions';
+import { useGameStore } from '@/core/store/gameStore';
+import { QUESTIONS } from '@/data/questions';
+import { evaluateQuestion } from '@/utils/evaluateQuestion';
+import type { Character } from '@/data/characters';
+import type { Question } from '@/data/questions';
 
 const CPU_THINK_DELAY = 1200;  // ms before CPU asks a question
 const CPU_RISK_DELAY = 900;    // ms before CPU risks a guess

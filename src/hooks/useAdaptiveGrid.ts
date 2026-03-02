@@ -7,14 +7,14 @@
  */
 
 import { useMemo } from 'react';
-import { useGameCharacters, useActivePlayer, useEliminatedIds } from '../store/selectors';
+import { useGameCharacters, useActivePlayer, useEliminatedIds } from '@/core/store/selectors';
 import {
   computeAdaptiveGrid,
   computeAdaptiveCamera,
   getTileLOD,
   type AdaptiveGridLayout,
   type TileLOD,
-} from '../utils/constants';
+} from '@/utils/constants';
 
 export interface AdaptiveGridResult {
   layout:      AdaptiveGridLayout;

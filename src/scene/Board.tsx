@@ -1,4 +1,4 @@
-import { BOARD } from '../utils/constants';
+import { BOARD } from '@/utils/constants';
 
 interface BoardProps {
   /** Dynamic width from the adaptive grid (defaults to BOARD.width) */

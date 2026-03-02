@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useGameCharacters } from '../store/selectors';
-import { renderPortrait } from '../canvas/PortraitRenderer';
+import { useGameCharacters } from '@/core/store/selectors';
+import { renderPortrait } from '@/canvas/PortraitRenderer';
 
 /**
  * Generates portrait preview URLs for all characters.

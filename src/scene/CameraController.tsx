@@ -1,9 +1,9 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CAMERA, computeAdaptiveCamera } from '../utils/constants';
-import { usePhase, useGameCharacters, useActivePlayer, useEliminatedIds } from '../store/selectors';
-import { GamePhase } from '../store/types';
+import { CAMERA, computeAdaptiveCamera } from '@/utils/constants';
+import { usePhase, useGameCharacters, useActivePlayer, useEliminatedIds } from '@/core/store/selectors';
+import { GamePhase } from '@/core/store/types';
 
 export function CameraController() {
   const { camera } = useThree();

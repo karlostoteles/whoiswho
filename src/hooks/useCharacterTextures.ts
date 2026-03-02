@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { useGameCharacters } from '../store/selectors';
-import { renderPortrait, renderCardBack } from '../canvas/PortraitRenderer';
-import { getTileLOD } from '../utils/constants';
+import { useGameCharacters } from '@/core/store/selectors';
+import { renderPortrait, renderCardBack } from '@/canvas/PortraitRenderer';
+import { getTileLOD } from '@/utils/constants';
 
 /**
  * Returns a texture map for all game characters.

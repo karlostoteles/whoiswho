@@ -9,21 +9,21 @@
  * Must be mounted for the duration of an online game.
  */
 import { useEffect, useRef } from 'react';
-import { useGameStore } from '../store/gameStore';
-import { GamePhase } from '../store/types';
-import type { PlayerId } from '../store/types';
-import { evaluateQuestion } from '../utils/evaluateQuestion';
-import { QUESTIONS } from '../data/questions';
+import { useGameStore } from '@/core/store/gameStore';
+import { GamePhase } from '@/core/store/types';
+import type { PlayerId } from '@/core/store/types';
+import { evaluateQuestion } from '@/utils/evaluateQuestion';
+import { QUESTIONS } from '@/data/questions';
 import {
   subscribeToGame,
   subscribeToEvents,
   sendEvent,
   finishGame,
   submitCommitment,
-} from '../supabase/gameService';
-import type { SupabaseGame, SupabaseGameEvent } from '../supabase/types';
-import { supabase } from '../supabase/client';
-import { getCommitment } from '../starknet/commitReveal';
+} from '@/supabase/gameService';
+import type { SupabaseGame, SupabaseGameEvent } from '@/supabase/types';
+import { supabase } from '@/supabase/client';
+import { getCommitment } from '@/starknet/commitReveal';
 
 export function useOnlineGameSync() {
   const phase = useGameStore((s) => s.phase);

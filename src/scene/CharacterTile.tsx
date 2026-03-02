@@ -14,8 +14,8 @@
 import { useRef, useState, useCallback } from 'react';
 import { useFrame, ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GamePhase } from '../store/types';
-import { usePhase, useActivePlayer, useEliminatedIds, useGameActions } from '../store/selectors';
+import { GamePhase } from '@/core/store/types';
+import { usePhase, useActivePlayer, useEliminatedIds, useGameActions } from '@/core/store/selectors';
 
 interface CharacterTileProps {
   characterId:   string;

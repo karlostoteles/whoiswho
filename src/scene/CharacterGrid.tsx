@@ -16,8 +16,8 @@
 import { useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { BOARD, getTileLOD, computeAdaptiveGrid } from '../utils/constants';
-import { useGameCharacters, useActivePlayer, useEliminatedIds } from '../store/selectors';
+import { BOARD, getTileLOD, computeAdaptiveGrid } from '@/utils/constants';
+import { useGameCharacters, useActivePlayer, useEliminatedIds } from '@/core/store/selectors';
 import { CharacterTile } from './CharacterTile';
 
 interface CharacterGridProps {
