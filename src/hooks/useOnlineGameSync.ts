@@ -12,7 +12,7 @@ import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/core/store/gameStore';
 import { GamePhase } from '@/core/store/types';
 import type { PlayerId } from '@/core/store/types';
-import { evaluateQuestion } from '@/utils/evaluateQuestion';
+import { evaluateQuestion } from '@/core/rules/evaluateQuestion';
 import { QUESTIONS } from '@/core/data/questions';
 import {
   subscribeToGame,

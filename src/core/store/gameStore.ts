@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { GamePhase, GameState, GameActions, PlayerId } from './types';
 import { QUESTIONS } from '@/core/data/questions';
 import { CHARACTERS } from '@/core/data/characters';
-import { evaluateQuestion } from '@/utils/evaluateQuestion';
+import { evaluateQuestion } from '@/core/rules/evaluateQuestion';
 import { createCommitment, generateGameSessionId, clearCommitments } from '@/starknet/commitReveal';
 import { generateAllCollectionCharacters } from '@/starknet/collectionService';
 

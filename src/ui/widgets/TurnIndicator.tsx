@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhase, useActivePlayer, useTurnNumber, useGameMode, useEliminatedIds, useGameCharacters } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
-import { COLORS } from '@/utils/constants';
+import { COLORS } from '@/core/rules/constants';
 
 const PHASE_LABELS: Partial<Record<GamePhase, string>> = {
   [GamePhase.QUESTION_SELECT]: 'Ask a Question',

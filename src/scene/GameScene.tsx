@@ -9,7 +9,7 @@ import { CameraController } from './CameraController';
 import { useCharacterTextures, useCardBackTexture } from '@/hooks/useCharacterTextures';
 import { useAdaptiveGrid } from '@/hooks/useAdaptiveGrid';
 import { useBoardRotation } from '@/core/store/selectors';
-import { BOARD } from '@/utils/constants';
+import { BOARD } from '@/core/rules/constants';
 import { useCPUPlayer } from '@/hooks/useCPUPlayer';
 
 export function GameScene() {

@@ -5,7 +5,7 @@
 import { useEffect } from 'react';
 import { usePhase, useActivePlayer, useGameMode } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
-import { executeCPUTurn } from '@/ai/cpuAgent';
+import { executeCPUTurn } from '@/core/ai/cpuAgent';
 
 export function useCPUPlayer() {
   const phase = usePhase();

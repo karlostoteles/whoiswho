@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../common/Button';
 import { usePhase, useActivePlayer, useGameActions, useGameMode } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
-import { COLORS } from '@/utils/constants';
+import { COLORS } from '@/core/rules/constants';
 
 export function PhaseTransition() {
   const phase = usePhase();

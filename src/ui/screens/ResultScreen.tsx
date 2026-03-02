@@ -4,7 +4,7 @@ import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { useWinner, useGuessedCharacterId, useGameActions, usePlayerState, useGameCharacters, useGameMode, useGameSessionId } from '@/core/store/selectors';
 import { useCharacterPreviews } from '@/hooks/useCharacterPreviews';
-import { COLORS } from '@/utils/constants';
+import { COLORS } from '@/core/rules/constants';
 import { sfx } from '@/audio/sfx';
 import { getCommitment, verifyReveal } from '@/starknet/commitReveal';
 

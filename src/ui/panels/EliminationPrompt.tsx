@@ -1,7 +1,7 @@
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { useCurrentQuestion, useActivePlayer, useEliminatedIds, useGameActions } from '@/core/store/selectors';
-import { COLORS } from '@/utils/constants';
+import { COLORS } from '@/core/rules/constants';
 
 export function EliminationPrompt() {
   const question = useCurrentQuestion();

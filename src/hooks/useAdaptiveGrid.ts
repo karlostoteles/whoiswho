@@ -14,7 +14,7 @@ import {
   getTileLOD,
   type AdaptiveGridLayout,
   type TileLOD,
-} from '@/utils/constants';
+} from '@/core/rules/constants';
 
 export interface AdaptiveGridResult {
   layout:      AdaptiveGridLayout;

@@ -8,7 +8,7 @@
  */
 import { useGameStore } from '@/core/store/gameStore';
 import { QUESTIONS } from '@/core/data/questions';
-import { evaluateQuestion } from '@/utils/evaluateQuestion';
+import { evaluateQuestion } from '@/core/rules/evaluateQuestion';
 import type { Character } from '@/core/data/characters';
 import type { Question } from '@/core/data/questions';
 

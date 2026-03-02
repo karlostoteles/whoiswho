@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { useActivePlayer, usePlayerState } from '@/core/store/selectors';
-import { BOARD } from '@/utils/constants';
+import { BOARD } from '@/core/rules/constants';
 
 interface MysteryCardProps {
   textures: Map<string, THREE.Texture>;
