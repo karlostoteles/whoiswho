@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { GamePhase, GameState, GameActions, PlayerId } from './types';
-import { QUESTIONS } from '@/data/questions';
-import { CHARACTERS } from '@/data/characters';
+import { QUESTIONS } from '@/core/data/questions';
+import { CHARACTERS } from '@/core/data/characters';
 import { evaluateQuestion } from '@/utils/evaluateQuestion';
 import { createCommitment, generateGameSessionId, clearCommitments } from '@/starknet/commitReveal';
 import { generateAllCollectionCharacters } from '@/starknet/collectionService';

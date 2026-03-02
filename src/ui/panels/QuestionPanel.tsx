@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../common/Card';
-import { QUESTIONS, Question } from '@/data/questions';
+import { QUESTIONS, Question } from '@/core/data/questions';
 import { useGameActions, useQuestionHistory, useActivePlayer, useGameMode, useOnlinePlayerNum } from '@/core/store/selectors';
 import { sfx } from '@/audio/sfx';
 

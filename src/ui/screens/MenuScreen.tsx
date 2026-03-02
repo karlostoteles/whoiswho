@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '../common/Button';
 import { OnlineLobbyScreen } from './OnlineLobbyScreen';
 import { useGameActions } from '@/core/store/selectors';
-import { MEME_CHARACTERS } from '@/data/memeCharacters';
+import { MEME_CHARACTERS } from '@/core/data/memeCharacters';
 
 type View = 'menu' | 'online';
 

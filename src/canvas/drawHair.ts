@@ -1,4 +1,4 @@
-import { CharacterTraits, HAIR_COLORS } from '@/data/traits';
+import { CharacterTraits, HAIR_COLORS } from '@/core/data/traits';
 
 const SIZE = 512;
 const CX = SIZE / 2;

@@ -13,7 +13,7 @@ import { useGameStore } from '@/core/store/gameStore';
 import { GamePhase } from '@/core/store/types';
 import type { PlayerId } from '@/core/store/types';
 import { evaluateQuestion } from '@/utils/evaluateQuestion';
-import { QUESTIONS } from '@/data/questions';
+import { QUESTIONS } from '@/core/data/questions';
 import {
   subscribeToGame,
   subscribeToEvents,

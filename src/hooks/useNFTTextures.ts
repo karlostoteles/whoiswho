@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useGameCharacters, useGameMode } from '@/core/store/selectors';
-import type { NFTCharacter } from '@/data/nftCharacterAdapter';
+import type { NFTCharacter } from '@/core/data/nftCharacterAdapter';
 
 /**
  * Loads NFT images as Three.js textures.

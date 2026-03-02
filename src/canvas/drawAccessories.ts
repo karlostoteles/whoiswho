@@ -1,4 +1,4 @@
-import { CharacterTraits, SKIN_COLORS } from '@/data/traits';
+import { CharacterTraits, SKIN_COLORS } from '@/core/data/traits';
 
 const SIZE = 512;
 const CX = SIZE / 2;

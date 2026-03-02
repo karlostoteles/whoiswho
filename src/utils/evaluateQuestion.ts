@@ -1,5 +1,5 @@
-import { Character } from '@/data/characters';
-import { Question } from '@/data/questions';
+import { Character } from '@/core/data/characters';
+import { Question } from '@/core/data/questions';
 
 export function evaluateQuestion(question: Question, character: Character): boolean {
   const traitValue = character.traits[question.traitKey];

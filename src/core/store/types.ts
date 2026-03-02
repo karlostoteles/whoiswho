@@ -1,4 +1,4 @@
-import type { Character } from '@/data/characters';
+import type { Character } from '@/core/data/characters';
 
 export type GameMode = 'free' | 'nft' | 'online';
 

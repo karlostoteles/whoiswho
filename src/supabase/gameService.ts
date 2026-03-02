@@ -1,6 +1,6 @@
 import { supabase } from './client';
 import type { SupabaseGame, SupabaseGameEvent, OnlineEventType } from './types';
-import type { Character } from '@/data/characters';
+import type { Character } from '@/core/data/characters';
 
 function generateRoomCode(): string {
   // Alphanumeric, no ambiguous chars (0/O, 1/I/l)

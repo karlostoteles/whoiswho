@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Character } from '@/data/characters';
+import { Character } from '@/core/data/characters';
 import { drawFace } from './drawFace';
 import { drawHair } from './drawHair';
 import { drawAccessories } from './drawAccessories';

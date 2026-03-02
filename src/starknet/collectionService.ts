@@ -7,8 +7,8 @@
  * - Result is module-level memoized — only computed once per session.
  */
 
-import type { Character } from '@/data/characters';
-import { nftToCharacter } from '@/data/nftCharacterAdapter';
+import type { Character } from '@/core/data/characters';
+import { nftToCharacter } from '@/core/data/nftCharacterAdapter';
 import type { SchizodioNFT } from './types';
 
 export const COLLECTION_SIZE = 999;
