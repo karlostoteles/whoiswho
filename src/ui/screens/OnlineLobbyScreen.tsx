@@ -10,8 +10,8 @@ import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { useWalletAddress, useWalletStatus, useOwnedNFTs, useWalletStore } from '@/services/starknet/walletStore';
 import { useWalletConnection } from '@/services/starknet/hooks';
-import { createGame, joinGame } from '@/supabase/gameService';
-import { isSupabaseConfigured } from '@/supabase/client';
+import { createGame, joinGame } from '@/services/supabase/gameService';
+import { isSupabaseConfigured } from '@/services/supabase/client';
 import { useGameActions } from '@/core/store/selectors';
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
 

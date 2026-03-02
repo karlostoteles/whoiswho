@@ -20,9 +20,9 @@ import {
   sendEvent,
   finishGame,
   submitCommitment,
-} from '@/supabase/gameService';
-import type { SupabaseGame, SupabaseGameEvent } from '@/supabase/types';
-import { supabase } from '@/supabase/client';
+} from '@/services/supabase/gameService';
+import type { SupabaseGame, SupabaseGameEvent } from '@/services/supabase/types';
+import { supabase } from '@/services/supabase/client';
 import { getCommitment } from '@/services/starknet/commitReveal';
 
 export function useOnlineGameSync() {
