@@ -12,7 +12,7 @@
  */
 import type { Character } from './characters';
 import type { CharacterTraits, HairColor, HairStyle, SkinTone, EyeColor, Gender } from './traits';
-import type { SchizodioNFT, NFTAttribute } from '@/starknet/types';
+import type { SchizodioNFT, NFTAttribute } from '@/services/starknet/types';
 
 // Game character with source tracking
 export interface NFTCharacter extends Character {

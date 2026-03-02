@@ -4,7 +4,7 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useWalletAddress } from '@/starknet/walletStore';
+import { useWalletAddress } from '@/services/starknet/walletStore';
 import { sfx } from '@/audio/sfx';
 
 interface NoNFTScreenProps {

@@ -4,7 +4,7 @@ import { Card } from '../common/Card';
 import { useCharacterPreviews } from '@/hooks/useCharacterPreviews';
 import { usePhase, useGameActions, useGameCharacters, useGameMode, useOnlinePlayerNum } from '@/core/store/selectors';
 import { GamePhase, PlayerId } from '@/core/store/types';
-import { useOwnedNFTs } from '@/starknet/walletStore';
+import { useOwnedNFTs } from '@/services/starknet/walletStore';
 import { nftToCharacter } from '@/core/data/nftCharacterAdapter';
 import { useGameStore } from '@/core/store/gameStore';
 

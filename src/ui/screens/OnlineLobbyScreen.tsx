@@ -8,12 +8,12 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import { useWalletAddress, useWalletStatus, useOwnedNFTs, useWalletStore } from '@/starknet/walletStore';
-import { useWalletConnection } from '@/starknet/hooks';
+import { useWalletAddress, useWalletStatus, useOwnedNFTs, useWalletStore } from '@/services/starknet/walletStore';
+import { useWalletConnection } from '@/services/starknet/hooks';
 import { createGame, joinGame } from '@/supabase/gameService';
 import { isSupabaseConfigured } from '@/supabase/client';
 import { useGameActions } from '@/core/store/selectors';
-import { generateAllCollectionCharacters } from '@/starknet/collectionService';
+import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
 
 interface Props {
   onBack: () => void;

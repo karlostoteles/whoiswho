@@ -23,7 +23,7 @@ import {
 } from '@/supabase/gameService';
 import type { SupabaseGame, SupabaseGameEvent } from '@/supabase/types';
 import { supabase } from '@/supabase/client';
-import { getCommitment } from '@/starknet/commitReveal';
+import { getCommitment } from '@/services/starknet/commitReveal';
 
 export function useOnlineGameSync() {
   const phase = useGameStore((s) => s.phase);
@@ -41,7 +41,7 @@ export function useOnlineGameSync() {
 
   const myAddress = () => {
     try {
-      const { useWalletStore } = require('../starknet/walletStore');
+      const { useWalletStore } = require('@/services/starknet/walletStore');
       return useWalletStore.getState().address ?? 'anonymous';
     } catch {
       return 'anonymous';

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWalletStatus, useWalletUsername, useWalletAddress, useOwnedNFTs } from '@/starknet/walletStore';
-import { useWalletConnection } from '@/starknet/hooks';
-import { IPFS_GATEWAYS, resolveUrl } from '@/starknet/nftService';
-import type { SchizodioNFT } from '@/starknet/types';
+import { useWalletStatus, useWalletUsername, useWalletAddress, useOwnedNFTs } from '@/services/starknet/walletStore';
+import { useWalletConnection } from '@/services/starknet/hooks';
+import { IPFS_GATEWAYS, resolveUrl } from '@/services/starknet/nftService';
+import type { SchizodioNFT } from '@/services/starknet/types';
 
 /**
  * Persistent wallet status widget — top-left corner.

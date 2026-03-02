@@ -4,7 +4,7 @@
  */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { SchizodioNFT } from '@/starknet/types';
+import type { SchizodioNFT } from '@/services/starknet/types';
 import { sfx } from '@/audio/sfx';
 
 interface SchizodioPickerScreenProps {

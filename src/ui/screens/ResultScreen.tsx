@@ -6,7 +6,7 @@ import { useWinner, useGuessedCharacterId, useGameActions, usePlayerState, useGa
 import { useCharacterPreviews } from '@/hooks/useCharacterPreviews';
 import { COLORS } from '@/core/rules/constants';
 import { sfx } from '@/audio/sfx';
-import { getCommitment, verifyReveal } from '@/starknet/commitReveal';
+import { getCommitment, verifyReveal } from '@/services/starknet/commitReveal';
 
 export function ResultScreen() {
   const winner = useWinner();
