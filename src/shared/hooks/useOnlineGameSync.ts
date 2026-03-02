@@ -41,6 +41,8 @@ export function useOnlineGameSync() {
 
   const myAddress = () => {
     try {
+      // Dynamic require avoids a circular import: walletStore is also consumed by
+      // gameStore (via commitReveal), and a static import here would create a cycle.
       const { useWalletStore } = require('@/services/starknet/walletStore');
       return useWalletStore.getState().address ?? 'anonymous';
     } catch {
