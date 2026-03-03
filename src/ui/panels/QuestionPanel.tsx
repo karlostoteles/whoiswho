@@ -35,7 +35,7 @@ export function QuestionPanel() {
   const playerState     = usePlayerState(activePlayer);
   const onlinePlayerNum = useOnlinePlayerNum();
 
-  const isNFTMode = mode === 'nft' || mode === 'online';
+  const isNFTMode = mode === 'nft' || mode === 'online' || mode === 'nft-free';
 
   // In online mode check if it's actually my turn
   const isMyTurn = mode !== 'online' || (

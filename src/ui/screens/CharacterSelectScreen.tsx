@@ -30,7 +30,7 @@ export function CharacterSelectScreen() {
   const ownedNFTs = useOwnedNFTs();
   const bypassActive = useMemo(() => localStorage.getItem('whoiswho_bypass') === '1', []);
 
-  const isNFTMode = mode === 'online' || mode === 'nft';
+  const isNFTMode = mode === 'online' || mode === 'nft' || mode === 'nft-free';
 
   // The player this screen is selecting for
   const player: PlayerId =
@@ -53,8 +53,8 @@ export function CharacterSelectScreen() {
     return null; // bypass case handled separately
   }, [isNFTMode, ownedNFTs]);
 
-  // Bypass + no NFTs: auto-assign a random character
-  const isBypassNoNFT = isNFTMode && bypassActive && ownedNFTs.length === 0;
+  // Bypass + no NFTs: auto-assign a random character (not applicable in nft-free — full collection is shown)
+  const isBypassNoNFT = isNFTMode && bypassActive && ownedNFTs.length === 0 && mode !== 'nft-free';
   const [bypassAssigned, setBypassAssigned] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
@@ -266,7 +266,7 @@ export function CharacterSelectScreen() {
               textAlign: 'center', padding: '40px 0',
               color: 'rgba(255,255,254,0.3)', fontSize: 14,
             }}>
-              {isNFTMode && ownedNFTs.length === 0
+              {isNFTMode && ownedNFTs.length === 0 && mode !== 'nft-free'
                 ? 'No SCHIZODIOs found in your wallet'
                 : `No tokens match "${search}"`
               }

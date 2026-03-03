@@ -1,7 +1,7 @@
 import type { Character } from '@/core/data/characters';
 import type { NFTAttribute } from '@/services/starknet/types';
 
-export type GameMode = 'free' | 'nft' | 'online';
+export type GameMode = 'free' | 'nft' | 'online' | 'nft-free';
 
 export enum GamePhase {
   MENU = 'MENU',

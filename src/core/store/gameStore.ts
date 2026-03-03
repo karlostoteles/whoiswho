@@ -66,7 +66,7 @@ export const useGameStore = create<GameState & GameActions>()(
         state.mode = mode;
         if (characters) {
           state.characters = characters;
-        } else if (mode === 'nft' || mode === 'online') {
+        } else if (mode === 'nft' || mode === 'online' || mode === 'nft-free') {
           // Full 999-token SCHIZODIO collection — adaptive board uses all tokens
           state.characters = generateAllCollectionCharacters();
         } else {
@@ -95,7 +95,7 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         if (player === 'player1') {
-          if (state.mode === 'free') {
+          if (state.mode === 'free' || state.mode === 'nft-free') {
             // CPU picks a random character automatically
             const pool = state.characters.filter((c) => c.id !== characterId);
             const cpuPick = pool[Math.floor(Math.random() * pool.length)];
@@ -143,8 +143,8 @@ export const useGameStore = create<GameState & GameActions>()(
                 }
               }
             }
-            // In free mode: simultaneously apply CPU's elimination
-            if (state.mode === 'free' && state.cpuQuestion) {
+            // In free/nft-free mode: simultaneously apply CPU's elimination
+            if ((state.mode === 'free' || state.mode === 'nft-free') && state.cpuQuestion) {
               const cpuQ = state.cpuQuestion;
               const cpuEliminated = state.players.player2.eliminatedCharacterIds;
               const fullCpuQ = QUESTIONS.find((qn) => qn.id === cpuQ.questionId);
@@ -163,7 +163,7 @@ export const useGameStore = create<GameState & GameActions>()(
             break;
           }
           case GamePhase.AUTO_ELIMINATING: {
-            if (state.mode === 'free') {
+            if (state.mode === 'free' || state.mode === 'nft-free') {
               // Simultaneous mode: P1 always stays active, no player switching
               state.turnNumber += 1;
               state.currentQuestion = null;
@@ -183,7 +183,7 @@ export const useGameStore = create<GameState & GameActions>()(
             state.phase = GamePhase.QUESTION_SELECT;
             break;
           case GamePhase.GUESS_WRONG: {
-            if (state.mode === 'free') {
+            if (state.mode === 'free' || state.mode === 'nft-free') {
               // Simultaneous mode: P1 stays active, no player switching
               state.turnNumber += 1;
               state.currentQuestion = null;
@@ -248,8 +248,8 @@ export const useGameStore = create<GameState & GameActions>()(
         state.currentQuestion = record;
         state.questionHistory.push(record);
 
-        // Free mode: CPU simultaneously picks and answers its own question
-        if (state.mode === 'free') {
+        // Free/nft-free mode: CPU simultaneously picks and answers its own question
+        if (state.mode === 'free' || state.mode === 'nft-free') {
           const cpuEliminated = state.players.player2.eliminatedCharacterIds;
           const cpuRemaining = state.characters.filter((c) => !cpuEliminated.includes(c.id));
           const cpuAskedIds = new Set(
@@ -316,7 +316,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
     cancelGuess: () =>
       set((state) => {
-        if (state.currentQuestion && state.mode !== 'free') {
+        if (state.currentQuestion && state.mode !== 'free' && state.mode !== 'nft-free') {
           // Non-free modes: cancelling after asking ends the turn
           const next = getOpponent(state.activePlayer);
           state.activePlayer = next;
@@ -347,7 +347,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const opponentSecretId = state.players[opponent].secretCharacterId;
         const p1IsCorrect = characterId === opponentSecretId;
 
-        if (state.mode === 'free') {
+        if (state.mode === 'free' || state.mode === 'nft-free') {
           // Check if CPU simultaneously wants to risk it this round
           const cpuEliminated = state.players.player2.eliminatedCharacterIds;
           const cpuRemaining = state.characters.filter((c) => !cpuEliminated.includes(c.id));
