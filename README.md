@@ -128,128 +128,53 @@ export const GAME_CONTRACT = '0x0'; // TODO: deploy guessNFT Cairo contract and 
 
 ---
 
-## Roadmap — What's Missing Until Full Vision
+---
 
-### ✅ Done (v0.2)
-- [x] 3D board with procedurally generated character portraits
-- [x] Local 2-player pass-and-play mode
-- [x] vs CPU mode with binary-search AI strategy
-- [x] SCHIZODIO NFT integration — fetches owned NFTs, maps traits to game characters
-- [x] Cartridge Controller login (chain ID bug fixed — was `SN_MAINNET`, needs `SN_MAIN`)
-- [x] Auto-elimination after each answer
-- [x] Risk It button (guess before turn ends, lose turn if wrong)
-- [x] Wrong-guess penalty (costs a turn, not the game)
-- [x] SFX engine (Web Audio API, zero deps)
-- [x] CPU thinking indicator + auto-advance for CPU turns
-- [x] Asked-question tracking (grayed out with ✓ badge)
-- [x] Commit-reveal Phase 1 (local Pedersen hash commitments, verified at game end)
-- [x] Netlify + Vercel deployment config
+## 🤖 Contributing with AI Agents
+
+This project is optimized for collaboration with AI coding assistants (like Antigravity, Claude Engineer, or Cursor). To maintain development velocity, we use a structured workflow:
+
+### AI Assets
+- **`task.md`**: The source of truth for current progress. Always keep this updated with `[ ]`, `[/]`, and `[x]`.
+- **`implementation_plan.md`**: Before making major changes, agents should propose a plan here for human review.
+- **`walkthrough.md`**: After a milestone, a summary of changes and verification results is recorded in `docs/walkthrough.md`.
+
+### Best Practices for Agents
+1. **Plan First**: Never skip the `implementation_plan.md` step for architectural changes.
+2. **Verify Build**: Always run `npm run build` after changes to catch type regressions.
+3. **Atomic Commits**: Group related optimizations and fixes into single, descriptive commits.
+4. **Performance First**: When dealing with 3D or large datasets (like the 999 board), always prioritize memory efficiency and main-thread responsiveness.
 
 ---
 
-### 🔴 Critical — Needed for Real Play
+## Roadmap — v1.0 Production Ready
 
-#### 1. Cairo Game Contract (Phase 2 commit-reveal)
-The biggest missing piece. For truly trustless 1v1 play, we need an on-chain contract.
+### ✅ Done (Milestones Met)
+- [x] **Rebranding**: Migrated from WhoisWho to **guessNFT**.
+- [x] **Premium NFT Assets**: Direct-to-contract metadata pipeline + composited real art on the board.
+- [x] **Mobile UI**: Fully responsive layouts for phones and tablets.
+- [x] **999-Character Board**: Support for the full Schizodio collection in "vs AI" mode.
+- [x] **Performance Optimization**: Throttled loading, low-res textures, and CPU sampling for massive boards.
+- [x] **Commit-Reveal (Phase 1)**: Local Pedersen hash commitments to prevent mid-game cheating.
+- [x] **SFX Engine**: Custom Web Audio implementation for immersive gameplay.
+- [x] **CPU AI**: Smart binary-search strategy for free-play mode.
 
-**What the contract needs to do:**
-```cairo
-// Players commit before seeing opponent's choice
-fn commit_character(game_id: felt252, commitment: felt252)
-
-// Questions submitted as signed transactions (prevents retroactive manipulation)
-fn ask_question(game_id: felt252, question_id: felt252)
-
-// Opponent answers (their answer is verified against their committed character at reveal)
-fn answer_question(game_id: felt252, answer: bool)
-
-// Guess — contract checks if guesser wins
-fn make_guess(game_id: felt252, character_id: felt252)
-
-// Both players reveal their characters — contract verifies pedersen(char, salt) === commitment
-fn reveal_character(game_id: felt252, character_id: felt252, salt: felt252)
-```
-
-**Frontend stubs are in** `src/starknet/commitReveal.ts` — `submitCommitmentOnChain()` and `revealCharacterOnChain()`. Once the contract is deployed, set `GAME_CONTRACT` in `config.ts` and uncomment `SESSION_POLICIES`.
-
-#### 2. Matchmaking / Game Lobby
+### 🔴 Next Steps
+#### 1. Matchmaking / Game Lobby
 Currently there's no way for two players to find each other online. Needs either:
-- A simple backend (Supabase, Firebase) for game room creation + WebSocket signaling
-- Or a fully on-chain lobby where players post game invitations as contract events
+- A simple backend (Supabase, Firebase) for game room creation + WebSocket signaling.
+- Or a fully on-chain lobby where players post game invitations as contract events.
 
-#### 3. Online Game Flow (P1/P2 on separate devices)
-The current handoff phases assume one shared device. Online play needs:
-- P1 creates a game → generates a room code / shares a link
-- P2 joins via the link
-- Both connect wallets and commit characters
-- Questions/answers happen as signed Starknet transactions
-- Real-time updates (poll contract events or WebSocket relay)
-
----
-
-### 🟡 Important — Polish & UX
-
-#### 4. SCHIZODIO Trait Verification
-The NFT adapter (`nftCharacterAdapter.ts`) uses guessed trait_type names. After testing with a real SCHIZODIO NFT, check the DEV console logs for `[nftAdapter] Token #X traits: ...` and update the `findAttribute()` calls to match the actual trait names the contract returns.
-
-#### 5. NFT Image Display in Game Board
-NFT mode currently uses procedurally generated portraits even when NFT images are available. In `CharacterSelectScreen.tsx` and the 3D board, NFT characters with a valid `imageUrl` should show their actual NFT image instead of the generated portrait.
-
-#### 6. Portrait Renderer for NFT Characters
-The portrait renderer (`PortraitRenderer.ts`) doesn't yet handle `source: 'nft'` characters — it always generates a procedural face. For NFT mode, it should fall back to fetching the NFT's `imageUrl`.
-
-#### 7. Game History / Replay
-No persistence of game results. Players can't review their game history or share a notable game.
-
-#### 8. Mobile Layout
-The 3D board and panels are desktop-first. The responsive layout needs work for phones — the question panel overlaps the board badly on small screens.
-
----
-
-### 🟢 Nice to Have
-
-#### 9. Leaderboard
+#### 2. Leaderboard
 On-chain leaderboard tracking wins/losses per wallet address. Feasible once the game contract is deployed (read contract events).
 
-#### 10. Wager Mode
-Players stake tokens (LORDS, ETH, or a game token) before committing. Contract holds escrow, winner takes all. The commit-reveal contract already lends itself to this — add a `wager` field and an escrow release on `reveal_character`.
-
-#### 11. Spectator Mode
-Allow spectators to watch an ongoing game. Since questions/answers would be on-chain in Phase 2, a read-only spectator view is just a contract event listener.
-
-#### 12. Tournament Mode
-Bracket-based tournaments using Starknet for trustless bracket progression. Multiple games per player, automated elimination.
-
-#### 13. Custom Character Sets
-Allow communities to create their own character sets (any NFT collection, not just SCHIZODIO). The adapter pattern in `nftCharacterAdapter.ts` already supports this — it just needs a collection selector UI.
-
-#### 14. Bundle Size Optimization
-The Three.js chunk is ~1.6MB. Code-split the 3D scene with `React.lazy` + dynamic imports to improve initial load time.
+#### 3. Wager Mode
+Players stake tokens (LORDS, ETH, or a game token) before committing. Contract holds escrow, winner takes all.
 
 ---
 
-## Contract Deployment Guide (Phase 2)
-
-Once the Cairo contract is written:
-
-```bash
-# 1. Deploy to Starknet mainnet
-starkli deploy guessNFT.contract_class.json --account myaccount
-
-# 2. Update config.ts
-# GAME_CONTRACT = '0x<deployed_address>'
-
-# 3. Uncomment SESSION_POLICIES in config.ts
-# { target: GAME_CONTRACT, method: 'commit_character' },
-# { target: GAME_CONTRACT, method: 'ask_question' },
-# ...
-
-# 4. Implement submitCommitmentOnChain() and revealCharacterOnChain()
-#    in src/starknet/commitReveal.ts
-```
-
----
+## Technical Appendix
+For a detailed breakdown of the recent production refactor, see the [Technical Walkthrough](docs/walkthrough.md).
 
 ## License
-
 MIT — build on it.
