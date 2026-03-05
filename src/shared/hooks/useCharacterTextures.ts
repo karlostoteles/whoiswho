@@ -74,11 +74,15 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
   const remainingCount = characters.length - (eliminatedIds?.length || 0);
 
   // 2. Async: Upgrade to real NFT images with THROTTLING and BATCHED UPDATES
+  // Uses THREE.TextureLoader instead of canvas-based loading to avoid CORS taint issues.
+  // The external server (v1assets.schizod.io) does NOT return Access-Control-Allow-Origin,
+  // so loading into HTMLImageElement with crossOrigin='anonymous' fails silently.
+  // TextureLoader loads images directly into WebGL textures without canvas manipulation.
   useEffect(() => {
-    // LOD Gating: Only load real images in individual mode
     if (lod === 'minimal' || !characters || characters.length === 0) return;
 
     let cancelled = false;
+    const loader = new THREE.TextureLoader();
     const BATCH_SIZE = 12;
     const DELAY = 150;
 
@@ -90,28 +94,38 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
 
         await Promise.all(
           batch.map(async (char) => {
-            // Use character imageUrl directly (populated from schizodio.json in collectionService)
             const imageUrl = char.imageUrl;
             if (!imageUrl) return;
 
             try {
-              const img = await loadImage(imageUrl);
-              if (cancelled) return;
+              const texture = await new Promise<THREE.Texture>((resolve, reject) => {
+                loader.load(
+                  imageUrl,
+                  (tex) => {
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    tex.needsUpdate = true;
+                    resolve(tex);
+                  },
+                  undefined,
+                  reject
+                );
+              });
 
-              // Force isLargeBoard false for Schizodio mode to avoid low-res resizing
-              // if the board is massive, unless we want to keep it.
-              // Actually, renderPortrait uses isLargeBoard to decide canvas size.
-              const texture = renderPortrait(char, img, isLargeBoard);
+              if (cancelled) {
+                texture.dispose();
+                return;
+              }
+
               newTextures.set(char.id, texture);
             } catch (err) {
-              // Fail silently, character keeps placeholder
+              // Fail silently — character keeps its procedural placeholder
             }
           })
         );
 
         if (cancelled) break;
 
-        // Single atomic state update per batch to keep PC cool & UI smooth
+        // Single atomic state update per batch
         if (newTextures.size > 0) {
           setTextures((prev) => {
             const next = new Map(prev);
@@ -134,17 +148,6 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
   }, [characters, lod, isLargeBoard]);
 
   return textures;
-}
-
-/** Helper to load image with promise */
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = url;
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-  });
 }
 
 export function useCardBackTexture(): THREE.CanvasTexture {
