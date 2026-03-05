@@ -1,33 +1,30 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePhase, useGameActions } from '@/core/store/selectors';
-import { GamePhase } from '@/core/store/types';
+import { useWalletStatus } from '@/services/starknet/walletStore';
+import { useWalletConnection } from '@/services/starknet/hooks';
 import { sfx } from '@/shared/audio/sfx';
 
-const VISIBLE_PHASES = new Set([
-  GamePhase.QUESTION_SELECT,
-  GamePhase.ANSWER_REVEALED,
-  GamePhase.AUTO_ELIMINATING,
-  GamePhase.ELIMINATION,
-]);
-
+/**
+ * LogoutButton (formerly RiskItButton)
+ * Shown in the upper-right corner when connected.
+ */
 export function RiskItButton() {
-  const phase = usePhase();
-  const { startGuess } = useGameActions();
-  const visible = VISIBLE_PHASES.has(phase);
+  const status = useWalletStatus();
+  const { disconnectWallet } = useWalletConnection();
+  const isConnected = status === 'connected' || status === 'ready' || status === 'loading_nfts';
 
   const handleClick = () => {
-    sfx.riskIt();
-    startGuess();
+    sfx.click();
+    disconnectWallet();
   };
 
   return (
     <AnimatePresence>
-      {visible && (
+      {isConnected && (
         <motion.button
-          key="risk-it"
-          initial={{ opacity: 0, scale: 0.8, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.8, y: 20 }}
+          key="logout"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           onClick={handleClick}
           style={{
@@ -36,37 +33,36 @@ export function RiskItButton() {
             right: 16,
             zIndex: 10,
             padding: '10px 20px',
-            border: '2px solid rgba(224, 85, 85, 0.6)',
+            border: '2px solid rgba(255, 255, 254, 0.15)',
             borderRadius: 12,
-            background: 'linear-gradient(135deg, rgba(224, 85, 85, 0.25), rgba(180, 50, 50, 0.35))',
+            background: 'rgba(15, 14, 23, 0.88)',
             backdropFilter: 'blur(12px)',
-            color: '#FF6B6B',
+            color: '#FFFFFE',
             fontFamily: "'Space Grotesk', sans-serif",
             fontWeight: 700,
-            fontSize: 15,
+            fontSize: 13,
             cursor: 'pointer',
             outline: 'none',
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 10,
             pointerEvents: 'auto',
-            boxShadow: '0 0 20px rgba(224, 85, 85, 0.15), inset 0 0 20px rgba(224, 85, 85, 0.05)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           }}
           whileHover={{
             scale: 1.05,
-            boxShadow: '0 0 30px rgba(224, 85, 85, 0.3), inset 0 0 20px rgba(224, 85, 85, 0.1)',
-            borderColor: 'rgba(224, 85, 85, 0.9)',
+            background: 'rgba(239, 68, 68, 0.15)',
+            borderColor: 'rgba(239, 68, 68, 0.4)',
+            color: '#FCA5A5',
           }}
           whileTap={{ scale: 0.95 }}
         >
-          <motion.span
-            animate={{ rotate: [0, -10, 10, -5, 0] }}
-            transition={{ repeat: Infinity, duration: 2, repeatDelay: 3 }}
-            style={{ fontSize: 18 }}
-          >
-            🎯
-          </motion.span>
-          RISK IT!
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          LOGOUT
         </motion.button>
       )}
     </AnimatePresence>

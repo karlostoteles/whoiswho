@@ -173,9 +173,12 @@ export function WalletButton() {
                     width: 36, height: 36, borderRadius: '50%',
                     background: 'linear-gradient(135deg, #7C3AED, #E8A444)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 16, flexShrink: 0,
+                    flexShrink: 0,
                   }}>
-                    🪬
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
                   </div>
                   <div>
                     <div style={{
@@ -211,12 +214,14 @@ export function WalletButton() {
                     color: 'rgba(255,255,254,0.4)',
                     width: 26, height: 26,
                     cursor: 'pointer',
-                    fontSize: 12,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     outline: 'none', flexShrink: 0,
                   }}
                 >
-                  ✕
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
                 </button>
               </div>
 

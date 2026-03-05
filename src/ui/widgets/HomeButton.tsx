@@ -21,7 +21,7 @@ export function HomeButton() {
             style={{
                 position: 'fixed',
                 top: 16,
-                left: 140, // Offset from WalletButton
+                left: 170, // Increased offset to avoid "rebase" overlap
                 zIndex: 100,
                 pointerEvents: 'auto',
                 background: 'rgba(15, 14, 23, 0.88)',
@@ -38,9 +38,13 @@ export function HomeButton() {
                 fontSize: 12,
                 fontWeight: 600,
                 outline: 'none',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             }}
         >
-            <span style={{ fontSize: 14 }}>🏠</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
             <span>Home</span>
         </motion.button>
     );

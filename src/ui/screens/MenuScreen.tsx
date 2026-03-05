@@ -395,11 +395,8 @@ function PlayFreeTile({ onClick }: { onClick: () => void }) {
         <svg viewBox="0 0 120 120" width="72%" height="72%" style={{ position: 'relative', zIndex: 1 }}>
           {/* Outer ring */}
           <circle cx="60" cy="60" r="44" fill="none" stroke="rgba(124,58,237,0.3)" strokeWidth="1.5" strokeDasharray="6 4" />
-          {/* Inner circle */}
           <circle cx="60" cy="60" r="28" fill="rgba(124,58,237,0.12)" stroke="rgba(124,58,237,0.5)" strokeWidth="1.5" />
-          {/* AI text */}
-          <text x="60" y="72" textAnchor="middle" fill="#A78BFA" fontSize="40" fontWeight="800"
-            fontFamily="Space Grotesk, sans-serif">🧠</text>
+          <path d="M60 42c-8.8 0-16 7.2-16 16s7.2 16 16 16 16-7.2 16-16-7.2-16-16-16zm-4 22c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm8 0c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z" fill="#A78BFA" opacity="0.8" />
           {/* Node dots on ring */}
           {[0, 60, 120, 180, 240, 300].map((deg, i) => {
             const rad = (deg * Math.PI) / 180;
@@ -483,7 +480,7 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, loading, nftStatus }: 
             accent="#7C3AED"
             accentRgb="124,58,237"
             icon="🤖"
-            title="CT Version"
+            title="CT"
             subtitle="Crypto Twitter meme characters"
             tag="24 CHARACTERS"
           />
@@ -493,7 +490,7 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, loading, nftStatus }: 
             accent="#06B6D4"
             accentRgb="6,182,212"
             icon="💀"
-            title={nftStatus || "1Vs1"}
+            title={nftStatus || "NFT version"}
             subtitle="Connect wallet & play with your NFTs"
             tag="NFT"
             disabled={loading}
@@ -693,7 +690,15 @@ function LoginButtonSection() {
           boxShadow: '0 0 20px rgba(124,58,237,0.25)',
         }}
       >
-        {isConnecting ? <><Spinner /> Authenticating...</> : '🔐 Login'}
+        {isConnecting ? <><Spinner /> Authenticating...</> : (
+          <>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8, opacity: 0.9 }}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            Login
+          </>
+        )}
       </motion.button>
     </motion.div>
   );

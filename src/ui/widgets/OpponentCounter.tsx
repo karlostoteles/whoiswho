@@ -35,7 +35,7 @@ export function OpponentCounter() {
             animate={{ y: 0, opacity: 1 }}
             style={{
                 position: 'fixed',
-                top: 24,
+                top: 80,
                 left: '50%',
                 transform: 'translateX(-50%)',
                 zIndex: 50,
