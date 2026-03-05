@@ -8,7 +8,7 @@ import { getTileLOD } from '@/core/rules/constants';
  * Returns a texture map for all game characters.
  *
  * LOD-aware strategy:
- *  minimal (tileW < 0.15) → no textures; CharacterGrid renders coloured planes via InstancedMesh
+ *  minimal (tileW < 0.38) → no textures; CharacterGrid renders coloured planes via InstancedMesh
  *  flat    (tileW < 1.0)  → low-res procedural placeholder → throttled real NFT images
  *  full    (tileW ≥ 1.0)  → high-res procedural portrait → async real NFT image upgrade
  */
@@ -69,7 +69,7 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
     };
   }, [isMinimal, characters, isLargeBoard]);
 
-  // 2. Async: Upgrade to real NFT images with THROTTLING
+  // 2. Async: Upgrade to real NFT images with THROTTLING and BATCHED UPDATES
   useEffect(() => {
     if (lod === 'minimal' || !characters || characters.length === 0) return;
 
@@ -81,31 +81,53 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
       for (let i = 0; i < characters.length; i += BATCH_SIZE) {
         if (cancelled) break;
         const batch = characters.slice(i, i + BATCH_SIZE);
+        const newTextures = new Map<string, THREE.Texture>();
 
         await Promise.all(
           batch.map(async (char) => {
             let imageUrl = (char as any).imageUrl as string | undefined;
-            if (!imageUrl && char.id.startsWith('nft_')) {
-              const tokenId = char.id.replace('nft_', '');
-              imageUrl = `https://v1assets.schizod.io/images/revealed/${tokenId}.png`;
+            const tokenId = char.id.replace('nft_', '');
+
+            // Use the proxy to resolve metadata/image firmly (bypasses CORS + 404)
+            if (!imageUrl || imageUrl.includes('v1assets.schizod.io')) {
+              try {
+                const proxyResp = await fetch(`/api/schizodio-meta?id=${tokenId}`);
+                if (proxyResp.ok) {
+                  const meta = await proxyResp.json();
+                  imageUrl = meta.imageUrl;
+                }
+              } catch { /* fallback to direct if proxy fails */ }
             }
-            if (!imageUrl) return;
+
+            if (!imageUrl) {
+              // If no URL available, stick with procedural render
+              return;
+            }
 
             try {
               const img = await loadImage(imageUrl);
               if (cancelled) return;
 
               const texture = renderPortrait(char, img, isLargeBoard);
-              setTextures((prev) => {
-                const next = new Map(prev);
-                next.set(char.id, texture);
-                return next;
-              });
+              newTextures.set(char.id, texture);
             } catch (err) {
-              // Fail silently
+              // Fail silently, character keeps placeholder
             }
           })
         );
+
+        if (cancelled) break;
+
+        // Single atomic state update per batch to keep PC cool & UI smooth
+        if (newTextures.size > 0) {
+          setTextures((prev) => {
+            const next = new Map(prev);
+            for (const [id, tex] of newTextures) {
+              next.set(id, tex);
+            }
+            return next;
+          });
+        }
 
         await new Promise(r => setTimeout(r, DELAY));
       }

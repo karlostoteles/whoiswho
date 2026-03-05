@@ -23,7 +23,7 @@ export async function generateAllCollectionCharacters(): Promise<Character[]> {
     const stub: SchizodioNFT = {
       tokenId: String(i),
       name: `Schizodio #${i}`,
-      imageUrl: `https://v1assets.schizod.io/images/revealed/${i}.png`,
+      imageUrl: '', // Will be resolved via proxy in useCharacterTextures
       attributes: [], // Will use deterministic fallback in nftToCharacter
     };
     chars.push(nftToCharacter(stub));

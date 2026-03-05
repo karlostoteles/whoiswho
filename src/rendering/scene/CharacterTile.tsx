@@ -1,17 +1,8 @@
 /**
  * CharacterTile — renders a single character tile at 2 LOD tiers.
- *
- * LOD is determined by `tileW` (world-space width of the tile):
- *
- *   flat  (< 1.0)   plain card front + portrait plane, no depth, click events.
- *   full  (>= 1.0)  3D card with depth + name label + full effects.
- *
- * Position and flip animation are driven by the PARENT CharacterGrid's
- * single useFrame (via group refs).  The `pivotRef` callback lets
- * CharacterGrid store and control the flip group directly.
  */
 
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, memo } from 'react';
 import { useFrame, ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { GamePhase } from '@/core/store/types';
@@ -23,7 +14,7 @@ interface CharacterTileProps {
   texture: THREE.Texture | undefined;
   tileW: number;
   tileH: number;
-  /** Callback so CharacterGrid can control the flip rotation */
+  /** Callback so CharacterGrid can control the flip group directly */
   pivotRef: (el: THREE.Group | null) => void;
 }
 
@@ -35,9 +26,9 @@ function lerp(a: number, b: number, t: number) {
  * Gold card border — a slightly larger, slightly set-back mesh that peeks
  * out around all edges of the card body, acting as a physical frame.
  */
-function CardBorder({ tileW, tileH, isFlat, depth }: {
+const CardBorder = memo(({ tileW, tileH, isFlat, depth }: {
   tileW: number; tileH: number; isFlat: boolean; depth: number;
-}) {
+}) => {
   const BORDER = Math.max(0.03, tileW * 0.026); // world-units each side
 
   return isFlat ? (
@@ -66,11 +57,11 @@ function CardBorder({ tileW, tileH, isFlat, depth }: {
       />
     </mesh>
   );
-}
+});
 
-export function CharacterTile({
+export const CharacterTile = memo(({
   characterId, characterName, texture, tileW, tileH, pivotRef,
-}: CharacterTileProps) {
+}: CharacterTileProps) => {
   const phase = usePhase();
   const activePlayer = useActivePlayer();
   const eliminatedIds = useEliminatedIds(activePlayer);
@@ -169,7 +160,7 @@ export function CharacterTile({
       </group>
     </group>
   );
-}
+});
 
 function NameLabel({ name, tileW, tileH, depth }: {
   name: string; tileW: number; tileH: number; depth: number;
