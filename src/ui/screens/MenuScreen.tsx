@@ -196,7 +196,7 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
 
       {/* ─── Logo: drops from above with bounce ─── */}
       <motion.img
-        src="/logo.jpg"
+        src="/logo.png"
         alt="guessNFT"
         initial={{ y: -120, opacity: 0, scale: 0.6, rotate: -10 }}
         animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
@@ -204,10 +204,8 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
         style={{
           width: 'clamp(140px, 35vw, 240px)',
           height: 'auto',
-          borderRadius: 16,
           filter: 'drop-shadow(0 0 40px rgba(124,58,237,0.4))',
           marginBottom: 12,
-          mixBlendMode: 'screen',
         }}
       />
 
