@@ -47,6 +47,28 @@ export function NFTModeBody({
     return NFT_QUESTIONS.filter((q) => q.zone === activeZone && usefulIds.has(q.id));
   }, [activeZone, usefulIds]);
 
+  // Compute match% per question: what % of remaining chars match this trait?
+  const matchPctMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const q of NFT_QUESTIONS) {
+      if (askedIds.has(q.id) || !usefulIds.has(q.id)) continue;
+      const yesCount = remaining.filter((c) => evaluateQuestion(q, c)).length;
+      map.set(q.id, remaining.length > 0 ? Math.round((yesCount / remaining.length) * 100) : 0);
+    }
+    return map;
+  }, [remaining, askedIds, usefulIds]);
+
+  // Sort by rarity (lowest matchPct first)
+  const sortedZoneQuestions = useMemo(() => {
+    return [...zoneQuestions].sort((a, b) => {
+      if (askedIds.has(a.id) && !askedIds.has(b.id)) return 1;
+      if (!askedIds.has(a.id) && askedIds.has(b.id)) return -1;
+      const pctA = matchPctMap.get(a.id) ?? 50;
+      const pctB = matchPctMap.get(b.id) ?? 50;
+      return pctA - pctB;
+    });
+  }, [zoneQuestions, matchPctMap, askedIds]);
+
   const isMobile = useIsMobile();
 
   return (
@@ -124,14 +146,35 @@ export function NFTModeBody({
                   display: 'flex', flexDirection: 'column',
                   alignItems: 'center', justifyContent: 'center',
                   height: '100%', minHeight: 160,
-                  color: 'rgba(255,255,254,0.2)',
+                  color: 'rgba(255,255,254,0.3)',
                   fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 13, textAlign: 'center', gap: 12,
+                  fontSize: 13, textAlign: 'center', gap: 16,
                 }}
               >
-                <div style={{ fontSize: 36 }}>🔍</div>
-                <div>Select a category above<br />to browse trait questions</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
+                {/* Rarity legend */}
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,254,0.5)', letterSpacing: '0.06em' }}>
+                  TRAIT RARITY
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 220 }}>
+                  {[
+                    { label: '★ LEGENDARY', color: '#E8A444', bg: 'rgba(232,164,68,0.12)', desc: '< 5% match' },
+                    { label: '◆ RARE', color: '#A78BFA', bg: 'rgba(124,58,237,0.12)', desc: '< 15% match' },
+                    { label: '● UNCOMMON', color: '#22D3EE', bg: 'rgba(6,182,212,0.1)', desc: '< 30% match' },
+                    { label: 'COMMON', color: 'rgba(255,255,254,0.3)', bg: 'rgba(255,255,255,0.05)', desc: '≥ 30% match' },
+                  ].map(({ label, color, bg, desc }) => (
+                    <div key={label} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '5px 10px', borderRadius: 8, background: bg,
+                    }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: '0.06em' }}>{label}</span>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,254,0.25)' }}>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,254,0.15)', maxWidth: 260 }}>
+                  Rarer traits eliminate more characters but are riskier. Choose wisely!
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
                   {ZONES.map((zone) => {
                     const cfg = ZONE_CONFIG[zone];
                     return (
@@ -199,12 +242,13 @@ export function NFTModeBody({
                     All {ZONE_CONFIG[activeZone].label.toLowerCase()} questions answered
                   </div>
                 ) : (
-                  zoneQuestions.map((q) => (
+                  sortedZoneQuestions.map((q) => (
                     <NFTQuestionButton
                       key={q.id}
                       question={q}
                       asked={askedIds.has(q.id)}
                       onClick={() => onAsk(q)}
+                      matchPct={matchPctMap.get(q.id)}
                     />
                   ))
                 )}

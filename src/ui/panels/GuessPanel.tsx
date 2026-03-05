@@ -14,6 +14,15 @@ export function GuessPanel() {
   const midTurn = currentQuestion !== null;
   const elimSet = new Set(eliminatedIds);
 
+  // Sort: non-eliminated first, then eliminated
+  const sortedCharacters = [...characters].sort((a, b) => {
+    const aElim = elimSet.has(a.id) ? 1 : 0;
+    const bElim = elimSet.has(b.id) ? 1 : 0;
+    return aElim - bElim;
+  });
+
+  const remainingCount = characters.length - elimSet.size;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -51,9 +60,17 @@ export function GuessPanel() {
           <div style={{
             fontSize: 13,
             color: 'rgba(255,255,254,0.4)',
-            marginBottom: 12,
+            marginBottom: 8,
           }}>
             Guess wrong and you lose your turn — get it right to win!
+          </div>
+          <div style={{
+            fontSize: 12,
+            color: '#E8A444',
+            fontWeight: 600,
+            marginBottom: 12,
+          }}>
+            {remainingCount} candidate{remainingCount !== 1 ? 's' : ''} remaining
           </div>
           <Button variant="secondary" size="sm" onClick={cancelGuess}>
             {midTurn ? 'Nevermind, end turn' : 'Go Back'}
@@ -65,7 +82,7 @@ export function GuessPanel() {
           gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
           gap: 10,
         }}>
-          {characters.map((char) => {
+          {sortedCharacters.map((char) => {
             const isEliminated = elimSet.has(char.id);
             return (
               <motion.button
@@ -77,7 +94,7 @@ export function GuessPanel() {
                   background: isEliminated
                     ? 'rgba(255,255,255,0.02)'
                     : 'rgba(255,255,255,0.05)',
-                  border: '2px solid rgba(255,255,255,0.1)',
+                  border: `2px solid ${isEliminated ? 'rgba(255,255,255,0.05)' : 'rgba(232,164,68,0.25)'}`,
                   borderRadius: 10,
                   padding: 6,
                   cursor: isEliminated ? 'not-allowed' : 'pointer',
@@ -86,7 +103,7 @@ export function GuessPanel() {
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: 4,
-                  opacity: isEliminated ? 0.25 : 1,
+                  opacity: isEliminated ? 0.15 : 1,
                 }}
               >
                 <img
