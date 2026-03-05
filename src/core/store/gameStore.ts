@@ -162,6 +162,23 @@ export const useGameStore = create<GameState & GameActions>()(
                   }
                 }
               }
+
+              // CPU auto-win: if down to 1 remaining, auto-guess
+              const cpuRemaining = state.characters.filter(
+                (c) => !cpuEliminated.includes(c.id)
+              );
+              if (cpuRemaining.length === 1) {
+                state.guessedCharacterId = cpuRemaining[0].id;
+                state.activePlayer = 'player2';
+                const p1Secret = state.players.player1.secretCharacterId;
+                if (cpuRemaining[0].id === p1Secret) {
+                  state.winner = 'player2';
+                  state.phase = GamePhase.GUESS_RESULT;
+                } else {
+                  state.phase = GamePhase.GUESS_WRONG;
+                }
+                return;
+              }
             }
             state.phase = GamePhase.AUTO_ELIMINATING;
             break;

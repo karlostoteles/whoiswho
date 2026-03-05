@@ -20,6 +20,7 @@ import { WalletButton } from './widgets/WalletButton';
 import { HomeButton } from './widgets/HomeButton';
 import { CPUThinkingIndicator } from './widgets/CPUThinkingIndicator';
 import { OpponentCounter } from './widgets/OpponentCounter';
+import { ConfirmedTraits } from './widgets/ConfirmedTraits';
 import { useOnlineGameSync } from '@/shared/hooks/useOnlineGameSync';
 import { useNFTTraitLoader } from '@/shared/hooks/useNFTTraitLoader';
 
@@ -50,6 +51,7 @@ export function UIOverlay() {
       {/* CPU thinking indicator — free mode only */}
       <CPUThinkingIndicator />
       <OpponentCounter />
+      <ConfirmedTraits />
       <SecretCardPanel />
 
       <AnimatePresence mode="wait">
