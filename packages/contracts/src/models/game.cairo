@@ -31,11 +31,16 @@ pub struct Game {
     /// Block timestamp of the last state-changing action — used for timeout checks.
     pub last_action_at: u64,
     /// ID of the most recent question asked (echoed for client convenience).
-    pub last_question_id: u8,
+    pub last_question_id: u16,
     /// Answer to the most recent question (echoed for client convenience).
     pub last_answer: bool,
     /// Character ID that the active player guessed in `make_guess` — verified during reveal.
     pub guess_character_id: felt252,
+    /// Poseidon2 BN254 Merkle root of the character collection — stored as u256 because BN254
+    /// outputs may exceed the Stark field prime (~16% of outputs). Never recomputed on-chain.
+    pub traits_root: u256,
+    /// Which question schema this game uses (0 = SCHIZODIO v1).
+    pub question_set_id: u8,
 }
 
 /// Commit-reveal record for a single player in a game.
@@ -54,7 +59,11 @@ pub struct Commitment {
     #[key]
     pub player: ContractAddress,
     /// `pedersen(character_id, salt)` — zero means no commitment yet.
+    /// Used in the reveal phase to verify the character choice.
     pub hash: felt252,
+    /// Poseidon2 BN254 commitment: hash4(game_id, player, character_id, salt).
+    /// Used in ZK proof verification. Separate from `hash` — different scheme, different purpose.
+    pub zk_commitment: u256,
     /// True after the player successfully calls `reveal_character`.
     pub revealed: bool,
     /// Set to the revealed `character_id` after a successful reveal (zero before reveal).
@@ -96,7 +105,7 @@ pub struct Turn {
     /// `ACTION_TYPE_QUESTION` or `ACTION_TYPE_GUESS` — see `constants`.
     pub action_type: u8,
     /// Question template ID chosen by the asker.
-    pub question_id: u8,
+    pub question_id: u16,
     /// Answer provided by the responding player (false for guess turns).
     pub answer: bool,
     /// Player who asked the question or made the guess.
@@ -107,4 +116,6 @@ pub struct Turn {
     pub guessed_character_id: felt252,
     /// Block timestamp of the last write to this record.
     pub action_timestamp: u64,
+    /// True if the answer was verified by a ZK proof via `answer_question_with_proof`.
+    pub proof_verified: bool,
 }

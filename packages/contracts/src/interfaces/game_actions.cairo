@@ -5,25 +5,42 @@
 #[starknet::interface]
 pub trait IGameActions<T> {
     /// Creates a new game. Caller becomes player1.
+    /// `traits_root` is the Poseidon2 BN254 Merkle root of the character collection (stored as
+    /// u256 because BN254 outputs may exceed the Stark field prime).
+    /// `question_set_id` identifies which question schema is in use (0 = SCHIZODIO v1).
     /// Returns the new `game_id` (derived from `world.uuid()`).
-    fn create_game(ref self: T) -> felt252;
+    fn create_game(ref self: T, traits_root: u256, question_set_id: u8) -> felt252;
 
     /// Joins an existing game as player2. Caller must not be player1.
     /// Advances phase from `WAITING_FOR_PLAYER2` to `COMMIT_PHASE`.
     fn join_game(ref self: T, game_id: felt252);
 
-    /// Records a commitment hash for the caller.
-    /// `commitment_hash` must be `pedersen(character_id, salt)` with a non-zero salt.
+    /// Records both commitment hashes for the caller.
+    /// `commitment_hash`: Starknet Pedersen hash for the reveal phase (`pedersen(character_id, salt)`).
+    /// `zk_commitment`: Poseidon2 BN254 commitment for ZK proofs (`hash4(game_id, player, character_id, salt)`).
     /// When both players have committed, phase advances to `P1_QUESTION_SELECT`.
-    fn commit_character(ref self: T, game_id: felt252, commitment_hash: felt252);
+    fn commit_character(
+        ref self: T, game_id: felt252, commitment_hash: felt252, zk_commitment: u256,
+    );
 
     /// Active player asks a question identified by `question_id`.
     /// Advances phase to the opposing player's `ANSWER_PENDING` state.
-    fn ask_question(ref self: T, game_id: felt252, question_id: u8);
+    fn ask_question(ref self: T, game_id: felt252, question_id: u16);
 
     /// Non-active player answers the pending question with `true` (yes) or `false` (no).
-    /// Advances phase to the active player's `ELIMINATING` state.
+    /// Kept for testing/dev; production flow uses `answer_question_with_proof`.
     fn answer_question(ref self: T, game_id: felt252, answer: bool);
+
+    /// Non-active player answers with a ZK proof instead of a plaintext boolean.
+    /// `full_proof_with_hints`: calldata produced by `garaga calldata` (proof + public inputs).
+    /// The contract validates anti-replay, commitment consistency, and collection integrity,
+    /// then calls the Garaga verifier to confirm the proof. The answer is extracted from
+    /// the public outputs of the verified proof.
+    fn answer_question_with_proof(
+        ref self: T,
+        game_id: felt252,
+        full_proof_with_hints: Span<felt252>,
+    );
 
     /// Active player OR-merges `eliminated_bitmap` into their Board and passes the turn.
     /// Sending zero is a no-op (does not reset previously eliminated characters).

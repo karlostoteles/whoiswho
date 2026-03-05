@@ -6,8 +6,8 @@ use dojo_cairo_test::{
 use starknet::{ContractAddress, contract_address_const};
 use whoiswho::events::{
     e_CharacterCommitted, e_CharacterRevealed, e_CharactersEliminated, e_GameCompleted,
-    e_GameCreated, e_GuessMade, e_GuessResult, e_PlayerJoined, e_QuestionAnswered, e_QuestionAsked,
-    e_TimeoutClaimed,
+    e_GameCreated, e_GuessMade, e_GuessResult, e_PlayerJoined, e_QuestionAnswered,
+    e_QuestionAnsweredVerified, e_QuestionAsked, e_TimeoutClaimed,
 };
 use whoiswho::interfaces::game_actions::{IGameActionsDispatcher, IGameActionsDispatcherTrait};
 use whoiswho::models::game::{m_Board, m_Commitment, m_Game, m_Turn};
@@ -36,6 +36,7 @@ pub fn create_test_world() -> (WorldStorage, IGameActionsDispatcher) {
             TestResource::Event(e_CharacterCommitted::TEST_CLASS_HASH.try_into().unwrap()),
             TestResource::Event(e_QuestionAsked::TEST_CLASS_HASH.try_into().unwrap()),
             TestResource::Event(e_QuestionAnswered::TEST_CLASS_HASH.try_into().unwrap()),
+            TestResource::Event(e_QuestionAnsweredVerified::TEST_CLASS_HASH.try_into().unwrap()),
             TestResource::Event(e_CharactersEliminated::TEST_CLASS_HASH.try_into().unwrap()),
             TestResource::Event(e_GuessMade::TEST_CLASS_HASH.try_into().unwrap()),
             TestResource::Event(e_GuessResult::TEST_CLASS_HASH.try_into().unwrap()),
@@ -63,9 +64,10 @@ pub fn create_test_world() -> (WorldStorage, IGameActionsDispatcher) {
 }
 
 /// Create a game and have P2 join. Returns game_id.
+/// Uses zero traits_root and question_set_id for test purposes.
 pub fn setup_game(game_actions: IGameActionsDispatcher) -> felt252 {
     starknet::testing::set_contract_address(PLAYER1());
-    let game_id = game_actions.create_game();
+    let game_id = game_actions.create_game(0_u256, 0_u8);
 
     starknet::testing::set_contract_address(PLAYER2());
     game_actions.join_game(game_id);
@@ -83,10 +85,10 @@ pub fn do_commits(
     let salt_p2: felt252 = 202;
 
     starknet::testing::set_contract_address(PLAYER1());
-    game_actions.commit_character(game_id, core::pedersen::pedersen(char_p1, salt_p1));
+    game_actions.commit_character(game_id, core::pedersen::pedersen(char_p1, salt_p1), 0_u256);
 
     starknet::testing::set_contract_address(PLAYER2());
-    game_actions.commit_character(game_id, core::pedersen::pedersen(char_p2, salt_p2));
+    game_actions.commit_character(game_id, core::pedersen::pedersen(char_p2, salt_p2), 0_u256);
 
     (char_p1, salt_p1, char_p2, salt_p2)
 }

@@ -25,3 +25,26 @@ pub const ERR_TURN_NOT_FOUND: felt252 = 'TURN_NOT_FOUND';
 pub const ERR_INVALID_REVEAL: felt252 = 'INVALID_REVEAL';
 /// Commitment hash is zero — invalid; use `pedersen(character_id, salt)` with non-zero salt.
 pub const ERR_INVALID_COMMITMENT: felt252 = 'INVALID_COMMITMENT';
+
+// ---------------------------------------------------------------------------
+// ZK proof errors
+// ---------------------------------------------------------------------------
+
+/// `full_proof_with_hints` array does not contain the expected number of public input fields.
+pub const ERR_INVALID_PROOF_INPUTS: felt252 = 'Invalid proof inputs length';
+/// The `game_id` encoded in the proof public inputs does not match the on-chain game.
+pub const ERR_PROOF_GAME_MISMATCH: felt252 = 'Proof game_id mismatch';
+/// The `turn_id` in the proof does not match the current `game.turn_count` (replay attack).
+pub const ERR_PROOF_TURN_MISMATCH: felt252 = 'Proof turn_id mismatch';
+/// The `player` address in the proof does not match the caller.
+pub const ERR_PROOF_PLAYER_MISMATCH: felt252 = 'Proof player mismatch';
+/// The `question_id` in the proof does not match `game.last_question_id`.
+pub const ERR_PROOF_QUESTION_MISMATCH: felt252 = 'Proof question_id mismatch';
+/// The `traits_root` in the proof does not match `game.traits_root`.
+pub const ERR_PROOF_TRAITS_ROOT_MISMATCH: felt252 = 'Proof traits_root mismatch';
+/// The `commitment` in the proof does not match the stored `commitment.zk_commitment`.
+pub const ERR_PROOF_COMMITMENT_MISMATCH: felt252 = 'Proof commitment mismatch';
+/// The Garaga verifier rejected the proof.
+pub const ERR_PROOF_VERIFICATION_FAILED: felt252 = 'ZK proof verification failed';
+/// The Garaga verifier contract address is zero — not deployed yet.
+pub const ERR_VERIFIER_NOT_DEPLOYED: felt252 = 'Verifier not deployed';

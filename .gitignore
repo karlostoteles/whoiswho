@@ -3,3 +3,18 @@ dist/
 .vite/
 *.local
 .DS_Store
+
+packages/contracts/target/
+
+# Noir circuit build artifacts and proof outputs
+packages/circuits/target/
+packages/circuits/proof_out*/
+packages/circuits/proof.bin
+packages/verifier/target/
+
+# Noir witnesses — may contain real player salts
+packages/circuits/Prover.toml
+packages/circuits/Verifier.toml
+
+# NFT raw API cache — re-fetch with scripts/fetch-collection.ts
+scripts/data/

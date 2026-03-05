@@ -37,7 +37,7 @@ pub struct QuestionAsked {
     #[key]
     game_id: felt252,
     turn_number: u16,
-    question_id: u8,
+    question_id: u16,
     asked_by: ContractAddress,
 }
 
@@ -102,6 +102,19 @@ pub struct TimeoutClaimed {
     game_id: felt252,
     claimed_by: ContractAddress,
     timed_out_player: ContractAddress,
+}
+
+/// Emitted when a player answers via `answer_question_with_proof` (ZK-verified answer).
+#[derive(Drop, Serde)]
+#[dojo::event]
+pub struct QuestionAnsweredVerified {
+    #[key]
+    pub game_id: felt252,
+    pub turn_number: u16,
+    pub question_id: u16,
+    pub computed_answer: bool,
+    pub answerer: ContractAddress,
+    pub proof_verified: bool,
 }
 
 /// Emitted when the game reaches `PHASE_COMPLETED` by any means (reveal or timeout).

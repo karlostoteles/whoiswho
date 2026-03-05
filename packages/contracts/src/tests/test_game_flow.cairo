@@ -163,7 +163,7 @@ fn test_cannot_commit_after_commit_phase() {
 
     // Phase advanced to P1_QUESTION_SELECT — commit again must fail
     starknet::testing::set_contract_address(PLAYER1());
-    game_actions.commit_character(game_id, core::pedersen::pedersen(99, 99));
+    game_actions.commit_character(game_id, core::pedersen::pedersen(99, 99), 0_u256);
 }
 
 // ---------------------------------------------------------------------------
@@ -177,9 +177,9 @@ fn test_double_commit_rejected() {
     let game_id = setup_game(game_actions);
 
     starknet::testing::set_contract_address(PLAYER1());
-    game_actions.commit_character(game_id, core::pedersen::pedersen(1, 101));
+    game_actions.commit_character(game_id, core::pedersen::pedersen(1, 101), 0_u256);
     // Second commit with a different hash — must fail
-    game_actions.commit_character(game_id, core::pedersen::pedersen(2, 202));
+    game_actions.commit_character(game_id, core::pedersen::pedersen(2, 202), 0_u256);
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn test_zero_hash_commit_rejected() {
     let game_id = setup_game(game_actions);
 
     starknet::testing::set_contract_address(PLAYER1());
-    game_actions.commit_character(game_id, 0);
+    game_actions.commit_character(game_id, 0, 0_u256);
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +322,7 @@ fn test_player1_claims_timeout_on_abandoned_game() {
     let (mut world, game_actions) = create_test_world();
 
     starknet::testing::set_contract_address(PLAYER1());
-    let game_id = game_actions.create_game();
+    let game_id = game_actions.create_game(0_u256, 0_u8);
 
     // Jump 46 seconds — no P2 joined
     starknet::testing::set_block_timestamp(46);
@@ -341,7 +341,7 @@ fn test_outsider_cannot_claim_timeout_on_abandoned_game() {
     let (_, game_actions) = create_test_world();
 
     starknet::testing::set_contract_address(PLAYER1());
-    game_actions.create_game();
+    game_actions.create_game(0_u256, 0_u8);
     // Get the game_id. Since this is a fresh world, uuid starts at 0.
     let game_id: felt252 = 0;
 
@@ -406,7 +406,7 @@ fn test_cannot_join_own_game() {
     let (_, game_actions) = create_test_world();
 
     starknet::testing::set_contract_address(PLAYER1());
-    let game_id = game_actions.create_game();
+    let game_id = game_actions.create_game(0_u256, 0_u8);
 
     // P1 tries to join their own game
     game_actions.join_game(game_id);
@@ -420,4 +420,202 @@ fn test_third_player_cannot_join_full_game() {
 
     starknet::testing::set_contract_address(OUTSIDER());
     game_actions.join_game(game_id);
+}
+
+// ---------------------------------------------------------------------------
+// ZK proof path guards
+// ---------------------------------------------------------------------------
+
+/// Builds a 15-element public inputs prefix matching real Garaga snforge calldata format.
+/// All values correctly match an in-progress game where P1 asked question 1 (turn_count=1).
+/// Real layout: [count=7, PI0_lo, PI0_hi, PI1_lo, PI1_hi, ..., PI6_lo, PI6_hi]
+/// PIs in order: game_id, turn_id, player, commitment, question_id, traits_root, answer_bit
+fn make_valid_public_inputs(
+    game_id: felt252,
+    player: starknet::ContractAddress,
+    zk_commitment: u256,
+    traits_root: u256,
+) -> Span<felt252> {
+    array![
+        7,                           // [0]  count of public inputs
+        game_id,                     // [1]  PI[0] lo — game_id
+        0,                           // [2]  PI[0] hi
+        1,                           // [3]  PI[1] lo — turn_id = 1 (after one ask_question)
+        0,                           // [4]  PI[1] hi
+        player.into(),               // [5]  PI[2] lo — player address
+        0,                           // [6]  PI[2] hi
+        zk_commitment.low.into(),    // [7]  PI[3] lo — commitment lo
+        zk_commitment.high.into(),   // [8]  PI[3] hi — commitment hi
+        1,                           // [9]  PI[4] lo — question_id = 1
+        0,                           // [10] PI[4] hi
+        traits_root.low.into(),      // [11] PI[5] lo — traits_root lo
+        traits_root.high.into(),     // [12] PI[5] hi — traits_root hi
+        1,                           // [13] PI[6] lo — answer_bit = 1
+        0,                           // [14] PI[6] hi
+    ]
+        .span()
+}
+
+#[test]
+#[should_panic(expected: ('Invalid proof inputs length', 'ENTRYPOINT_FAILED'))]
+fn test_answer_with_proof_too_short_rejected() {
+    let (_, game_actions) = create_test_world();
+    let game_id = setup_game(game_actions);
+    do_commits(game_actions, game_id);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.ask_question(game_id, 1);
+
+    // Submit array with only 14 elements (need >= 15)
+    starknet::testing::set_contract_address(PLAYER2());
+    game_actions
+        .answer_question_with_proof(
+            game_id, array![7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].span(),
+        );
+}
+
+#[test]
+#[should_panic(expected: ('Proof game_id mismatch', 'ENTRYPOINT_FAILED'))]
+fn test_answer_with_proof_wrong_game_id_rejected() {
+    let (_, game_actions) = create_test_world();
+    let game_id = setup_game(game_actions);
+    do_commits(game_actions, game_id);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.ask_question(game_id, 1);
+
+    starknet::testing::set_contract_address(PLAYER2());
+    // Wrong game_id at PI[0] lo (index 1)
+    game_actions
+        .answer_question_with_proof(
+            game_id,
+            array![7, game_id + 1, 0, 1, 0, PLAYER2().into(), 0, 0, 0, 1, 0, 0, 0, 1, 0].span(),
+        );
+}
+
+#[test]
+#[should_panic(expected: ('Proof turn_id mismatch', 'ENTRYPOINT_FAILED'))]
+fn test_answer_with_proof_replay_attack_rejected() {
+    let (_, game_actions) = create_test_world();
+    let game_id = setup_game(game_actions);
+    do_commits(game_actions, game_id);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.ask_question(game_id, 1); // turn_count becomes 1
+
+    starknet::testing::set_contract_address(PLAYER2());
+    // Send proof with turn_id = 999 at PI[1] lo (index 3) — correct turn is 1
+    game_actions
+        .answer_question_with_proof(
+            game_id,
+            array![7, game_id, 0, 999, 0, PLAYER2().into(), 0, 0, 0, 1, 0, 0, 0, 1, 0].span(),
+        );
+}
+
+#[test]
+#[should_panic(expected: ('Proof player mismatch', 'ENTRYPOINT_FAILED'))]
+fn test_answer_with_proof_wrong_player_rejected() {
+    let (_, game_actions) = create_test_world();
+    let game_id = setup_game(game_actions);
+    do_commits(game_actions, game_id);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.ask_question(game_id, 1);
+
+    starknet::testing::set_contract_address(PLAYER2());
+    // Send proof with wrong player at PI[2] lo (index 5) — OUTSIDER instead of PLAYER2
+    game_actions
+        .answer_question_with_proof(
+            game_id,
+            array![7, game_id, 0, 1, 0, OUTSIDER().into(), 0, 0, 0, 1, 0, 0, 0, 1, 0].span(),
+        );
+}
+
+#[test]
+#[should_panic(expected: ('Proof question_id mismatch', 'ENTRYPOINT_FAILED'))]
+fn test_answer_with_proof_wrong_question_id_rejected() {
+    let (_, game_actions) = create_test_world();
+    let game_id = setup_game(game_actions);
+    do_commits(game_actions, game_id);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.ask_question(game_id, 1); // question_id = 1
+
+    starknet::testing::set_contract_address(PLAYER2());
+    // Send proof with wrong question_id = 5 at PI[4] lo (index 9) — asked question was 1
+    game_actions
+        .answer_question_with_proof(
+            game_id,
+            array![7, game_id, 0, 1, 0, PLAYER2().into(), 0, 0, 0, 5, 0, 0, 0, 1, 0].span(),
+        );
+}
+
+#[test]
+#[should_panic(expected: ('Proof traits_root mismatch', 'ENTRYPOINT_FAILED'))]
+fn test_answer_with_proof_wrong_traits_root_rejected() {
+    let (_, game_actions) = create_test_world();
+    // Create game with a specific traits_root
+    let traits_root: u256 = 0xdeadbeef_u256;
+    starknet::testing::set_contract_address(PLAYER1());
+    let game_id = game_actions.create_game(traits_root, 0_u8);
+
+    starknet::testing::set_contract_address(PLAYER2());
+    game_actions.join_game(game_id);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.commit_character(game_id, core::pedersen::pedersen(1, 101), 0_u256);
+    starknet::testing::set_contract_address(PLAYER2());
+    game_actions.commit_character(game_id, core::pedersen::pedersen(2, 202), 0_u256);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.ask_question(game_id, 1);
+
+    starknet::testing::set_contract_address(PLAYER2());
+    // Send proof with wrong traits_root at PI[5] lo/hi (indices 11, 12) — both 0, actual is 0xdeadbeef
+    game_actions
+        .answer_question_with_proof(
+            game_id,
+            array![7, game_id, 0, 1, 0, PLAYER2().into(), 0, 0, 0, 1, 0, 0, 0, 1, 0].span(),
+        );
+}
+
+#[test]
+#[should_panic(expected: ('Proof commitment mismatch', 'ENTRYPOINT_FAILED'))]
+fn test_answer_with_proof_wrong_commitment_rejected() {
+    let (_, game_actions) = create_test_world();
+    let zk_commitment_p2: u256 = 0xabcd1234_u256;
+    starknet::testing::set_contract_address(PLAYER1());
+    let game_id = game_actions.create_game(0_u256, 0_u8);
+
+    starknet::testing::set_contract_address(PLAYER2());
+    game_actions.join_game(game_id);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.commit_character(game_id, core::pedersen::pedersen(1, 101), 0_u256);
+    starknet::testing::set_contract_address(PLAYER2());
+    // P2 commits with zk_commitment = 0xabcd1234
+    game_actions.commit_character(game_id, core::pedersen::pedersen(2, 202), zk_commitment_p2);
+
+    starknet::testing::set_contract_address(PLAYER1());
+    game_actions.ask_question(game_id, 1);
+
+    starknet::testing::set_contract_address(PLAYER2());
+    // Send proof with wrong commitment at PI[3] lo (index 7) — 1 instead of 0xabcd1234
+    game_actions
+        .answer_question_with_proof(
+            game_id,
+            array![7, game_id, 0, 1, 0, PLAYER2().into(), 0, 1, 0, 1, 0, 0, 0, 1, 0].span(),
+        );
+}
+
+#[test]
+fn test_create_game_stores_traits_root_and_question_set_id() {
+    let (mut world, game_actions) = create_test_world();
+    let traits_root: u256 = 0x1234567890abcdef_u256;
+    starknet::testing::set_contract_address(PLAYER1());
+    let game_id = game_actions.create_game(traits_root, 3_u8);
+
+    let game: Game = world.read_model(game_id);
+    assert(game.traits_root == traits_root, 'traits_root not stored');
+    assert(game.question_set_id == 3_u8, 'question_set_id not stored');
 }

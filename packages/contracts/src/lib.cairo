@@ -3,6 +3,7 @@ mod errors;
 mod events;
 mod interfaces {
     mod game_actions;
+    mod verifier;
 }
 mod models {
     mod game;

@@ -17,12 +17,16 @@ pub mod game_actions {
     use dojo::model::ModelStorage;
     use dojo::world::{IWorldDispatcherTrait, WorldStorage};
     use starknet::contract_address::ContractAddressZeroable;
-    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
+    use starknet::{ContractAddress, contract_address_const, get_block_timestamp, get_caller_address};
     use whoiswho::events::{
         CharacterCommitted, CharacterRevealed, CharactersEliminated, GameCompleted, GameCreated,
-        GuessMade, GuessResult, PlayerJoined, QuestionAnswered, QuestionAsked, TimeoutClaimed,
+        GuessMade, GuessResult, PlayerJoined, QuestionAnswered, QuestionAnsweredVerified,
+        QuestionAsked, TimeoutClaimed,
     };
     use whoiswho::interfaces::game_actions::IGameActions;
+    use whoiswho::interfaces::verifier::{
+        IUltraKeccakZKHonkVerifierDispatcher, IUltraKeccakZKHonkVerifierDispatcherTrait,
+    };
     use whoiswho::models::game::{Board, Commitment, Game, Turn};
     use whoiswho::{constants, errors};
 
@@ -55,7 +59,7 @@ pub mod game_actions {
 
     #[abi(embed_v0)]
     impl GameActionsImpl of IGameActions<ContractState> {
-        fn create_game(ref self: ContractState) -> felt252 {
+        fn create_game(ref self: ContractState, traits_root: u256, question_set_id: u8) -> felt252 {
             let mut world = self.world_default();
             let caller = get_caller_address();
             let now = get_block_timestamp();
@@ -76,9 +80,11 @@ pub mod game_actions {
                         timeout_seconds: constants::ACTION_TIMEOUT_SECONDS,
                         created_at: now,
                         last_action_at: now,
-                        last_question_id: 0_u8,
+                        last_question_id: 0_u16,
                         last_answer: false,
                         guess_character_id: 0,
+                        traits_root,
+                        question_set_id,
                     },
                 );
 
@@ -121,7 +127,12 @@ pub mod game_actions {
             world.emit_event(@PlayerJoined { game_id, player2: caller });
         }
 
-        fn commit_character(ref self: ContractState, game_id: felt252, commitment_hash: felt252) {
+        fn commit_character(
+            ref self: ContractState,
+            game_id: felt252,
+            commitment_hash: felt252,
+            zk_commitment: u256,
+        ) {
             let mut world = self.world_default();
             let caller = get_caller_address();
             let now = get_block_timestamp();
@@ -130,7 +141,7 @@ pub mod game_actions {
             assert_game_exists(game);
             assert(game.phase == constants::PHASE_COMMIT_PHASE, errors::ERR_INVALID_PHASE);
             assert_player_in_game(game, caller);
-            // Zero hash is invalid — a properly derived pedersen hash is never zero.
+            // Zero Pedersen hash is invalid — a properly derived hash is never zero.
             assert(commitment_hash != 0, errors::ERR_INVALID_COMMITMENT);
 
             let mut commitment: Commitment = world.read_model((game_id, caller));
@@ -141,6 +152,7 @@ pub mod game_actions {
                     game_id,
                     player: caller,
                     hash: commitment_hash,
+                    zk_commitment,
                     revealed: false,
                     character_id: 0,
                 };
@@ -160,7 +172,7 @@ pub mod game_actions {
             world.emit_event(@CharacterCommitted { game_id, player: caller, committed_at: now });
         }
 
-        fn ask_question(ref self: ContractState, game_id: felt252, question_id: u8) {
+        fn ask_question(ref self: ContractState, game_id: felt252, question_id: u16) {
             let mut world = self.world_default();
             let caller = get_caller_address();
             let now = get_block_timestamp();
@@ -200,6 +212,7 @@ pub mod game_actions {
                         answered_by: zero,
                         guessed_character_id: 0,
                         action_timestamp: now,
+                        proof_verified: false,
                     },
                 );
 
@@ -248,6 +261,114 @@ pub mod game_actions {
                 .emit_event(
                     @QuestionAnswered {
                         game_id, turn_number: turn.turn_number, answer, answered_by: caller,
+                    },
+                );
+        }
+
+        fn answer_question_with_proof(
+            ref self: ContractState,
+            game_id: felt252,
+            full_proof_with_hints: Span<felt252>,
+        ) {
+            let mut world = self.world_default();
+            let caller = get_caller_address();
+            let now = get_block_timestamp();
+            let mut game: Game = world.read_model(game_id);
+
+            assert_game_exists(game);
+            assert_player_in_game(game, caller);
+            // The answerer is the *non*-active player.
+            assert(active_player(game) != caller, errors::ERR_NOT_YOUR_TURN);
+            assert(
+                game.phase == constants::PHASE_P1_ANSWER_PENDING
+                    || game.phase == constants::PHASE_P2_ANSWER_PENDING,
+                errors::ERR_INVALID_PHASE,
+            );
+
+            // ── Garaga calldata layout ────────────────────────────────────────
+            // Garaga snforge format: [count=7, PI0_lo, PI0_hi, PI1_lo, PI1_hi, ...]
+            // Public inputs in circuit order (7 total):
+            //   PI[0] game_id     PI[1] turn_id     PI[2] player
+            //   PI[3] commitment  PI[4] question_id  PI[5] traits_root
+            //   PI[6] answer_bit  (circuit return value)
+            // Each PI occupies 2 felt252 slots: [lo, hi] because BN254 Fields can exceed felt252.
+            // Prefix = 1 (count) + 7 * 2 (PIs) = 15 elements before the actual proof bytes.
+            assert(full_proof_with_hints.len() >= 15, errors::ERR_INVALID_PROOF_INPUTS);
+
+            // Extract public inputs at correct Garaga offsets.
+            // game_id / turn_id / player / question_id / answer fit in felt252 — lo only needed.
+            let proof_game_id     = *full_proof_with_hints[1];  // PI[0] lo
+            let proof_turn_id     = *full_proof_with_hints[3];  // PI[1] lo
+            let proof_player      = *full_proof_with_hints[5];  // PI[2] lo
+            let proof_commitment  = u256 {
+                low:  (*full_proof_with_hints[7]).try_into().unwrap(),   // PI[3] lo
+                high: (*full_proof_with_hints[8]).try_into().unwrap(),   // PI[3] hi
+            };
+            let proof_question_id = *full_proof_with_hints[9];  // PI[4] lo
+            let proof_traits_root = u256 {
+                low:  (*full_proof_with_hints[11]).try_into().unwrap(),  // PI[5] lo
+                high: (*full_proof_with_hints[12]).try_into().unwrap(),  // PI[5] hi
+            };
+            let computed_answer_raw = *full_proof_with_hints[13]; // PI[6] lo (answer bit)
+
+            // ── Anti-replay: bind proof to current game state ─────────────────
+            assert(proof_game_id == game_id, errors::ERR_PROOF_GAME_MISMATCH);
+            assert(proof_turn_id == game.turn_count.into(), errors::ERR_PROOF_TURN_MISMATCH);
+            assert(proof_player == caller.into(), errors::ERR_PROOF_PLAYER_MISMATCH);
+            assert(
+                proof_question_id == game.last_question_id.into(),
+                errors::ERR_PROOF_QUESTION_MISMATCH,
+            );
+
+            // ── Collection integrity: proof must reference the game's traits_root ──
+            assert(proof_traits_root == game.traits_root, errors::ERR_PROOF_TRAITS_ROOT_MISMATCH);
+
+            // ── Commitment consistency ────────────────────────────────────────
+            let commitment: Commitment = world.read_model((game_id, caller));
+            assert(
+                proof_commitment == commitment.zk_commitment, errors::ERR_PROOF_COMMITMENT_MISMATCH,
+            );
+
+            // ── Call Garaga verifier ──────────────────────────────────────────
+            let verifier_addr = contract_address_const::<constants::VERIFIER_ADDRESS_SEPOLIA>();
+            assert(!verifier_addr.is_zero(), errors::ERR_VERIFIER_NOT_DEPLOYED);
+            let verifier = IUltraKeccakZKHonkVerifierDispatcher {
+                contract_address: verifier_addr,
+            };
+            let result = verifier.verify_ultra_keccak_zk_honk_proof(full_proof_with_hints);
+            assert(result.is_ok(), errors::ERR_PROOF_VERIFICATION_FAILED);
+
+            // ── Extract answer from proof output ──────────────────────────────
+            let computed_answer: bool = computed_answer_raw != 0;
+
+            // ── Advance phase (same logic as answer_question) ─────────────────
+            if game.current_turn == 1_u8 {
+                game.phase = constants::PHASE_P1_ELIMINATING;
+            } else {
+                game.phase = constants::PHASE_P2_ELIMINATING;
+            }
+
+            let mut turn: Turn = world.read_model((game_id, game.turn_count));
+            assert(turn.turn_number != 0_u16, errors::ERR_TURN_NOT_FOUND);
+            turn.answer = computed_answer;
+            turn.answered_by = caller;
+            turn.action_timestamp = now;
+            turn.proof_verified = true;
+            world.write_model(@turn);
+
+            game.last_answer = computed_answer;
+            game.last_action_at = now;
+            world.write_model(@game);
+
+            world
+                .emit_event(
+                    @QuestionAnsweredVerified {
+                        game_id,
+                        turn_number: turn.turn_number,
+                        question_id: game.last_question_id,
+                        computed_answer,
+                        answerer: caller,
+                        proof_verified: true,
                     },
                 );
         }
@@ -329,6 +450,7 @@ pub mod game_actions {
                         answered_by: zero,
                         guessed_character_id: character_id,
                         action_timestamp: now,
+                        proof_verified: false,
                     },
                 );
 

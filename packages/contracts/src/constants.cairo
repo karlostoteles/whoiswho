@@ -37,3 +37,20 @@ pub const PHASE_COMPLETED: u8 = 10;
 pub const ACTION_TYPE_QUESTION: u8 = 0;
 /// The turn record represents a final guess by the active player.
 pub const ACTION_TYPE_GUESS: u8 = 1;
+
+// ---------------------------------------------------------------------------
+// ZK verifier — deployed Garaga verifier contract addresses.
+// Fill in after deploying the whoiswho_answer_verifier Scarb package.
+// ---------------------------------------------------------------------------
+
+/// Garaga UltraKeccakZKHonk verifier on Sepolia testnet (deploy address TBD).
+pub const VERIFIER_ADDRESS_SEPOLIA: felt252 = 0x0;
+/// Garaga UltraKeccakZKHonk verifier on Mainnet (deploy address TBD).
+pub const VERIFIER_ADDRESS_MAINNET: felt252 = 0x0;
+
+// ---------------------------------------------------------------------------
+// Question set IDs — identifies which question schema is in use.
+// ---------------------------------------------------------------------------
+
+/// SCHIZODIO collection v1 (10-question schema, depth-10 Merkle tree, 1024 leaves).
+pub const QUESTION_SET_SCHIZODIO_V1: u8 = 0;
