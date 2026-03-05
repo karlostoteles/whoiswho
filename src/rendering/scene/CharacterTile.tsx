@@ -83,14 +83,14 @@ export function CharacterTile({
   const isFlat = tileW < 1.0;
   const DEPTH = Math.min(0.06, tileW * 0.04);
 
-  // Hover glow — idle baseline 0.07, jumps to 0.45 on hover during elimination
+  // Hover glow — only animate for discrete 3D cards (full LOD)
+  // For mass-collection boards (flat LOD), use static intensity to save 1000x useFrame overhead
   useFrame((_, delta) => {
-    if (matRef.current) {
-      const target = hovered && isInteractive ? 0.45 : 0.07;
-      matRef.current.emissiveIntensity = lerp(
-        matRef.current.emissiveIntensity, target, 1 - Math.pow(0.001, delta),
-      );
-    }
+    if (isFlat || !matRef.current) return;
+    const target = hovered && isInteractive ? 0.45 : 0.07;
+    matRef.current.emissiveIntensity = lerp(
+      matRef.current.emissiveIntensity, target, 1 - Math.pow(0.001, delta),
+    );
   });
 
   const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
@@ -128,7 +128,7 @@ export function CharacterTile({
               color={texture ? '#FFFFFF' : '#8899BB'}
               roughness={0.52}
               emissive="#E8A444"
-              emissiveIntensity={0.07}
+              emissiveIntensity={isFlat ? (hovered && isInteractive ? 0.35 : 0.07) : 0.07}
               side={THREE.DoubleSide}
             />
           </mesh>

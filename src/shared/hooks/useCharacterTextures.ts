@@ -8,83 +8,123 @@ import { getTileLOD } from '@/core/rules/constants';
  * Returns a texture map for all game characters.
  *
  * LOD-aware strategy:
- *  minimal (tileW < 0.38) → no textures; CharacterGrid renders coloured planes via InstancedMesh
- *  flat    (tileW < 1.0)  → procedural canvas portrait; real NFT art skipped (too small to matter)
- *  full    (tileW ≥ 1.0)  → canvas portrait + async real NFT image upgrade
- *
- * At 999 tiles we create zero canvas objects → instant render, zero GC pressure.
- * As tiles grow (eliminations shrink the pool) we progressively load real artwork.
+ *  minimal (tileW < 0.15) → no textures; CharacterGrid renders coloured planes via InstancedMesh
+ *  flat    (tileW < 1.0)  → low-res procedural placeholder → throttled real NFT images
+ *  full    (tileW ≥ 1.0)  → high-res procedural portrait → async real NFT image upgrade
  */
 export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Texture> {
   const characters = useGameCharacters();
   const lod = getTileLOD(tileW);
   const isMinimal = lod === 'minimal';
+  const isLargeBoard = characters.length > 100;
 
   const [textures, setTextures] = useState<Map<string, THREE.Texture>>(new Map());
 
-  // Build initial procedural textures and handle cleanup
+  // 1. Build initial textures (Instant Placeholders for large boards)
   useEffect(() => {
     if (isMinimal) {
       setTextures(new Map());
       return;
     }
 
+    if (isLargeBoard) {
+      // Create ONE shared low-res placeholder to avoid 1000 canvas creations
+      const placeholder = renderPortrait({
+        id: 'placeholder', name: 'Loading...',
+        traits: { gender: 'male' } as any
+      }, undefined, true);
+
+      const map = new Map<string, THREE.Texture>();
+      for (const char of characters) {
+        map.set(char.id, placeholder);
+      }
+      setTextures(map);
+
+      return () => {
+        placeholder.dispose();
+      };
+    }
+
+    // Small boards: generate individual procedural textures immediately
     const map = new Map<string, THREE.Texture>();
     for (const char of characters) {
-      map.set(char.id, renderPortrait(char));
+      map.set(char.id, renderPortrait(char, undefined, false));
     }
     setTextures(map);
 
     return () => {
-      // Dispose of procedural canvas textures when dependencies change or unmounting
       for (const texture of map.values()) {
         texture.dispose();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMinimal, characters]);
+  }, [isMinimal, characters, isLargeBoard]);
 
-  // Async: upgrade to real NFT images — flat + full LOD (tiles big enough to see detail)
+  // 2. Async: Upgrade to real NFT images with THROTTLING
   useEffect(() => {
-    if (lod === 'minimal') return; // too small — coloured instanced-mesh is fine
+    if (lod === 'minimal') return;
 
     let cancelled = false;
-    const loader = new THREE.TextureLoader();
+    const BATCH_SIZE = 12;
+    const DELAY = 150;
 
-    for (const char of characters) {
-      // Explicit imageUrl wins; otherwise derive from id ('nft_53' → proxy URL)
-      let imageUrl = (char as any).imageUrl as string | undefined;
-      if (!imageUrl && char.id.startsWith('nft_')) {
-        const tokenId = char.id.replace('nft_', '');
-        // Use smaller thumbnail for flat LOD tiles; full image for large tiles
-        imageUrl = lod === 'full'
-          ? `/api/nft-art/${tokenId}`
-          : `/api/nft-art/${tokenId}`; // both use same redirect for now
+    const loadBatches = async () => {
+      for (let i = 0; i < characters.length; i += BATCH_SIZE) {
+        if (cancelled) break;
+        const batch = characters.slice(i, i + BATCH_SIZE);
+
+        await Promise.all(
+          batch.map(async (char) => {
+            let imageUrl = (char as any).imageUrl as string | undefined;
+            if (!imageUrl && char.id.startsWith('nft_')) {
+              const tokenId = char.id.replace('nft_', '');
+              imageUrl = `https://v1assets.schizod.io/images/revealed/${tokenId}.png`;
+            }
+            if (!imageUrl) return;
+
+            try {
+              const img = await loadImage(imageUrl);
+              if (cancelled) return;
+
+              const texture = renderPortrait(char, img, isLargeBoard);
+              setTextures((prev) => {
+                const old = prev.get(char.id);
+                // Only dispose if it's NOT the shared placeholder
+                if (old && (old as any).isPlaceholder !== true) {
+                  // old.dispose(); // risky with shared textures, let's just swap
+                }
+                const next = new Map(prev);
+                next.set(char.id, texture);
+                return next;
+              });
+            } catch (err) {
+              // Fail silently
+            }
+          })
+        );
+
+        await new Promise(r => setTimeout(r, DELAY));
       }
-      if (!imageUrl) continue;
+    };
 
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = imageUrl;
-      img.onload = () => {
-        if (cancelled) return;
-        const texture = renderPortrait(char, img);
-        setTextures((prev) => {
-          const old = prev.get(char.id);
-          if (old) old.dispose();
-          const next = new Map(prev);
-          next.set(char.id, texture);
-          return next;
-        });
-      };
-    }
+    loadBatches();
 
     return () => {
       cancelled = true;
     };
-  }, [characters, lod]);
+  }, [characters, lod, isLargeBoard]);
 
   return textures;
+}
+
+/** Helper to load image with promise */
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+  });
 }
 
 export function useCardBackTexture(): THREE.CanvasTexture {

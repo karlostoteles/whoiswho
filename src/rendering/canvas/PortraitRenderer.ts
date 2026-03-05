@@ -45,12 +45,17 @@ const MEME_CONFIG: Record<string, { bg: string; badge: string }> = {
 
 export function renderPortrait(
   character: Character,
-  nftImage?: HTMLImageElement | HTMLCanvasElement
+  nftImage?: HTMLImageElement | HTMLCanvasElement,
+  lowRes: boolean = false
 ): THREE.CanvasTexture {
+  const finalSize = lowRes ? 64 : SIZE;
   const canvas = document.createElement('canvas');
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  canvas.width = finalSize;
+  canvas.height = finalSize;
   const ctx = canvas.getContext('2d')!;
+
+  // Scale context if lowRes for internal drawing consistency
+  if (lowRes) ctx.scale(64 / SIZE, 64 / SIZE);
 
   // Resolve background color
   const memeConf = MEME_CONFIG[character.id];
@@ -59,21 +64,22 @@ export function renderPortrait(
     : DEFAULT_BG_COLORS[Math.abs(hashCode(character.id)) % DEFAULT_BG_COLORS.length];
 
   // Portrait area background
-  const portraitH = SIZE - NAME_HEIGHT;
+  const portraitH = SIZE - (lowRes ? 0 : NAME_HEIGHT); // No name banner in low-res thumbnails
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, SIZE, portraitH);
+  ctx.fillRect(0, 0, SIZE, portraitH || SIZE);
 
-  // Vignette on portrait area
-  const vgGrad = ctx.createRadialGradient(SIZE / 2, portraitH / 2, 60, SIZE / 2, portraitH / 2, SIZE / 2);
-  vgGrad.addColorStop(0, 'rgba(255,255,255,0.12)');
-  vgGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
-  ctx.fillStyle = vgGrad;
-  ctx.fillRect(0, 0, SIZE, portraitH);
+  // Skip vignette in low-res
+  if (!lowRes) {
+    const vgGrad = ctx.createRadialGradient(SIZE / 2, portraitH / 2, 60, SIZE / 2, portraitH / 2, SIZE / 2);
+    vgGrad.addColorStop(0, 'rgba(255,255,255,0.12)');
+    vgGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
+    ctx.fillStyle = vgGrad;
+    ctx.fillRect(0, 0, SIZE, portraitH);
+  }
 
   // Draw portrait
   if (nftImage) {
-    // Draw the real NFT image
-    ctx.drawImage(nftImage, 0, 0, SIZE, portraitH);
+    ctx.drawImage(nftImage, 0, 0, SIZE, portraitH || SIZE);
   } else {
     // Draw procedural portrait
     const traits = character.traits;
@@ -87,53 +93,50 @@ export function renderPortrait(
     drawAccessories(ctx, traits);
   }
 
-  // ── Badge (top-right, meme characters only) ──────────────────────────────
-  if (memeConf?.badge) {
-    const bRadius = 34;
-    const bx = SIZE - bRadius - 10;
-    const by = bRadius + 10;
+  // Skip badge/name banner in low-res thumbnails to save GPU/CPU
+  if (!lowRes) {
+    if (memeConf?.badge) {
+      const bRadius = 34;
+      const bx = SIZE - bRadius - 10;
+      const by = bRadius + 10;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(bx, by, bRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = `${bRadius * 1.0}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(memeConf.badge, bx, by + 2);
+      ctx.restore();
+    }
+
+    const bannerY = portraitH;
+    const bannerGrad = ctx.createLinearGradient(0, bannerY, 0, SIZE);
+    bannerGrad.addColorStop(0, 'rgba(8,8,18,0.93)');
+    bannerGrad.addColorStop(1, 'rgba(8,8,18,0.98)');
+    ctx.fillStyle = bannerGrad;
+    ctx.fillRect(0, bannerY, SIZE, NAME_HEIGHT);
+
+    ctx.fillStyle = lighten(bg, 50);
+    ctx.fillRect(0, bannerY, SIZE, 3);
+
+    const nameLen = character.name.length;
+    const fontSize = nameLen > 12 ? 38 : nameLen > 9 ? 44 : 52;
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(bx, by, bRadius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.font = `${bRadius * 1.0}px serif`;
+    ctx.font = `bold ${fontSize}px "Space Grotesk", "Inter", Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.shadowColor = lighten(bg, 40);
+    ctx.shadowBlur = 18;
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(memeConf.badge, bx, by + 2);
+    ctx.fillText(character.name, SIZE / 2, bannerY + NAME_HEIGHT / 2 + 2);
     ctx.restore();
   }
-
-  // ── Name banner ───────────────────────────────────────────────────────────
-  const bannerY = portraitH;
-
-  // Dark banner fill
-  const bannerGrad = ctx.createLinearGradient(0, bannerY, 0, SIZE);
-  bannerGrad.addColorStop(0, 'rgba(8,8,18,0.93)');
-  bannerGrad.addColorStop(1, 'rgba(8,8,18,0.98)');
-  ctx.fillStyle = bannerGrad;
-  ctx.fillRect(0, bannerY, SIZE, NAME_HEIGHT);
-
-  // Coloured accent line at top of banner
-  ctx.fillStyle = lighten(bg, 50);
-  ctx.fillRect(0, bannerY, SIZE, 3);
-
-  // Name text
-  const nameLen = character.name.length;
-  const fontSize = nameLen > 12 ? 38 : nameLen > 9 ? 44 : 52;
-  ctx.save();
-  ctx.font = `bold ${fontSize}px "Space Grotesk", "Inter", Arial, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = lighten(bg, 40);
-  ctx.shadowBlur = 18;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(character.name, SIZE / 2, bannerY + NAME_HEIGHT / 2 + 2);
-  ctx.restore();
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

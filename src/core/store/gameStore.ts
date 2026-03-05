@@ -23,11 +23,18 @@ function pickBestQuestionForCPU(
 ) {
   const available = QUESTIONS.filter((q) => !askedIds.has(q.id));
   if (available.length === 0) return null;
+
+  // Optimisation: for massive pools, sample a subset to find a good-enough split
+  // 30,000 evaluations (30 questions * 1000 chars) is too slow for a state update.
+  const sample = remaining.length > 100
+    ? [...remaining].sort(() => Math.random() - 0.5).slice(0, 50)
+    : remaining;
+
   let best = available[0];
   let bestScore = Infinity;
   for (const q of available) {
-    const yesCount = remaining.filter((c) => evaluateQuestion(q, c)).length;
-    const noCount = remaining.length - yesCount;
+    const yesCount = sample.filter((c) => evaluateQuestion(q, c)).length;
+    const noCount = sample.length - yesCount;
     const score = Math.abs(yesCount - noCount);
     if (score < bestScore) { bestScore = score; best = q; }
   }
