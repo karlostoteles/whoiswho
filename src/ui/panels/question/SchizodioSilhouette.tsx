@@ -41,6 +41,17 @@ export function SchizodioSilhouette({
     ? EYE_COLORS[revealedTraits.eye_color as EyeColor]
     : '#0E0D1C';
 
+  // NFT-specific body coloring (Identity Construction)
+  let bodyColor = 'url(#sg-body)';
+  if (revealedTraits.nft_body) {
+    const b = String(revealedTraits.nft_body).toLowerCase();
+    if (b.includes('green')) bodyColor = '#4ADE80';
+    else if (b.includes('purple')) bodyColor = '#A855F7';
+    else if (b.includes('blue')) bodyColor = '#3B82F6';
+    else if (b.includes('lobster') || b.includes('pink')) bodyColor = '#FB7185';
+    else if (b.includes('cyborg') || b.includes('stone')) bodyColor = '#94A3B8';
+  }
+
   const highlight = (zone: QuestionZone) => ({
     fill: ZONE_CONFIG[zone].color,
     fillOpacity: activeZone === zone ? 0.22 : hoveredZone === zone ? 0.12 : 0,
@@ -82,20 +93,20 @@ export function SchizodioSilhouette({
         </defs>
 
         {/* LEGS */}
-        <rect x="30" y="192" width="30" height="38" rx="7" fill="url(#sg-body)" />
-        <rect x="70" y="192" width="30" height="38" rx="7" fill="url(#sg-body)" />
+        <rect x="30" y="192" width="30" height="38" rx="7" fill={bodyColor} />
+        <rect x="70" y="192" width="30" height="38" rx="7" fill={bodyColor} />
 
         {/* GEAR ZONE — arms */}
-        <rect x="1" y="122" width="24" height="68" rx="9" fill="url(#sg-body)" stroke="rgba(255,255,255,0.09)" />
-        <rect x="105" y="122" width="24" height="68" rx="9" fill="url(#sg-body)" stroke="rgba(255,255,255,0.09)" />
+        <rect x="1" y="122" width="24" height="68" rx="9" fill={bodyColor} stroke="rgba(255,255,255,0.09)" />
+        <rect x="105" y="122" width="24" height="68" rx="9" fill={bodyColor} stroke="rgba(255,255,255,0.09)" />
 
         {/* Hands — use revealed skin color */}
         <ellipse cx="13" cy="193" rx="10" ry="8" fill={skinColor} />
         <ellipse cx="117" cy="193" rx="10" ry="8" fill={skinColor} />
 
         {/* BODY ZONE — torso */}
-        <rect x="14" y="116" width="102" height="18" rx="7" fill="url(#sg-body)" stroke="rgba(255,255,255,0.10)" />
-        <rect x="26" y="128" width="78" height="66" rx="9" fill="url(#sg-body)" stroke="rgba(255,255,255,0.11)" />
+        <rect x="14" y="116" width="102" height="18" rx="7" fill={bodyColor} stroke="rgba(255,255,255,0.10)" />
+        <rect x="26" y="128" width="78" height="66" rx="9" fill={bodyColor} stroke="rgba(255,255,255,0.11)" />
         <rect x="52" y="114" width="26" height="16" rx="6" fill={skinColor} />
 
         {/* HAIR mass — use revealed hair color */}
