@@ -4,12 +4,17 @@ import { OnlineLobbyScreen } from './OnlineLobbyScreen';
 import { useGameActions } from '@/core/store/selectors';
 import { MEME_CHARACTERS } from '@/core/data/memeCharacters';
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
+import { connectCartridgeWallet } from '@/services/starknet/sdk';
+import { SCHIZODIO_CONTRACT, RPC_URL } from '@/services/starknet/config';
+import { nftToCharacter } from '@/core/data/nftCharacterAdapter';
+import type { SchizodioNFT } from '@/services/starknet/types';
 
 type View = 'menu' | 'free-pick' | 'real-pick' | 'online';
 
 export function MenuScreen() {
   const [view, setView] = useState<View>('menu');
   const [loading, setLoading] = useState(false);
+  const [nftStatus, setNftStatus] = useState<string>('');
   const { startSetup, setGameMode } = useGameActions();
 
   const handleFreePlay = () => {
@@ -25,6 +30,97 @@ export function MenuScreen() {
       startSetup();
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** Connect wallet → read owned Schizodios → start free game with those NFTs */
+  const handleMySchizodios = async () => {
+    setLoading(true);
+    setNftStatus('Connecting wallet...');
+    try {
+      const wallet = await connectCartridgeWallet();
+      setNftStatus('Reading your NFTs...');
+
+      // Read balanceOf from the Schizodio ERC-721 contract
+      const { RpcProvider, CallData, cairo } = await import('starknet');
+      const provider = new RpcProvider({ nodeUrl: RPC_URL });
+
+      // Read balanceOf(owner) — ERC-721 standard
+      const balanceCalldata = CallData.compile([wallet.address]);
+      const balanceRaw = await provider.callContract({
+        contractAddress: SCHIZODIO_CONTRACT,
+        entrypoint: 'balanceOf',
+        calldata: balanceCalldata,
+      });
+      const balance = Number(balanceRaw[0] || 0);
+
+      if (balance === 0) {
+        setNftStatus('No Schizodios found! Using full collection instead...');
+        await new Promise(r => setTimeout(r, 1500));
+        const chars = await generateAllCollectionCharacters();
+        setGameMode('nft-free', chars);
+        startSetup();
+        return;
+      }
+
+      setNftStatus(`Found ${balance} Schizodios! Loading metadata...`);
+
+      // Enumerate owned token IDs
+      const tokenIds: string[] = [];
+      for (let i = 0; i < Math.min(balance, 50); i++) {
+        try {
+          const indexCalldata = CallData.compile([wallet.address, cairo.uint256(i)]);
+          const tokenRaw = await provider.callContract({
+            contractAddress: SCHIZODIO_CONTRACT,
+            entrypoint: 'tokenOfOwnerByIndex',
+            calldata: indexCalldata,
+          });
+          const id = Number(tokenRaw[0] || 0).toString();
+          tokenIds.push(id);
+        } catch {
+          break;
+        }
+      }
+
+      // Fetch metadata for each owned token
+      const BASE = 'https://v1assets.schizod.io/json/revealed/';
+      const nftPromises = tokenIds.map(async (id) => {
+        try {
+          const res = await fetch(`${BASE}${id}.json`);
+          if (!res.ok) return null;
+          const data = await res.json();
+          const stub: SchizodioNFT = {
+            tokenId: id,
+            name: data.name || `#${id}`,
+            imageUrl: data.image || '',
+            attributes: data.attributes || [],
+          };
+          return nftToCharacter(stub);
+        } catch { return null; }
+      });
+
+      const ownedChars = (await Promise.all(nftPromises)).filter(Boolean) as any[];
+
+      if (ownedChars.length < 24) {
+        // Pad with random collection characters
+        setNftStatus(`${ownedChars.length} NFTs loaded, padding to 24...`);
+        const allChars = await generateAllCollectionCharacters();
+        const ownedIds = new Set(ownedChars.map((c: any) => c.id));
+        const padding = allChars.filter(c => !ownedIds.has(c.id));
+        const shuffled = [...padding].sort(() => Math.random() - 0.5);
+        const needed = 24 - ownedChars.length;
+        ownedChars.push(...shuffled.slice(0, needed));
+      }
+
+      setGameMode('nft-free', ownedChars.slice(0, 24));
+      startSetup();
+    } catch (err: any) {
+      console.error('[MenuScreen] NFT ownership check failed:', err);
+      setNftStatus(`Error: ${err?.message || 'Failed to connect'}`);
+      await new Promise(r => setTimeout(r, 2000));
+    } finally {
+      setLoading(false);
+      setNftStatus('');
     }
   };
 
@@ -49,7 +145,9 @@ export function MenuScreen() {
             onBack={() => setView('menu')}
             onCTVersion={handleFreePlay}
             onSchizodio={handleNFTFreePlay}
+            onMySchizodios={handleMySchizodios}
             loading={loading}
+            nftStatus={nftStatus}
           />
         )}
         {view === 'real-pick' && (
@@ -123,64 +221,113 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
+        overflow: 'hidden',
       }}
     >
-      {/* Logo & Title */}
-      <motion.div
-        initial={{ y: -30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2, type: 'spring', stiffness: 150 }}
-        style={{ textAlign: 'center', marginBottom: 48 }}
-      >
-        <img
-          src="/logo.png"
-          alt="guessNFT"
+      {/* ─── Animated floating particles (background decoration) ─── */}
+      {[...Array(6)].map((_, i) => (
+        <motion.div
+          key={`p${i}`}
+          initial={{ opacity: 0 }}
+          animate={{
+            opacity: [0, 0.15, 0],
+            y: [0, -60 - i * 20],
+            x: [0, (i % 2 === 0 ? 30 : -30)],
+          }}
+          transition={{ duration: 4 + i, repeat: Infinity, delay: i * 0.7 }}
           style={{
-            width: 'clamp(120px, 30vw, 200px)',
-            height: 'auto',
+            position: 'absolute',
+            width: 4 + i * 2, height: 4 + i * 2,
             borderRadius: '50%',
-            filter: 'drop-shadow(0 0 40px rgba(124,58,237,0.4))',
-            marginBottom: 12,
+            background: i % 2 === 0 ? '#E8A444' : '#7C3AED',
+            left: `${15 + i * 13}%`,
+            bottom: `${10 + i * 8}%`,
+            pointerEvents: 'none',
           }}
         />
-        <div style={{
+      ))}
+
+      {/* ─── Logo: drops from above with bounce ─── */}
+      <motion.img
+        src="/logo.png"
+        alt="guessNFT"
+        initial={{ y: -120, opacity: 0, scale: 0.6, rotate: -10 }}
+        animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
+        transition={{ delay: 0.15, type: 'spring', stiffness: 120, damping: 12, mass: 0.8 }}
+        style={{
+          width: 'clamp(120px, 30vw, 200px)',
+          height: 'auto',
+          borderRadius: '50%',
+          filter: 'drop-shadow(0 0 50px rgba(124,58,237,0.5))',
+          marginBottom: 12,
+        }}
+      />
+
+      {/* ─── Title: scales in with spring ─── */}
+      <motion.div
+        initial={{ scale: 0.3, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.45, type: 'spring', stiffness: 180, damping: 14 }}
+        style={{
           fontFamily: "'Space Grotesk', sans-serif",
           fontSize: 'clamp(28px, 8vw, 48px)',
           fontWeight: 800, letterSpacing: '-0.02em',
           background: 'linear-gradient(135deg, #E8A444 0%, #F0C060 50%, #E8A444 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          marginBottom: 4, filter: 'drop-shadow(0 0 30px rgba(232,164,68,0.3))',
-        }}>
-          guessNFT
-        </div>
-        <div style={{
+          filter: 'drop-shadow(0 0 30px rgba(232,164,68,0.3))',
+          marginBottom: 4, textAlign: 'center',
+        }}
+      >
+        guessNFT
+      </motion.div>
+
+      {/* ─── Badge: slides up with fade ─── */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.7, type: 'spring', stiffness: 200, damping: 20 }}
+        style={{
           display: 'inline-block',
           background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(91,33,182,0.3))',
           border: '1px solid rgba(124,58,237,0.5)', borderRadius: 20,
           padding: '3px 14px', fontSize: 11, fontWeight: 700,
           letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-          color: '#A78BFA', marginBottom: 14,
-        }}>
-          SCHIZODIO Premiere
-        </div>
-        <div style={{ fontSize: 15, color: 'rgba(255,255,254,0.38)', fontWeight: 500 }}>
-          The classic family game, made schizo
-        </div>
-      </motion.div>
-
-      {/* Two main tiles */}
-      <motion.div
-        initial={{ y: 30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.42 }}
-        style={{
-          display: 'flex', gap: 'clamp(16px, 4vw, 28px)',
-          alignItems: 'stretch', justifyContent: 'center',
+          color: '#A78BFA', marginBottom: 8,
         }}
       >
-        <PlayRealTile onClick={onPlayOnline} />
-        <PlayFreeTile onClick={onFreePlay} />
+        SCHIZODIO Premiere
       </motion.div>
+
+      {/* ─── Subtitle: gentle fade in ─── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.95, duration: 0.8 }}
+        style={{ fontSize: 15, color: 'rgba(255,255,254,0.38)', fontWeight: 500, marginBottom: 48, textAlign: 'center' }}
+      >
+        The classic family game, made schizo
+      </motion.div>
+
+      {/* ─── Two main tiles: slide in from sides ─── */}
+      <div style={{
+        display: 'flex', gap: 'clamp(16px, 4vw, 28px)',
+        alignItems: 'stretch', justifyContent: 'center',
+      }}>
+        <motion.div
+          initial={{ x: -100, opacity: 0, rotate: -5 }}
+          animate={{ x: 0, opacity: 1, rotate: 0 }}
+          transition={{ delay: 1.1, type: 'spring', stiffness: 130, damping: 16 }}
+        >
+          <PlayRealTile onClick={onPlayOnline} />
+        </motion.div>
+        <motion.div
+          initial={{ x: 100, opacity: 0, rotate: 5 }}
+          animate={{ x: 0, opacity: 1, rotate: 0 }}
+          transition={{ delay: 1.25, type: 'spring', stiffness: 130, damping: 16 }}
+        >
+          <PlayFreeTile onClick={onFreePlay} />
+        </motion.div>
+      </div>
     </motion.div>
   );
 }
@@ -342,10 +489,12 @@ interface FreePickProps {
   onBack: () => void;
   onCTVersion: () => void;
   onSchizodio: () => void;
+  onMySchizodios: () => void;
   loading?: boolean;
+  nftStatus?: string;
 }
 
-function FreePickView({ onBack, onCTVersion, onSchizodio, loading }: FreePickProps) {
+function FreePickView({ onBack, onCTVersion, onSchizodio, onMySchizodios, loading, nftStatus }: FreePickProps) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 40 }}
@@ -374,14 +523,25 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, loading }: FreePickPro
             subtitle="Crypto Twitter meme characters"
             tag="24 CHARACTERS"
           />
-          {/* Schizodio vs AI */}
+          {/* My Schizodios (wallet-connected) */}
+          <OptionCard
+            onClick={loading ? () => { } : onMySchizodios}
+            accent="#E8A444"
+            accentRgb="232,164,68"
+            icon="🔗"
+            title={nftStatus || "My Schizodios"}
+            subtitle="Connect Controller & play with your own NFTs"
+            tag="WALLET"
+            disabled={loading}
+          />
+          {/* Schizodio vs AI (full collection, no wallet) */}
           <OptionCard
             onClick={loading ? () => { } : onSchizodio}
             accent="#06B6D4"
             accentRgb="6,182,212"
             icon="💀"
-            title={loading ? "Loading..." : "Schizodio vs AI"}
-            subtitle="Full SCHIZODIO NFT collection"
+            title={loading && !nftStatus ? "Loading..." : "Schizodio Collection"}
+            subtitle="Full 999 NFT collection (no wallet needed)"
             tag="999 NFTS"
             disabled={loading}
           />
