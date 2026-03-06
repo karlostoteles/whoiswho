@@ -269,7 +269,7 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
         transition={{ delay: 0.95, duration: 0.8 }}
         style={{ fontSize: 15, color: 'rgba(255,255,254,0.38)', fontWeight: 500, marginBottom: 24, textAlign: 'center' }}
       >
-        The classic family game, made schizo
+        The classic family game, now yours
       </motion.div>
 
       {/* Login Button (if not connected) */}
@@ -322,46 +322,17 @@ function PlayRealTile({ onClick }: { onClick: () => void }) {
       }}
     >
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <img
+          src="/vs_background.jpg"
+          alt="1Vs1 Background"
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at 50% 55%, rgba(232,164,68,0.13) 0%, transparent 68%)',
+          background: 'linear-gradient(to bottom, transparent 60%, rgba(14,12,30,0.9) 100%)',
         }} />
         <svg viewBox="0 0 120 120" width="100%" height="100%"
           style={{ position: 'absolute', inset: 0 }} preserveAspectRatio="xMidYMid meet">
-
-          {/* Penguin Mascot (Left) */}
-          <g transform="translate(15, 35) scale(0.8)">
-            {/* Body */}
-            <ellipse cx="25" cy="45" rx="20" ry="25" fill="#FFFFFE" />
-            <ellipse cx="25" cy="45" rx="16" ry="22" fill="#0F0E17" />
-            <ellipse cx="25" cy="50" rx="10" ry="14" fill="#FFFFFE" />
-            {/* Eyes */}
-            <circle cx="18" cy="38" r="3" fill="#FFFFFE" />
-            <circle cx="18" cy="38" r="1.5" fill="#000" />
-            <circle cx="32" cy="38" r="3" fill="#FFFFFE" />
-            <circle cx="32" cy="38" r="1.5" fill="#000" />
-            {/* Beak */}
-            <path d="M22 42 L28 42 L25 48 Z" fill="#E8A444" />
-          </g>
-
-          {/* VS Circle */}
-          <circle cx="60" cy="65" r="15" fill="rgba(15, 14, 23, 0.8)" stroke="rgba(232, 164, 68, 0.3)" strokeWidth="1" />
-          <text x="60" y="70" textAnchor="middle" fill="#E8A444" fontSize="12" fontWeight="900" fontFamily="Space Grotesk">VS</text>
-
-          {/* Ape Mascot (Right) */}
-          <g transform="translate(65, 35) scale(0.8)">
-            {/* Head */}
-            <rect x="5" y="25" width="40" height="35" rx="12" fill="#E8A444" opacity="0.9" />
-            {/* Mouth/Muzzle */}
-            <rect x="10" y="45" width="30" height="15" rx="8" fill="#F0C060" />
-            {/* Eyes */}
-            <rect x="12" y="32" width="8" height="8" rx="2" fill="#0F0E17" />
-            <rect x="30" y="32" width="8" height="8" rx="2" fill="#0F0E17" />
-            {/* Ears */}
-            <circle cx="5" cy="40" r="6" fill="#E8A444" />
-            <circle cx="45" cy="40" r="6" fill="#E8A444" />
-          </g>
-
           <text x="60" y="112" textAnchor="middle" fill="#E8A444" fontSize="14" fontWeight="900"
             fontFamily="Space Grotesk, sans-serif" opacity="0.9" letterSpacing="0.1em">1Vs1</text>
         </svg>

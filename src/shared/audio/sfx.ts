@@ -94,7 +94,9 @@ class SFXEngine {
   // ── Public sounds ───────────────────────────────────────────────────────────
 
   click() {
-    this.playTone({ frequency: 800, type: 'square', duration: 0.06, volume: 0.15, attack: 0.005, decay: 0.06 });
+    // Soft, pleasant tile touch/clack instead of the harsh CPU beep
+    this.playTone({ frequency: 600, type: 'triangle', duration: 0.04, volume: 0.1, attack: 0.005, decay: 0.02 });
+    this.playTone({ frequency: 900, type: 'sine', duration: 0.05, volume: 0.05, attack: 0.001, decay: 0.03, delay: 0.01 });
   }
 
   question() {
