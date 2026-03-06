@@ -142,7 +142,7 @@ function SubHeader({ onBack, title }: { onBack: () => void; title: string }) {
       marginBottom: 32,
     }}>
       <motion.button
-        onClick={onBack}
+        onClick={() => { sfx.click(); onBack(); }}
         whileHover={{ scale: 1.08, background: 'rgba(255,255,255,0.1)' }}
         whileTap={{ scale: 0.94 }}
         style={{
@@ -557,7 +557,7 @@ interface OptionCardProps {
 function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, disabled }: OptionCardProps) {
   return (
     <motion.button
-      onClick={disabled ? undefined : onClick}
+      onClick={disabled ? undefined : () => { sfx.click(); onClick(); }}
       whileHover={disabled ? {} : { scale: 1.02, x: 4 }}
       whileTap={disabled ? {} : { scale: 0.98 }}
       style={{

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useGameActions, usePhase } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
+import { sfx } from '@/shared/audio/sfx';
 
 /**
  * Global Home button — top-left corner (next to Wallet).
@@ -15,7 +16,7 @@ export function HomeButton() {
 
     return (
         <motion.button
-            onClick={resetGame}
+            onClick={() => { sfx.click(); resetGame(); }}
             whileHover={{ scale: 1.1, background: 'rgba(255,255,255,0.1)' }}
             whileTap={{ scale: 0.9 }}
             style={{

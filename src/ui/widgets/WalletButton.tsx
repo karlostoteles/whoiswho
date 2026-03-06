@@ -4,6 +4,7 @@ import { useWalletStatus, useWalletUsername, useWalletAddress, useOwnedNFTs } fr
 import { useWalletConnection } from '@/services/starknet/hooks';
 import { IPFS_GATEWAYS, resolveUrl } from '@/services/starknet/nftService';
 import type { SchizodioNFT } from '@/services/starknet/types';
+import { sfx } from '@/shared/audio/sfx';
 
 /**
  * Persistent wallet status widget — top-left corner.
@@ -56,7 +57,7 @@ export function WalletButton() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setOpen(false)}
+            onClick={() => { sfx.click(); setOpen(false); }}
             style={{
               position: 'fixed',
               inset: 0,
@@ -79,7 +80,7 @@ export function WalletButton() {
 
         {/* Button chip */}
         <motion.div
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => { sfx.click(); setOpen((v) => !v); }}
           whileHover={{ borderColor: 'rgba(124, 58, 237, 0.7)' }}
           style={{
             background: 'rgba(15, 14, 23, 0.88)',
@@ -206,7 +207,7 @@ export function WalletButton() {
                 </div>
 
                 <button
-                  onClick={() => setOpen(false)}
+                  onClick={() => { sfx.click(); setOpen(false); }}
                   style={{
                     background: 'rgba(255,255,255,0.06)',
                     border: '1px solid rgba(255,255,255,0.1)',
@@ -262,7 +263,7 @@ export function WalletButton() {
                         {address}
                       </span>
                       <motion.button
-                        onClick={handleCopy}
+                        onClick={() => { sfx.click(); handleCopy(); }}
                         whileHover={{ scale: 1.06 }}
                         whileTap={{ scale: 0.94 }}
                         style={{
@@ -308,7 +309,7 @@ export function WalletButton() {
                         SCHIZODIO · {nfts.length} token{nfts.length > 1 ? 's' : ''}
                       </span>
                       <motion.button
-                        onClick={handleRefresh}
+                        onClick={() => { sfx.click(); handleRefresh(); }}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         title="Refresh NFT images"
@@ -360,7 +361,7 @@ export function WalletButton() {
                 flexShrink: 0,
               }}>
                 <motion.button
-                  onClick={handleDisconnect}
+                  onClick={() => { sfx.click(); handleDisconnect(); }}
                   whileHover={{ background: 'rgba(239,68,68,0.16)' }}
                   whileTap={{ scale: 0.97 }}
                   style={{

@@ -117,12 +117,13 @@ class SFXEngine {
     }
   }
 
-  private playBuffer(buffer: AudioBuffer | null, volume: number) {
+  private playBuffer(buffer: AudioBuffer | null, volume: number, rate = 1.0) {
     if (this.muted || !buffer) return;
     try {
       const ctx = this.getCtx();
       const source = ctx.createBufferSource();
       source.buffer = buffer;
+      source.playbackRate.value = rate;
       const gain = ctx.createGain();
       gain.gain.value = volume;
       source.connect(gain);
@@ -132,7 +133,13 @@ class SFXEngine {
   }
 
   click() {
-    this.playBuffer(this.clickBuffer, 0.6);
+    // Lighter, higher-pitched, softer click
+    this.playBuffer(this.clickBuffer, 0.4, 1.35);
+  }
+
+  heavyClick() {
+    // Original heavy/powerful ceramic clack
+    this.playBuffer(this.clickBuffer, 0.6, 1.0);
   }
 
   cardClick() {

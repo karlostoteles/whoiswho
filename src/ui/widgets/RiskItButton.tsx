@@ -13,7 +13,7 @@ export function RiskItButton() {
   const isConnected = status === 'connected' || status === 'ready' || status === 'loading_nfts';
 
   const handleClick = () => {
-    sfx.click();
+    sfx.heavyClick();
     disconnectWallet();
   };
 
