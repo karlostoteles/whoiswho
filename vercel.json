@@ -32,6 +32,15 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    },
+    {
+      "source": "/api/(nft-art|nft-img|schizodio-meta)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=31536000, max-age=86400, stale-while-revalidate=86400"
+        }
+      ]
     }
   ]
 }
