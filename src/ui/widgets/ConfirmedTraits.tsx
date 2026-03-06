@@ -1,15 +1,18 @@
 /**
- * ConfirmedTraits — small collapsible tab that shows traits confirmed as YES.
- * Helps the player track what they know about the opponent's secret character.
+ * ConfirmedTraits — card-shaped widget showing MY confirmed traits (YES answers).
+ * Matches the same dimensions as SecretCardPanel for visual symmetry.
+ * Positioned bottom-right, mirroring "My Card" on the left.
+ *
+ * Shows a stack of confirmed traits scrollable within the card.
  */
-
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QUESTIONS } from '@/core/data/questions';
 import {
     useQuestionHistory, useActivePlayer, usePhase, useGameMode,
 } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
+import { useIsMobile } from '@/shared/hooks/useMediaQuery';
 
 const GAMEPLAY_PHASES = new Set([
     GamePhase.QUESTION_SELECT,
@@ -17,17 +20,16 @@ const GAMEPLAY_PHASES = new Set([
     GamePhase.ANSWER_PENDING,
     GamePhase.ELIMINATION,
     GamePhase.AUTO_ELIMINATING,
+    GamePhase.TURN_TRANSITION,
     GamePhase.GUESS_SELECT,
 ]);
 
 export function ConfirmedTraits() {
-    const [expanded, setExpanded] = useState(false);
     const phase = usePhase();
     const mode = useGameMode();
     const history = useQuestionHistory();
     const activePlayer = useActivePlayer();
-
-    const isNFTMode = mode === 'nft' || mode === 'online' || mode === 'nft-free';
+    const isMobile = useIsMobile();
 
     const confirmedTraits = useMemo(() => {
         return history
@@ -38,105 +40,109 @@ export function ConfirmedTraits() {
                     id: r.questionId,
                     text: q?.text || r.questionText,
                     icon: q?.icon || '✓',
-                    zone: q?.zone,
                 };
             });
     }, [history, activePlayer]);
 
-    // Only show during gameplay
     if (!GAMEPLAY_PHASES.has(phase)) return null;
-
     if (confirmedTraits.length === 0) return null;
 
+    const SIZE = isMobile ? 80 : 120;
+
     return (
-        <div style={{
-            position: 'fixed',
-            right: 16,
-            bottom: 16,
-            zIndex: 100,
-            pointerEvents: 'auto',
-        }}>
-            {/* Toggle button */}
-            <motion.button
-                onClick={() => setExpanded(!expanded)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+        <AnimatePresence>
+            <motion.div
+                key="confirmed-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 28, delay: 0.4 }}
                 style={{
-                    background: 'rgba(74,222,128,0.12)',
-                    border: '1px solid rgba(74,222,128,0.3)',
-                    borderRadius: expanded ? '12px 12px 0 0' : 12,
-                    padding: '6px 14px',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    color: '#4ADE80',
-                    fontSize: 11,
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    letterSpacing: '0.05em',
+                    position: 'fixed',
+                    bottom: isMobile ? 10 : 16,
+                    right: isMobile ? 8 : 16,
+                    zIndex: 15,
+                    pointerEvents: 'auto',
+                    width: SIZE,
                 }}
             >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                {confirmedTraits.length} CONFIRMED
-                <span style={{ fontSize: 9, opacity: 0.6 }}>{expanded ? '▼' : '▲'}</span>
-            </motion.button>
-
-            {/* Expanded panel */}
-            <AnimatePresence>
-                {expanded && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        style={{
-                            background: 'rgba(12, 11, 20, 0.95)',
-                            border: '1px solid rgba(74,222,128,0.2)',
-                            borderTop: 'none',
-                            borderRadius: '0 0 12px 12px',
-                            overflow: 'hidden',
-                            maxHeight: 200,
-                            backdropFilter: 'blur(12px)',
-                        }}
-                    >
-                        <div style={{
-                            padding: '8px 12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 4,
-                            overflowY: 'auto',
-                            maxHeight: 180,
+                <div style={{
+                    background: 'rgba(15,14,23,0.92)',
+                    border: '2px solid rgba(74,222,128,0.4)',
+                    borderRadius: isMobile ? 10 : 14,
+                    overflow: 'hidden',
+                    boxShadow: '0 6px 24px rgba(0,0,0,0.6), 0 0 16px rgba(74,222,128,0.12)',
+                    height: SIZE - 4,
+                    padding: isMobile ? '5px 4px' : '8px 6px',
+                    overflowY: 'auto',
+                }}>
+                    {/* Header */}
+                    <div style={{
+                        fontSize: isMobile ? 6 : 7,
+                        fontWeight: 700,
+                        letterSpacing: '0.08em',
+                        color: '#4ADE80',
+                        textTransform: 'uppercase',
+                        textAlign: 'center',
+                        marginBottom: 4,
+                        fontFamily: "'Space Grotesk', sans-serif",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 3,
+                    }}>
+                        ✅ I Know
+                        <span style={{
+                            fontSize: isMobile ? 7 : 8,
+                            background: 'rgba(74,222,128,0.2)',
+                            borderRadius: 4,
+                            padding: '0 3px',
+                            color: '#4ADE80',
                         }}>
-                            {confirmedTraits.map((trait) => (
-                                <div
-                                    key={trait.id}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        padding: '4px 8px',
-                                        background: 'rgba(74,222,128,0.06)',
-                                        borderRadius: 8,
-                                        fontSize: 11,
-                                        color: 'rgba(255,255,254,0.7)',
-                                        fontFamily: "'Space Grotesk', sans-serif",
-                                    }}
-                                >
-                                    <span style={{ fontSize: 12 }}>{trait.icon}</span>
-                                    <span style={{ flex: 1 }}>
-                                        {stripPrefix(trait.text)}
-                                    </span>
-                                    <span style={{ color: '#4ADE80', fontSize: 10, fontWeight: 700 }}>YES</span>
-                                </div>
-                            ))}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
+                            {confirmedTraits.length}
+                        </span>
+                    </div>
+
+                    {/* Trait list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {confirmedTraits.map((trait) => (
+                            <div
+                                key={trait.id}
+                                style={{
+                                    fontSize: isMobile ? 6 : 7,
+                                    padding: '2px 3px',
+                                    borderRadius: 4,
+                                    background: 'rgba(74,222,128,0.08)',
+                                    color: 'rgba(255,255,254,0.6)',
+                                    fontFamily: "'Space Grotesk', sans-serif",
+                                    fontWeight: 600,
+                                    lineHeight: 1.2,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                <span style={{ color: '#4ADE80', fontSize: isMobile ? 6 : 7 }}>✓</span>{' '}
+                                {stripPrefix(trait.text)}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Label below */}
+                <div style={{
+                    marginTop: 3,
+                    textAlign: 'center',
+                    fontSize: isMobile ? 7 : 8,
+                    fontWeight: 700,
+                    color: 'rgba(74,222,128,0.4)',
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    letterSpacing: '0.04em',
+                }}>
+                    CONFIRMED
+                </div>
+            </motion.div>
+        </AnimatePresence>
     );
 }
 
@@ -149,6 +155,8 @@ function stripPrefix(text: string): string {
         'Does your character wear a ',
         'Does your character wear an ',
         'Does your character wear ',
+        'Does your character carry a ',
+        'Is your character a ',
         'Is your character ',
         'Does your character ',
     ];
