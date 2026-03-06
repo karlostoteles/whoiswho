@@ -186,7 +186,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
 
 // ─── Standard LOD: individual CharacterTile components ─────────────────────────
 
-type AnimPhase = 'alive' | 'flipping' | 'shrinking' | 'dead';
+type AnimPhase = 'alive' | 'waiting' | 'flipping' | 'shrinking' | 'dead';
 
 interface TileAnim {
   id: string;
@@ -196,6 +196,8 @@ interface TileAnim {
   targetScale: number;
   flipAngle: number;
   phase: AnimPhase;
+  flipDelay: number; // stagger delay in seconds
+  flipTimer: number;
 }
 
 function IndividualGrid({ textures, tileW }: CharacterGridProps) {
@@ -221,41 +223,40 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
   useEffect(() => {
     const existing = animRef.current;
     const elimSet = new Set(eliminatedIds);
+    const newlyEliminated: string[] = [];
     for (const char of characters) {
       const isEliminated = elimSet.has(char.id);
       const target = targets.get(char.id);
 
       if (!existing.has(char.id)) {
-        // New character — will be seeded at correct position by group ref callback
-        // This branch handles any characters added after initial mount
         const [tx, tz] = target ?? [0, 0];
         existing.set(char.id, {
           id: char.id, x: tx, z: tz, tx, tz,
           scale: 1, targetScale: 1,
           flipAngle: 0,
           phase: isEliminated ? 'flipping' : 'alive',
+          flipDelay: 0,
+          flipTimer: 0,
         });
       } else {
         const st = existing.get(char.id)!;
-        // Update target position for living tiles (grid repack)
         if (target && (st.phase === 'alive')) {
           st.tx = target[0];
           st.tz = target[1];
         }
-        // Trigger flip+shrink for newly eliminated tiles
+        // Trigger flip — enter 'waiting' phase with staggered delay
         if (isEliminated && st.phase === 'alive') {
-          st.phase = 'flipping';
-          sfx.tileFlip();
+          newlyEliminated.push(char.id);
+          st.phase = 'waiting';
+          st.flipTimer = 0;
         }
-        // When the active player switches and this character is not eliminated in
-        // the new player's view, revive it so it appears on their board.
-        // (Each player has independent eliminated sets — a tile dead in P1's view
-        // must be visible in P2's view if P2 hasn't eliminated it, and vice versa.)
-        if (!isEliminated && st.phase !== 'alive') {
+        if (!isEliminated && st.phase !== 'alive' && st.phase !== 'waiting') {
           const [tx, tz] = target ? [target[0], target[1]] : [st.tx, st.tz];
           st.phase = 'alive';
           st.scale = 1;
           st.flipAngle = 0;
+          st.flipDelay = 0;
+          st.flipTimer = 0;
           st.x = tx; st.z = tz; st.tx = tx; st.tz = tz;
           const group = groupRefs.current.get(char.id);
           if (group) {
@@ -268,13 +269,21 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
         }
       }
     }
+    // Assign staggered delays to newly eliminated tiles
+    if (newlyEliminated.length > 0) {
+      sfx.tilesCascade(newlyEliminated.length);
+      newlyEliminated.forEach((id, idx) => {
+        const st = existing.get(id);
+        if (st) st.flipDelay = idx * 0.12; // 120ms stagger per tile
+      });
+    }
   }, [characters, eliminatedIds, targets]);
 
-  // Single useFrame: position lerp + flip + shrink for all tiles
+  // Single useFrame: position lerp + staggered flip + gentle shrink
   useFrame((_, delta) => {
     const tPos = 1 - Math.pow(0.003, delta);
-    const tFlip = 1 - Math.pow(0.0001, delta);
-    const tScl = 1 - Math.pow(0.0001, delta);
+    const tFlip = 1 - Math.pow(0.0002, delta);   // slower flip
+    const tScl = 1 - Math.pow(0.0005, delta);     // gentler shrink
 
     for (const st of animRef.current.values()) {
       if (st.phase === 'dead') continue;
@@ -289,9 +298,18 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
         group.position.set(st.x, 0, st.z);
       }
 
-      // Flip animation (tile rotates to facedown)
+      // Waiting phase: count delay before starting flip
+      if (st.phase === 'waiting') {
+        st.flipTimer += delta;
+        if (st.flipTimer >= st.flipDelay) {
+          st.phase = 'flipping';
+          sfx.tileFlip(); // soft individual plink
+        }
+      }
+
+      // Flip animation (tile gracefully rotates to facedown)
       if (st.phase === 'flipping') {
-        st.flipAngle = lerp(st.flipAngle, -Math.PI / 2.2, tFlip * 4);
+        st.flipAngle = lerp(st.flipAngle, -Math.PI / 2.2, tFlip * 2);
         const pivot = pivotRefs.current.get(st.id);
         if (pivot) pivot.rotation.x = st.flipAngle;
         if (Math.abs(st.flipAngle + Math.PI / 2.2) < 0.04) {
@@ -300,9 +318,9 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
         }
       }
 
-      // Shrink to dust
+      // Gentle shrink
       if (st.phase === 'shrinking') {
-        st.scale = lerp(st.scale, 0, tScl * 5);
+        st.scale = lerp(st.scale, 0, tScl * 2);
         group.scale.setScalar(Math.max(0, st.scale));
         if (st.scale < 0.01) {
           group.visible = false;
@@ -335,6 +353,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
                     id: char.id, x: tx, z: tz, tx, tz,
                     scale: isElim ? 0 : 1, targetScale: isElim ? 0 : 1,
                     flipAngle: 0, phase: isElim ? 'dead' : 'alive',
+                    flipDelay: 0, flipTimer: 0,
                   });
                   el.position.set(tx, 0, tz);
                   if (isElim) el.visible = false;

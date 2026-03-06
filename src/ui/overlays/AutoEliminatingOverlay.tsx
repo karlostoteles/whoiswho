@@ -4,7 +4,7 @@ import { Card } from '../common/Card';
 import { useCurrentQuestion, useActivePlayer, useEliminatedIds, useGameActions } from '@/core/store/selectors';
 import { sfx } from '@/shared/audio/sfx';
 
-const AUTO_ADVANCE_MS = 2500; // Time to watch tiles flip
+const AUTO_ADVANCE_MS = 4000; // Time to enjoy the tile cascade animation
 
 export function AutoEliminatingOverlay() {
   const question = useCurrentQuestion();

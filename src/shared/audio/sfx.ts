@@ -3,7 +3,7 @@
  * All sounds are procedurally generated. No files needed.
  */
 
-type SFXName = 'click' | 'question' | 'answerYes' | 'answerNo' | 'tileFlip' | 'riskIt' | 'win' | 'wrongGuess';
+type SFXName = 'click' | 'question' | 'answerYes' | 'answerNo' | 'tileFlip' | 'tilesCascade' | 'riskIt' | 'win' | 'wrongGuess';
 
 class SFXEngine {
   private ctx: AudioContext | null = null;
@@ -118,9 +118,31 @@ class SFXEngine {
   }
 
   tileFlip() {
-    // Short mechanical thud + brief noise burst
-    this.playTone({ frequency: 180, type: 'triangle', duration: 0.12, volume: 0.2, freqEnd: 80 });
-    this.playNoise({ duration: 0.08, volume: 0.08, filter: 600 });
+    // Soft gentle "plink" — a single pleasant note
+    this.playTone({ frequency: 600, type: 'sine', duration: 0.25, volume: 0.1, freqEnd: 400, attack: 0.01, decay: 0.2 });
+  }
+
+  /**
+   * Play a pleasant cascading waterfall of notes.
+   * More tiles eliminated = more notes = richer sound.
+   */
+  tilesCascade(count: number) {
+    if (this.muted) return;
+    // Pentatonic scale notes for a pleasant sound
+    const scale = [523, 587, 659, 784, 880, 988, 1047, 1175];
+    const notesToPlay = Math.min(count, scale.length);
+    for (let i = 0; i < notesToPlay; i++) {
+      this.playTone({
+        frequency: scale[i],
+        type: 'sine',
+        duration: 0.3 + (i * 0.05),
+        volume: 0.08 + Math.min(count * 0.005, 0.1),
+        attack: 0.02,
+        decay: 0.15,
+        freqEnd: scale[i] * 0.8,
+        delay: i * 0.08,
+      });
+    }
   }
 
   riskIt() {
@@ -145,7 +167,11 @@ class SFXEngine {
   }
 
   play(name: SFXName) {
-    this[name]?.();
+    if (name === 'tilesCascade') {
+      this.tilesCascade(1);
+    } else {
+      this[name]?.();
+    }
   }
 
   setMuted(muted: boolean) {

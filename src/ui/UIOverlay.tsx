@@ -37,7 +37,7 @@ export function UIOverlay() {
       position: 'absolute',
       inset: 0,
       pointerEvents: 'none',
-      zIndex: 1,
+      zIndex: 10,
     }}>
       <TurnIndicator />
 
