@@ -17,7 +17,7 @@ import { useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BOARD, getTileLOD, computeAdaptiveGrid } from '@/core/rules/constants';
-import { useGameCharacters, useActivePlayer, useEliminatedIds } from '@/core/store/selectors';
+import { useGameCharacters, useActivePlayer, useEliminatedIds, useGameMode, useOnlinePlayerNum } from '@/core/store/selectors';
 import { CharacterTile } from './CharacterTile';
 import { sfx } from '@/shared/audio/sfx';
 
@@ -203,7 +203,15 @@ interface TileAnim {
 function IndividualGrid({ textures, tileW }: CharacterGridProps) {
   const characters = useGameCharacters();
   const activePlayer = useActivePlayer();
-  const eliminatedIds = useEliminatedIds(activePlayer);
+  const mode = useGameMode();
+  const onlinePlayerNum = useOnlinePlayerNum();
+
+  // In true simultaneous online mode, the board is permanently locked to the local player.
+  const myPlayerKey = mode === 'online'
+    ? (onlinePlayerNum === 2 ? 'player2' : 'player1')
+    : activePlayer;
+
+  const eliminatedIds = useEliminatedIds(myPlayerKey);
 
   const groupRefs = useRef<Map<string, THREE.Group>>(new Map());
   const pivotRefs = useRef<Map<string, THREE.Group>>(new Map());

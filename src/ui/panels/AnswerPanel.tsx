@@ -2,11 +2,15 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import { useCurrentQuestion, useGameActions } from '@/core/store/selectors';
+import { useCurrentQuestion, useGameActions, useGameMode } from '@/core/store/selectors';
 
 export function AnswerPanel() {
   const question = useCurrentQuestion();
+  const mode = useGameMode();
   const { answerQuestion } = useGameActions();
+
+  // In online mode, all answering is automatic via the sync hook in the background.
+  if (mode === 'online') return null;
 
   if (!question) return null;
 

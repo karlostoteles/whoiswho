@@ -204,8 +204,8 @@ export const useGameStore = create<GameState & GameActions>()(
             state.phase = GamePhase.QUESTION_SELECT;
             break;
           case GamePhase.GUESS_WRONG: {
-            if (state.mode === 'free' || state.mode === 'nft-free') {
-              // Simultaneous mode: P1 stays active, no player switching
+            if (state.mode === 'free' || state.mode === 'nft-free' || state.mode === 'online') {
+              // Simultaneous mode: local player stays active, no player switching
               state.turnNumber += 1;
               state.currentQuestion = null;
               state.cpuQuestion = null;
@@ -233,24 +233,7 @@ export const useGameStore = create<GameState & GameActions>()(
         const q = QUESTIONS.find((q) => q.id === questionId);
         if (!q) return;
 
-        if (state.mode === 'online') {
-          // Online mode: set question, go to ANSWER_PENDING, sync hook sends event
-          const record = {
-            questionId,
-            questionText: q.text,
-            traitKey: q.traitKey,
-            traitValue: q.traitValue,
-            answer: null,
-            askedBy: state.activePlayer,
-            turnNumber: state.turnNumber,
-          };
-          state.currentQuestion = record;
-          state.questionHistory.push(record);
-          state.phase = GamePhase.ANSWER_PENDING;
-          return;
-        }
-
-        // Local mode: auto-evaluate P1's question immediately
+        // Local mode: auto-evaluate active player's question immediately
         const opponent = getOpponent(state.activePlayer);
         const secretId = state.players[opponent].secretCharacterId;
         const secretChar = state.characters.find((c) => c.id === secretId);
@@ -358,8 +341,18 @@ export const useGameStore = create<GameState & GameActions>()(
         state.guessedCharacterId = characterId;
 
         if (state.mode === 'online') {
-          // Online: send guess event, wait for GUESS_RESULT from opponent
-          state.phase = GamePhase.ANSWER_PENDING;
+          // In true simultaneous online mode, we instantly check against opponent's locally-known secret.
+          // Note: The sync hook already verifies Game Over conditions. 
+          const opponent = state.activePlayer === 'player1' ? 'player2' : 'player1';
+          const opponentSecretId = state.players[opponent].secretCharacterId;
+          const isCorrect = characterId === opponentSecretId;
+
+          if (isCorrect) {
+            state.winner = state.activePlayer;
+            state.phase = GamePhase.GUESS_RESULT;
+          } else {
+            state.phase = GamePhase.GUESS_WRONG;
+          }
           return;
         }
 
@@ -436,23 +429,55 @@ export const useGameStore = create<GameState & GameActions>()(
         state.onlineGameId = null;
         state.onlineRoomCode = null;
         state.onlinePlayerNum = null;
+
+        // Clear saved session on explicit reset/game over
+        localStorage.removeItem('guessnft_online_session');
       }),
 
     // ─── Online-specific actions ───────────────────────────────────────────────
+
+    recoverOnlineGame: () =>
+      set((state) => {
+        const saved = localStorage.getItem('guessnft_online_session');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            state.mode = 'online';
+            state.onlineGameId = parsed.gameId;
+            state.onlineRoomCode = parsed.roomCode;
+            state.onlinePlayerNum = parsed.playerNum;
+            // Temporarily set phase to waiting, the sync hook will verify status
+            state.phase = GamePhase.ONLINE_WAITING;
+            console.log('[gameStore] Recovered online session from localStorage', parsed);
+          } catch (e) {
+            localStorage.removeItem('guessnft_online_session');
+          }
+        }
+      }),
 
     setOnlineGame: (gameId, roomCode, playerNum) =>
       set((state) => {
         state.onlineGameId = gameId;
         state.onlineRoomCode = roomCode;
         state.onlinePlayerNum = playerNum;
+
+        // Save session so we can recover on refresh
+        localStorage.setItem('guessnft_online_session', JSON.stringify({
+          gameId,
+          roomCode,
+          playerNum,
+          timestamp: Date.now()
+        }));
       }),
 
     advanceToGameStart: () =>
       set((state) => {
         // Called by sync hook when both players have committed — start the game
         state.commitmentStatus = 'both';
-        state.activePlayer = 'player1';
-        state.boardRotation = 0;
+        // Simultaneous mode: active player is always the local user
+        state.activePlayer = state.onlinePlayerNum === 2 ? 'player2' : 'player1';
+        // Rotation is 0 for P1, PI for P2
+        state.boardRotation = state.onlinePlayerNum === 2 ? Math.PI : 0;
         state.phase = GamePhase.HANDOFF_START;
       }),
 
@@ -461,37 +486,37 @@ export const useGameStore = create<GameState & GameActions>()(
         const q = QUESTIONS.find((q) => q.id === questionId);
         if (!q) return;
 
+        // Opponent asked a question. In simultaneous play, we record it 
+        // to our history logs but DO NOT interrupt the local player's phase.
+        const opponent = state.activePlayer === 'player1' ? 'player2' : 'player1';
+
         const record = {
           questionId,
           questionText: q.text,
           traitKey: q.traitKey,
           traitValue: q.traitValue,
           answer,
-          askedBy: state.activePlayer, // opponent is currently the active player
+          askedBy: opponent as PlayerId,
           turnNumber: state.turnNumber,
         };
-        state.currentQuestion = record;
+        // Add to history so "Enemy Knows" card updates, but don't touch currentQuestion or phase
         state.questionHistory.push(record);
-        // Skip ANSWER_PENDING — I already answered, jump to reveal
-        state.phase = GamePhase.ANSWER_REVEALED;
       }),
 
     applyOpponentAnswer: (answer) =>
       set((state) => {
-        if (!state.currentQuestion) return;
-        state.currentQuestion.answer = answer;
-        state.phase = GamePhase.ANSWER_REVEALED;
+        // No longer used in decoupled mode, opponent's answer comes immediately
       }),
 
     receiveOpponentGuess: (characterId, isCorrect, winnerPlayerNum) =>
       set((state) => {
         state.guessedCharacterId = characterId;
         if (isCorrect && winnerPlayerNum !== null) {
+          // If opponent guessed right, game over.
           state.winner = winnerPlayerNum === 1 ? 'player1' : 'player2';
           state.phase = GamePhase.GUESS_RESULT;
         } else {
-          // Opponent guessed wrong — their turn ends, I stay in a consistent state
-          state.phase = GamePhase.GUESS_WRONG;
+          // Opponent guessed wrong — ignore. It doesn't affect our local simultaneous turn.
         }
       }),
 

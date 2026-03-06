@@ -40,6 +40,7 @@ const actions = {
   get cancelGuess() { return useGameStore.getState().cancelGuess; },
   get resetGame() { return useGameStore.getState().resetGame; },
   get setOnlineGame() { return useGameStore.getState().setOnlineGame; },
+  get recoverOnlineGame() { return useGameStore.getState().recoverOnlineGame; },
   get advanceToGameStart() { return useGameStore.getState().advanceToGameStart; },
   get receiveOpponentQuestion() { return useGameStore.getState().receiveOpponentQuestion; },
   get applyOpponentAnswer() { return useGameStore.getState().applyOpponentAnswer; },

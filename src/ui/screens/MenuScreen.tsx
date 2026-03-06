@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { sfx } from '@/shared/audio/sfx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { OnlineLobbyScreen } from './OnlineLobbyScreen';
@@ -15,7 +15,7 @@ export function MenuScreen() {
   const [view, setView] = useState<View>('menu');
   const [loading, setLoading] = useState(false);
   const [nftStatus, setNftStatus] = useState<string>('');
-  const { startSetup, setGameMode } = useGameActions();
+  const { startSetup, setGameMode, recoverOnlineGame } = useGameActions();
   const { connectWallet } = useWalletConnection();
 
   const handleFreePlay = () => {
@@ -65,11 +65,19 @@ export function MenuScreen() {
       console.error('[MenuScreen] NFT ownership check failed:', err);
       setNftStatus(`Error: ${err?.message || 'Failed to connect'}`);
       await new Promise(r => setTimeout(r, 2000));
-    } finally {
       setLoading(false);
       setNftStatus('');
     }
   };
+
+  // Attempt session recovery on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('guessnft_online_session');
+    if (saved) {
+      recoverOnlineGame();
+      setView('online');
+    }
+  }, [recoverOnlineGame]);
 
   return (
     <motion.div

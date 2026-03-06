@@ -80,6 +80,7 @@ export interface GameActions {
   goBackToSetupP1: () => void;
   // Online-specific actions (called by useOnlineGameSync hook)
   setOnlineGame: (gameId: string, roomCode: string, playerNum: 1 | 2) => void;
+  recoverOnlineGame: () => void;
   advanceToGameStart: () => void;
   receiveOpponentQuestion: (questionId: string, answer: boolean) => void;
   applyOpponentAnswer: (answer: boolean) => void;

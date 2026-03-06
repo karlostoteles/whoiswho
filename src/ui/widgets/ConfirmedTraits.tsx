@@ -45,7 +45,6 @@ export function ConfirmedTraits() {
     }, [history, activePlayer]);
 
     if (!GAMEPLAY_PHASES.has(phase)) return null;
-    if (confirmedTraits.length === 0) return null;
 
     const SIZE = isMobile ? 80 : 120;
 
