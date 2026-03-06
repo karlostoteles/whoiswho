@@ -5,12 +5,22 @@ import { renderPortrait, renderCardBack } from '@/rendering/canvas/PortraitRende
 import { getTileLOD } from '@/core/rules/constants';
 
 /**
+ * Extract the image hash from a schizodio URL.
+ * Input:  "https://v1assets.schizod.io/images/revealed/5b377cf6...png"
+ * Output: "5b377cf6..."
+ */
+function extractImageHash(url: string): string | null {
+  const match = url.match(/\/([a-f0-9]+)\.png$/i);
+  return match ? match[1] : null;
+}
+
+/**
  * Returns a texture map for all game characters.
  *
- * Strategy for real NFT art:
- *   1. Start with procedural portraits (instant)
- *   2. Async upgrade: load through /api/nft-art/:id proxy (same-origin, no CORS)
- *      Falls back to local /nft/{id}.png if available
+ * Strategy:
+ *   1. Procedural portrait (instant)
+ *   2. Async upgrade via /api/nft-img?hash=... (fast — skips metadata fetch)
+ *   3. Fallback: /api/nft-art/{id} (slower — fetches metadata first)
  */
 export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Texture> {
   const characters = useGameCharacters() || [];
@@ -20,7 +30,7 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
 
   const [textures, setTextures] = useState<Map<string, THREE.Texture>>(new Map());
 
-  // 1. Build initial procedural textures
+  // 1. Build procedural textures
   useEffect(() => {
     if (isMinimal) {
       setTextures(new Map());
@@ -57,19 +67,18 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
     };
   }, [isMinimal, characters, isLargeBoard]);
 
-  // 2. Async upgrade: load real art via same-origin proxy
+  // 2. Async upgrade: load real art
   useEffect(() => {
     if (isMinimal || !characters || characters.length === 0) return;
 
     let cancelled = false;
-    const BATCH_SIZE = 10;
-    const BATCH_DELAY = 200;
-    const IMG_SIZE = 128;
+    const BATCH_SIZE = 20;
+    const BATCH_DELAY = 80;
+    const IMG_SIZE = 64; // Small for WebGL tiles — saves GPU memory
 
     function loadImageAsTexture(url: string): Promise<THREE.CanvasTexture | null> {
       return new Promise((resolve) => {
         const img = new Image();
-        // No crossOrigin needed — image comes from same-origin proxy
         img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
@@ -86,7 +95,7 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
           }
         };
         img.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 10000);
+        setTimeout(() => resolve(null), 12000);
         img.src = url;
       });
     }
@@ -102,12 +111,15 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
             if (cancelled) return;
             const numericId = char.id.replace('nft_', '');
 
-            // Same-origin proxy URL — streamed through Vercel serverless function
-            const proxyUrl = `/api/nft-art/${numericId}`;
-            // Fallback: local downloaded images
-            const localUrl = `/nft/${numericId}.png`;
+            // Fast path: use image hash directly (skips metadata fetch)
+            const hash = char.imageUrl ? extractImageHash(char.imageUrl) : null;
+            const urls = [
+              hash ? `/api/nft-img?hash=${hash}` : null,
+              `/nft/${numericId}.png`,           // local (from download pipeline)
+              `/api/nft-art/${numericId}`,        // slow fallback (metadata + image)
+            ].filter(Boolean) as string[];
 
-            for (const url of [proxyUrl, localUrl]) {
+            for (const url of urls) {
               const texture = await loadImageAsTexture(url);
               if (texture && !cancelled) {
                 batchTextures.set(char.id, texture);

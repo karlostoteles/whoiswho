@@ -11,6 +11,10 @@
       "destination": "/api/nft-art?id=:id"
     },
     {
+      "source": "/api/nft-img/:hash",
+      "destination": "/api/nft-img?hash=:hash"
+    },
+    {
       "source": "/api/schizodio-meta/:id",
       "destination": "/api/schizodio-meta?id=:id"
     },
