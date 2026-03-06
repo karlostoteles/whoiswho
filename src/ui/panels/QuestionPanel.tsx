@@ -198,7 +198,7 @@ export function QuestionPanel() {
                     justifyContent: 'center',
                   }}
                 >
-                  🎯 RISK IT!
+                  📋 BOARD
                 </motion.button>
                 {isNFTMode && <RarityInfoButton />}
                 <motion.button

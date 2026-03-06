@@ -64,7 +64,7 @@ export function RiskItPill({ onClick }: { onClick: () => void }) {
       >
         🎯
       </motion.span>
-      RISK IT!
+      📋 BOARD
     </motion.button>
   );
 }

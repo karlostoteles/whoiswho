@@ -224,7 +224,7 @@ function MenuMain({ onFreePlay, onPlayOnline }: MenuMainProps) {
           marginBottom: 4, textAlign: 'center',
         }}
       >
-        guessNFT
+        Guess right, win big.
       </motion.div>
 
       {/* ─── Badge: slides up with fade ─── */}

@@ -16,8 +16,14 @@ export function AnswerRevealed() {
     if (!question) return;
     if (question.answer) sfx.answerYes();
     else sfx.answerNo();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-advance after showing the answer for a few seconds
+  useEffect(() => {
+    const timer = setTimeout(advancePhase, 2000);
+    return () => clearTimeout(timer);
+  }, [advancePhase]);
 
   if (!question) return null;
 
@@ -52,14 +58,14 @@ export function AnswerRevealed() {
           textShadow: question.answer
             ? '0 0 40px rgba(76,175,80,0.4)'
             : '0 0 40px rgba(224,85,85,0.4)',
-          marginBottom: cpuQuestion && mode === 'free' ? 20 : 24,
+          marginBottom: cpuQuestion && (mode === 'free' || mode === 'nft-free') ? 20 : 0,
         }}
       >
         {question.answer ? 'YES' : 'NO'}
       </motion.div>
 
-      {/* CPU's simultaneous question (free mode only) */}
-      {mode === 'free' && cpuQuestion && (
+      {/* CPU's simultaneous question (free modes only) */}
+      {(mode === 'free' || mode === 'nft-free') && cpuQuestion && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -68,7 +74,7 @@ export function AnswerRevealed() {
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            marginBottom: 20,
+            marginTop: 20,
             padding: '10px 14px',
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.08)',
@@ -109,9 +115,20 @@ export function AnswerRevealed() {
         </motion.div>
       )}
 
-      <Button variant="accent" size="md" onClick={advancePhase}>
-        Continue
-      </Button>
+      {/* Pulsing indicator to show it's auto-advancing */}
+      <motion.div
+        animate={{ opacity: [0.3, 0.7, 0.3] }}
+        transition={{ repeat: Infinity, duration: 1.5 }}
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: '0.1em',
+          color: 'rgba(255,255,254,0.3)',
+          marginTop: 24,
+        }}
+      >
+        CONTINUING...
+      </motion.div>
     </Card>
   );
 }

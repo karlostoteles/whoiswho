@@ -94,11 +94,17 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
 
         await Promise.all(
           batch.map(async (char) => {
-            const imageUrl = char.imageUrl;
+            let imageUrl = char.imageUrl;
             if (!imageUrl) return;
+
+            // Handle IPFS URLs
+            if (imageUrl.startsWith('ipfs://')) {
+              imageUrl = imageUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+            }
 
             try {
               const texture = await new Promise<THREE.Texture>((resolve, reject) => {
+                loader.crossOrigin = 'anonymous'; // CRITICAL: Required for cross-domain WebGL textures
                 loader.load(
                   imageUrl,
                   (tex) => {
@@ -107,7 +113,10 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
                     resolve(tex);
                   },
                   undefined,
-                  reject
+                  (err) => {
+                    console.warn(`[char-textures] Failed to load ${char.name}:`, err);
+                    reject(err);
+                  }
                 );
               });
 
