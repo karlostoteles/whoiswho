@@ -26,9 +26,9 @@ export function OpponentCounter() {
 
     if (!isVisible) return null;
 
-    // Color: green when many tiles, transitioning to red when few
+    // Opponent tiles: blue when many (safe), red when few (danger)
     const ratio = total > 0 ? remaining / total : 1;
-    const hue = Math.round(ratio * 120); // 120=green, 60=yellow, 0=red
+    const hue = Math.round(ratio * 200 + 0); // 200=blue → 0=red
     const tileColor = `hsl(${hue}, 75%, 55%)`;
     const tileBgColor = `hsla(${hue}, 75%, 55%, 0.12)`;
     const tileBorderColor = `hsla(${hue}, 75%, 55%, 0.3)`;

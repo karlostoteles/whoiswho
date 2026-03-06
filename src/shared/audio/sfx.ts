@@ -118,31 +118,44 @@ class SFXEngine {
   }
 
   tileFlip() {
-    // Soft gentle "plink" — a single pleasant note
-    this.playTone({ frequency: 600, type: 'sine', duration: 0.25, volume: 0.1, freqEnd: 400, attack: 0.01, decay: 0.2 });
+    // Retro wooden clack — quick square wave thud
+    this.playTone({ frequency: 300, type: 'square', duration: 0.06, volume: 0.08, freqEnd: 120, attack: 0.003, decay: 0.05 });
   }
 
   /**
-   * Play a pleasant cascading waterfall of notes.
-   * More tiles eliminated = more notes = richer sound.
+   * Play a retro cascading sweep — fast descending 8-bit arpeggio.
+   * More tiles = longer and richer sweep.
    */
   tilesCascade(count: number) {
     if (this.muted) return;
-    // Pentatonic scale notes for a pleasant sound
-    const scale = [523, 587, 659, 784, 880, 988, 1047, 1175];
-    const notesToPlay = Math.min(count, scale.length);
-    for (let i = 0; i < notesToPlay; i++) {
+    // Clamp notes to keep it snappy (max 6 notes over ~0.5s)
+    const noteCount = Math.min(Math.max(2, Math.ceil(count / 10)), 6);
+    const baseFreq = 800;
+    const totalDur = Math.min(0.5, noteCount * 0.08);
+    for (let i = 0; i < noteCount; i++) {
+      const freq = baseFreq - (i * (400 / noteCount)); // descend from 800 → 400
       this.playTone({
-        frequency: scale[i],
-        type: 'sine',
-        duration: 0.3 + (i * 0.05),
-        volume: 0.08 + Math.min(count * 0.005, 0.1),
-        attack: 0.02,
-        decay: 0.15,
-        freqEnd: scale[i] * 0.8,
-        delay: i * 0.08,
+        frequency: freq,
+        type: 'square',
+        duration: 0.08,
+        volume: 0.06 + Math.min(count * 0.002, 0.06),
+        attack: 0.003,
+        decay: 0.06,
+        freqEnd: freq * 0.6,
+        delay: i * (totalDur / noteCount),
       });
     }
+    // Finish with a satisfying low thud
+    this.playTone({
+      frequency: 150,
+      type: 'triangle',
+      duration: 0.15,
+      volume: 0.1,
+      freqEnd: 60,
+      attack: 0.01,
+      decay: 0.12,
+      delay: totalDur,
+    });
   }
 
   riskIt() {

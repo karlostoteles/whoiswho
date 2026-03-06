@@ -269,12 +269,14 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
         }
       }
     }
-    // Assign staggered delays to newly eliminated tiles
+    // Assign staggered delays — total cascade capped at ~1s regardless of tile count
     if (newlyEliminated.length > 0) {
       sfx.tilesCascade(newlyEliminated.length);
+      const TOTAL_CASCADE_MS = 800; // max ~0.8s for entire cascade
+      const perTileDelay = Math.min(0.08, TOTAL_CASCADE_MS / 1000 / newlyEliminated.length);
       newlyEliminated.forEach((id, idx) => {
         const st = existing.get(id);
-        if (st) st.flipDelay = idx * 0.12; // 120ms stagger per tile
+        if (st) st.flipDelay = idx * perTileDelay;
       });
     }
   }, [characters, eliminatedIds, targets]);
@@ -282,8 +284,8 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
   // Single useFrame: position lerp + staggered flip + gentle shrink
   useFrame((_, delta) => {
     const tPos = 1 - Math.pow(0.003, delta);
-    const tFlip = 1 - Math.pow(0.0002, delta);   // slower flip
-    const tScl = 1 - Math.pow(0.0005, delta);     // gentler shrink
+    const tFlip = 1 - Math.pow(0.00005, delta);   // fast flip
+    const tScl = 1 - Math.pow(0.0001, delta);      // fast shrink
 
     for (const st of animRef.current.values()) {
       if (st.phase === 'dead') continue;
@@ -303,7 +305,6 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
         st.flipTimer += delta;
         if (st.flipTimer >= st.flipDelay) {
           st.phase = 'flipping';
-          sfx.tileFlip(); // soft individual plink
         }
       }
 

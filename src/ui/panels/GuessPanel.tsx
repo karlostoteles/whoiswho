@@ -148,16 +148,19 @@ export function GuessPanel() {
             </Button>
 
             <Button
-              variant={isGuessingMode ? 'accent' : 'primary'}
+              variant="no"
               size="md"
               onClick={handleToggleRisk}
               style={isGuessingMode ? {
-                background: '#E05555',
+                background: 'linear-gradient(135deg, #E05555, #C04444)',
                 borderColor: '#FF6B6B',
-                boxShadow: '0 0 20px rgba(224,85,85,0.4)',
-              } : {}}
+                boxShadow: '0 0 24px rgba(224,85,85,0.5)',
+              } : {
+                background: 'linear-gradient(135deg, rgba(224,85,85,0.2), rgba(180,50,50,0.3))',
+                borderColor: 'rgba(224,85,85,0.4)',
+              }}
             >
-              {isGuessingMode ? 'Cancel Guess' : '🎲 Risk It!'}
+              {isGuessingMode ? '✕ Cancel Guess' : '🎲 Risk It!'}
             </Button>
           </div>
         </div>

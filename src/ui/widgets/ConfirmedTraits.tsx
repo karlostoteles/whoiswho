@@ -53,7 +53,7 @@ export function ConfirmedTraits() {
             position: 'fixed',
             right: 16,
             bottom: 16,
-            zIndex: 25,
+            zIndex: 100,
             pointerEvents: 'auto',
         }}>
             {/* Toggle button */}

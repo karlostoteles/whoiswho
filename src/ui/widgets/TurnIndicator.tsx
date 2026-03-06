@@ -29,11 +29,8 @@ export function TurnIndicator() {
 
   if (!isGameplay) return null;
 
-  // Color: green when many tiles, yellow in the middle, red when few
-  const ratio = total > 0 ? remaining / total : 1;
-  const tileColor = ratio > 0.5
-    ? `hsl(${Math.round(ratio * 120)}, 70%, 55%)`    // green → yellow
-    : `hsl(${Math.round(ratio * 120)}, 80%, 50%)`;   // yellow → red
+  // Player's own tiles: always green (encouraging)  
+  const tileColor = '#4CAF50';
 
   return (
     <AnimatePresence mode="wait">
