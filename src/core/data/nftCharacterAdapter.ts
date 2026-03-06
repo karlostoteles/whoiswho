@@ -198,7 +198,6 @@ function buildNftTraits(attrs: NFTAttribute[]): Partial<CharacterTraits> {
 
   // Log in dev for debugging
   if (import.meta.env.DEV) {
-    console.log('[nftAdapter] NFT traits raw:', raw);
   }
 
   return {
@@ -235,10 +234,7 @@ export function nftToCharacter(nft: SchizodioNFT): NFTCharacter {
   const attrs = nft.attributes ?? [];
 
   if (import.meta.env.DEV && attrs.length > 0) {
-    console.log(
-      `[nftAdapter] Token #${nft.tokenId} attrs:`,
-      attrs.map((a) => `${a.trait_type}=${a.value}`).join(', '),
-    );
+    // Original console.log was here, intentionally empty block now
   }
 
   // ── Free-mode traits (always present) ──────────────────────────────────────

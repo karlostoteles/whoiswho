@@ -111,12 +111,6 @@ export function createCommitment(
   );
   saveAll([...all, c]);
 
-  console.log(`[commitReveal] Committed ${playerId} character #${characterId}`, {
-    commitment,
-    // Never log salt in production — shown here for Phase 1 dev visibility
-    salt: import.meta.env.DEV ? salt : '***',
-  });
-
   return c;
 }
 

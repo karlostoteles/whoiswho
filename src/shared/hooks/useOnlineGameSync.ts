@@ -62,7 +62,6 @@ export function useOnlineGameSync() {
       if (game?.status === 'in_progress') {
         const s = useGameStore.getState();
         if (s.phase === GamePhase.ONLINE_WAITING) {
-          console.log('[sync] Advancing to game start (direct check)');
           s.advanceToGameStart();
         }
       }
@@ -187,7 +186,6 @@ export function useOnlineGameSync() {
   function handleGameUpdate(game: SupabaseGame) {
     const state = useGameStore.getState();
     if (game.status === 'in_progress' && state.phase === GamePhase.ONLINE_WAITING) {
-      console.log('[sync] Game started via realtime subscription');
       state.advanceToGameStart();
     }
   }
@@ -205,7 +203,6 @@ export function useOnlineGameSync() {
         // Check game status directly — this fires before (or instead of) the
         // games-table realtime update, so it's the fastest path to advancing.
         if (state.phase === GamePhase.ONLINE_WAITING && state.onlineGameId) {
-          console.log('[sync] Opponent committed — checking game status');
           checkAndAdvanceIfReady(state.onlineGameId);
         }
         break;

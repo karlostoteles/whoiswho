@@ -19,7 +19,6 @@ export function getController() {
       defaultChainId: SN_MAIN_CHAIN_ID,
       chains: [{ rpcUrl: RPC_URL }],
     });
-    console.log('[cartridge] Controller created');
   }
   return ctrl;
 }
@@ -37,16 +36,13 @@ export function getAccount() {
 export async function connectCartridgeWallet(): Promise<ConnectedWallet> {
   const controller = getController();
 
-  console.log('[cartridge] calling connect()...');
   const account = await controller.connect();
-  console.log('[cartridge] connect() returned:', account);
 
   if (!account?.address) {
     throw new Error('Login cancelled or failed — no account returned');
   }
 
   currentAccount = account;
-  console.log('[cartridge] connected:', account.address);
 
   return {
     address: String(account.address),

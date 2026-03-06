@@ -114,10 +114,8 @@ export function CharacterSelectScreen() {
         const myCommitment = cMap[session]?.[player]?.commitment;
 
         if (myCommitment) {
-          console.log('[cartridge] Saving commitment on-chain:', myCommitment);
           await submitCommitmentOnChain(myCommitment, session);
 
-          console.log('[cartridge] Depositing wager on-chain, token:', finalTokenId);
           await depositWagerOnChain(session, finalTokenId);
         }
       }

@@ -45,7 +45,6 @@ export function useNFTTraitLoader(): void {
       .then((traitMap) => {
         useGameStore.getState().enrichNFTCharacters(traitMap);
         if (import.meta.env.DEV) {
-          console.log(`[useNFTTraitLoader] Enriched ${traitMap.size} characters with real traits`);
         }
       })
       .catch((err) => {
@@ -69,7 +68,6 @@ export function useNFTTraitLoader(): void {
       .then((traitMap) => {
         useGameStore.getState().enrichNFTCharacters(traitMap);
         if (import.meta.env.DEV) {
-          console.log(`[useNFTTraitLoader] nft-free: enriched ${traitMap.size} characters`);
         }
       })
       .catch((err) => {

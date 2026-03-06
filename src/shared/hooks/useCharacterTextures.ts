@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useGameCharacters } from '@/core/store/selectors';
 import { renderPortrait, renderCardBack } from '@/rendering/canvas/PortraitRenderer';
@@ -67,6 +67,9 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
     };
   }, [isMinimal, characters, isLargeBoard]);
 
+  // Track all async loaded textures so we can dispose them
+  const asyncTexturesRef = useRef<THREE.Texture[]>([]);
+
   // 2. Async upgrade: load real art
   useEffect(() => {
     if (isMinimal || !characters || characters.length === 0) return;
@@ -123,7 +126,10 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
               const texture = await loadImageAsTexture(url);
               if (texture && !cancelled) {
                 batchTextures.set(char.id, texture);
+                asyncTexturesRef.current.push(texture);
                 break;
+              } else if (texture) {
+                texture.dispose();
               }
             }
           })
@@ -146,7 +152,12 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
     };
 
     loadBatches();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Safely dispose all async textures off GPU
+      asyncTexturesRef.current.forEach(t => t.dispose());
+      asyncTexturesRef.current = [];
+    };
   }, [characters, isMinimal]);
 
   return textures;

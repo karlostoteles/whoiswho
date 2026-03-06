@@ -222,7 +222,6 @@ export async function fetchOwnedTokenIds(ownerAddress: string): Promise<string[]
 
   const balanceResult = await tryCall(contract, 'balance_of', 'balanceOf', [ownerAddress]);
   const balance = Number(BigInt(balanceResult.toString()));
-  console.log(`[nftService] ${ownerAddress} owns ${balance} tokens`);
 
   if (balance === 0) return [];
 
@@ -255,7 +254,6 @@ export async function fetchOwnedTokenIds(ownerAddress: string): Promise<string[]
     tokenIds.push(...results.filter((id): id is string => id !== null));
   }
 
-  console.log(`[nftService] Token IDs:`, tokenIds);
   return tokenIds;
 }
 
@@ -305,7 +303,6 @@ async function fetchViaProxy(tokenId: string): Promise<{
       if (!resp.ok) continue;
       const data = await resp.json();
       if (data.imageUrl) {
-        console.log(`[nftService] #${tokenId} proxy hit → ${data.imageUrl}, ${(data.attributes ?? []).length} traits`);
         return {
           imageUrl: data.imageUrl,
           name: data.name,
@@ -335,7 +332,6 @@ export async function fetchTokenMetadata(tokenId: string): Promise<{
   }
 
   // ── 2. Fall back to on-chain tokenURI → external metadata server ─────────
-  console.log(`[nftService] proxy miss for #${tokenId}, trying on-chain tokenURI`);
   const contract = getContract();
 
   let rawUriResult: any;
@@ -352,7 +348,6 @@ export async function fetchTokenMetadata(tokenId: string): Promise<{
   }
 
   const uri = decodeStarknetString(rawUriResult);
-  console.log(`[nftService] Token #${tokenId} decoded URI:`, uri);
 
   if (!uri) {
     return { name: `SCHIZODIO #${tokenId}`, imageUrl: '', attributes: [] };
@@ -382,7 +377,6 @@ export async function fetchTokenMetadata(tokenId: string): Promise<{
     const imageUrl = rawImage.startsWith('ipfs://')
       ? resolveUrl(rawImage, 0)
       : resolveUrl(rawImage);
-    console.log(`[nftService] #${tokenId} imageUrl (fallback):`, imageUrl);
     return {
       name: metadata.name || `SCHIZODIO #${tokenId}`,
       imageUrl,
@@ -445,6 +439,5 @@ export async function fetchAllOwnedNFTs(ownerAddress: string): Promise<Schizodio
     nfts.push(...results);
   }
 
-  console.log(`[nftService] Final NFT objects:`, nfts);
   return nfts;
 }

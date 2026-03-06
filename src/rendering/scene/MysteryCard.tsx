@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useActivePlayer, usePlayerState } from '@/core/store/selectors';
 import { BOARD } from '@/core/rules/constants';
@@ -11,7 +11,7 @@ interface MysteryCardProps {
 function makeLabel(): THREE.CanvasTexture {
   const W = 320, H = 80;
   const canvas = document.createElement('canvas');
-  canvas.width  = W;
+  canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
@@ -28,7 +28,7 @@ function makeLabel(): THREE.CanvasTexture {
   ctx.fillRect(28, 11, W - 56, 3);
 
   ctx.font = 'bold 30px Inter, Arial, sans-serif';
-  ctx.textAlign    = 'center';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   // Text shadow
@@ -45,17 +45,24 @@ function makeLabel(): THREE.CanvasTexture {
 }
 
 export function MysteryCard({ textures, cardBackTexture }: MysteryCardProps) {
-  const activePlayer  = useActivePlayer();
-  const playerState   = usePlayerState(activePlayer);
-  const secretId      = playerState.secretCharacterId;
+  const activePlayer = useActivePlayer();
+  const playerState = usePlayerState(activePlayer);
+  const secretId = playerState.secretCharacterId;
   const secretTexture = secretId ? textures.get(secretId) : null;
-  const labelTex      = useRef<THREE.CanvasTexture | null>(null);
+  const labelTex = useRef<THREE.CanvasTexture | null>(null);
   if (!labelTex.current) labelTex.current = makeLabel();
 
-  const cardWidth  = 1.9;
+  useEffect(() => {
+    const tex = labelTex.current;
+    return () => {
+      if (tex) tex.dispose();
+    };
+  }, []);
+
+  const cardWidth = 1.9;
   const cardHeight = 2.5;
-  const DEPTH      = 0.06;
-  const BORDER     = 0.055;
+  const DEPTH = 0.06;
+  const BORDER = 0.055;
 
   return (
     <group

@@ -210,7 +210,43 @@ export const useGameStore = create<GameState & GameActions>()(
               state.currentQuestion = null;
               state.cpuQuestion = null;
               state.guessedCharacterId = null;
-              state.phase = GamePhase.TURN_TRANSITION;
+
+              if (state.mode === 'free' || state.mode === 'nft-free') {
+                // Opponent (CPU) gets a free question because player risked it and failed!
+                const cpuEliminated = state.players.player2.eliminatedCharacterIds;
+                const cpuRemaining = state.characters.filter((c) => !cpuEliminated.includes(c.id));
+                const cpuAskedIds = new Set(
+                  state.questionHistory
+                    .filter((r) => r.askedBy === 'player2')
+                    .map((r) => r.questionId),
+                );
+
+                const cpuBestQ = pickBestQuestionForCPU(cpuRemaining, cpuAskedIds);
+                if (cpuBestQ) {
+                  const p1SecretId = state.players.player1.secretCharacterId;
+                  const p1SecretChar = state.characters.find((c) => c.id === p1SecretId);
+                  const cpuAnswer = p1SecretChar ? evaluateQuestion(cpuBestQ, p1SecretChar) : false;
+
+                  const cpuRecord = {
+                    questionId: cpuBestQ.id,
+                    questionText: cpuBestQ.text,
+                    traitKey: cpuBestQ.traitKey,
+                    traitValue: cpuBestQ.traitValue,
+                    answer: cpuAnswer,
+                    askedBy: 'player2' as PlayerId,
+                    turnNumber: state.turnNumber,
+                  };
+                  state.cpuQuestion = cpuRecord;
+                  state.questionHistory.push(cpuRecord);
+
+                  // Jump straight to ANSWER_REVEALED (so player sees CPU's free question)
+                  state.phase = GamePhase.ANSWER_REVEALED;
+                } else {
+                  state.phase = GamePhase.TURN_TRANSITION;
+                }
+              } else {
+                state.phase = GamePhase.TURN_TRANSITION;
+              }
             } else {
               const next = getOpponent(state.activePlayer);
               state.activePlayer = next;
@@ -449,7 +485,6 @@ export const useGameStore = create<GameState & GameActions>()(
             state.onlinePlayerNum = parsed.playerNum;
             // Temporarily set phase to waiting, the sync hook will verify status
             state.phase = GamePhase.ONLINE_WAITING;
-            console.log('[gameStore] Recovered online session from localStorage', parsed);
           } catch (e) {
             localStorage.removeItem('guessnft_online_session');
           }

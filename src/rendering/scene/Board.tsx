@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { BOARD } from '@/core/rules/constants';
 
@@ -9,11 +9,13 @@ interface BoardProps {
 }
 
 /** Procedural felt texture — subtle woven grid gives the surface tactile depth. */
-function useFeltTexture(): THREE.CanvasTexture {
-  return useMemo(() => {
+function useFeltTexture(): THREE.CanvasTexture | null {
+  const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
+
+  useEffect(() => {
     const SIZE = 512;
     const canvas = document.createElement('canvas');
-    canvas.width  = SIZE;
+    canvas.width = SIZE;
     canvas.height = SIZE;
     const ctx = canvas.getContext('2d')!;
 
@@ -26,8 +28,8 @@ function useFeltTexture(): THREE.CanvasTexture {
     ctx.strokeStyle = 'rgba(255,255,255,0.032)';
     ctx.lineWidth = 0.7;
     for (let i = -SIZE; i < SIZE * 2; i += cell) {
-      ctx.beginPath(); ctx.moveTo(i,       0); ctx.lineTo(i + SIZE, SIZE); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(i,       0); ctx.lineTo(i - SIZE, SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + SIZE, SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i - SIZE, SIZE); ctx.stroke();
     }
     // Horizontal cross lines
     for (let y = 0; y < SIZE; y += cell) {
@@ -40,12 +42,16 @@ function useFeltTexture(): THREE.CanvasTexture {
       ctx.fillRect(Math.random() * SIZE, Math.random() * SIZE, 1, 1);
     }
 
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(5, 4);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(5, 4);
+    t.colorSpace = THREE.SRGBColorSpace;
+
+    setTex(t);
+    return () => { t.dispose(); };
   }, []);
+
+  return tex;
 }
 
 /** Four thin gold inlay strips — one along each edge of the felt surface. */
@@ -115,14 +121,16 @@ export function Board({ width = BOARD.width, depth = BOARD.depth }: BoardProps) 
       </mesh>
 
       {/* Casino felt surface with woven texture */}
-      <mesh
-        position={[0, BOARD.height / 2 + 0.001, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[w - 0.32, d - 0.32]} />
-        <meshStandardMaterial color="#ffffff" map={feltTex} roughness={0.97} />
-      </mesh>
+      {feltTex && (
+        <mesh
+          position={[0, BOARD.height / 2 + 0.001, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          receiveShadow
+        >
+          <planeGeometry args={[w - 0.32, d - 0.32]} />
+          <meshStandardMaterial color="#ffffff" map={feltTex} roughness={0.97} />
+        </mesh>
+      )}
 
       {/* Gold inlay border around the felt */}
       <GoldInlay w={w} d={d} />
