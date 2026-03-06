@@ -17,12 +17,8 @@ export function GuessPanel() {
   const midTurn = currentQuestion !== null;
   const elimSet = new Set(eliminatedIds);
 
-  // Sort: non-eliminated first, then eliminated
-  const sortedCharacters = [...characters].sort((a, b) => {
-    const aElim = elimSet.has(a.id) ? 1 : 0;
-    const bElim = elimSet.has(b.id) ? 1 : 0;
-    return aElim - bElim;
-  });
+  // Only show active (non-eliminated) tiles for faster rendering
+  const activeCharacters = characters.filter((c) => !elimSet.has(c.id));
 
   const remainingCount = characters.length - elimSet.size;
 
@@ -173,8 +169,8 @@ export function GuessPanel() {
           maxHeight: 'min(360px, 45vh)',
           overflowY: 'auto',
         }}>
-          {sortedCharacters.map((char) => {
-            const isEliminated = elimSet.has(char.id);
+          {activeCharacters.map((char) => {
+            const isEliminated = false; // All shown are active
             return (
               <motion.button
                 key={char.id}

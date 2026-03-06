@@ -40,8 +40,10 @@ export function OpponentCounter() {
             style={{
                 position: 'fixed',
                 top: 64,
-                left: '50%',
-                transform: 'translateX(-50%)',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
                 zIndex: 50,
                 pointerEvents: 'none',
             }}

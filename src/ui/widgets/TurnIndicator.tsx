@@ -45,12 +45,11 @@ export function TurnIndicator() {
         style={{
           position: 'fixed',
           top: 16,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          pointerEvents: 'none',
+          left: 0,
+          right: 0,
           display: 'flex',
-          alignItems: 'center',
-          gap: 12,
+          justifyContent: 'center',
+          pointerEvents: 'none',
           zIndex: 10,
         }}
       >
