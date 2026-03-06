@@ -184,8 +184,8 @@ export const useGameStore = create<GameState & GameActions>()(
             break;
           }
           case GamePhase.AUTO_ELIMINATING: {
-            if (state.mode === 'free' || state.mode === 'nft-free') {
-              // Simultaneous mode: P1 always stays active, no player switching
+            if (state.mode === 'free' || state.mode === 'nft-free' || state.mode === 'online') {
+              // Simultaneous mode: P1 (or local online player) always stays active, no player switching
               state.turnNumber += 1;
               state.currentQuestion = null;
               state.cpuQuestion = null;
@@ -436,13 +436,14 @@ export const useGameStore = create<GameState & GameActions>()(
 
     // ─── Online-specific actions ───────────────────────────────────────────────
 
-    recoverOnlineGame: () =>
+    recoverOnlineGame: (characters) =>
       set((state) => {
         const saved = localStorage.getItem('guessnft_online_session');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
             state.mode = 'online';
+            state.characters = characters;
             state.onlineGameId = parsed.gameId;
             state.onlineRoomCode = parsed.roomCode;
             state.onlinePlayerNum = parsed.playerNum;
@@ -478,7 +479,7 @@ export const useGameStore = create<GameState & GameActions>()(
         state.activePlayer = state.onlinePlayerNum === 2 ? 'player2' : 'player1';
         // Rotation is 0 for P1, PI for P2
         state.boardRotation = state.onlinePlayerNum === 2 ? Math.PI : 0;
-        state.phase = GamePhase.HANDOFF_START;
+        state.phase = GamePhase.QUESTION_SELECT;
       }),
 
     receiveOpponentQuestion: (questionId, answer) =>

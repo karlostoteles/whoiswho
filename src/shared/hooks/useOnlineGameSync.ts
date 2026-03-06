@@ -132,7 +132,7 @@ export function useOnlineGameSync() {
   // ─── Send QUESTION_ASKED when I ask a question ────────────────────────────
   useEffect(() => {
     if (mode !== 'online' || !onlineGameId || !onlinePlayerNum) return;
-    if (phase !== GamePhase.ANSWER_PENDING) return;
+    if (phase !== GamePhase.ANSWER_REVEALED) return;
     if (!currentQuestion) return;
 
     const state = useGameStore.getState();
@@ -291,8 +291,8 @@ export function useOnlineGameSync() {
 
         const winner: PlayerId | null =
           winner_player_num === 1 ? 'player1' :
-          winner_player_num === 2 ? 'player2' :
-          null;
+            winner_player_num === 2 ? 'player2' :
+              null;
 
         state.applyGuessResult(is_correct, winner);
         break;

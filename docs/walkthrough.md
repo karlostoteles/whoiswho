@@ -26,7 +26,7 @@ The game now feels premium on phones:
 - **Commit-Reveal Wiring**: Connected the frontend to the deployed Cairo contract for provably fair character selection.
 - **Security Hardening**: Removed debug bypasses and improved memory management with proper THREE.js texture disposal.
 
-### 5. NFT Free Play & Full Collection Fix
+### 7. NFT Free Play & Full Collection Fix
 - **Robust NFT Loading**: Aligned the "Schizodio vs AI" mode with the Online mode's `useWalletConnection` hook.
 - **Instant 999-Tile Board**: Optimized `collectionService.ts` to generate character stubs instantly.
 - **Performance Optimizations**:

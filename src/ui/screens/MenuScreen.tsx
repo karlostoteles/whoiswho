@@ -74,8 +74,17 @@ export function MenuScreen() {
   useEffect(() => {
     const saved = localStorage.getItem('guessnft_online_session');
     if (saved) {
-      recoverOnlineGame();
-      setView('online');
+      setLoading(true);
+      setNftStatus('Reconnecting to room...');
+      generateAllCollectionCharacters()
+        .then((allChars) => {
+          recoverOnlineGame(allChars);
+          setView('online');
+        })
+        .finally(() => {
+          setLoading(false);
+          setNftStatus('');
+        });
     }
   }, [recoverOnlineGame]);
 
