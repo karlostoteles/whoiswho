@@ -237,33 +237,6 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
         </motion.button>
       </div>
 
-      {/* ─── Animated floating meme NFTs (background decoration) ─── */}
-      {[...Array(6)].map((_, i) => (
-        <motion.img
-          key={`nft_float_${i}`}
-          src={`/nft/${i + 1}.png`} // Assuming nft 1.png to 6.png exist based on standard Schizodio numbers
-          alt="Floating Meme"
-          initial={{ opacity: 0, rotate: Math.random() * 360, scale: 0.5 }}
-          animate={{
-            opacity: [0, 0.25, 0],
-            y: [0, -100 - i * 30],
-            x: [0, (i % 2 === 0 ? 50 : -50)],
-            rotate: [Math.random() * 360, Math.random() * 360 + 100],
-          }}
-          transition={{ duration: 6 + i, repeat: Infinity, delay: i * 0.9, ease: "linear" }}
-          style={{
-            position: 'absolute',
-            width: 40 + i * 10, height: 40 + i * 10,
-            borderRadius: '12px',
-            left: `${15 + i * 13}%`,
-            bottom: `${5 + i * 10}%`,
-            pointerEvents: 'none',
-            filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))',
-            objectFit: 'cover'
-          }}
-        />
-      ))}
-
       {/* ─── Logo: drops from above with bounce ─── */}
       <motion.img
         src="/logo.png"
