@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useGameActions, usePhase } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
+import { useWalletAddress } from '@/services/starknet/walletStore';
 import { sfx } from '@/shared/audio/sfx';
 
 /**
@@ -10,9 +11,13 @@ import { sfx } from '@/shared/audio/sfx';
 export function HomeButton() {
     const phase = usePhase();
     const { resetGame } = useGameActions();
+    const walletAddress = useWalletAddress();
 
     // Don't show on Menu screen
     if (phase === GamePhase.MENU) return null;
+
+    // Sit at far-left when no wallet chip is present, otherwise after it
+    const leftOffset = walletAddress ? 170 : 16;
 
     return (
         <motion.button
@@ -22,7 +27,7 @@ export function HomeButton() {
             style={{
                 position: 'fixed',
                 top: 16,
-                left: 170, // Increased offset to avoid "rebase" overlap
+                left: leftOffset,
                 zIndex: 100,
                 pointerEvents: 'auto',
                 background: 'rgba(15, 14, 23, 0.88)',

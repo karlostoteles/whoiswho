@@ -36,6 +36,26 @@ html, body, #root {
   to   { transform: rotate(360deg); }
 }
 
+/* ── Logo glow — pulsing blurred gradient behind logo ── */
+@keyframes logoGlowBg {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  33% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  66% {
+    opacity: 0.75;
+    transform: scale(1.03);
+  }
+}
+
+.logo-glow-bg {
+  animation: logoGlowBg 4s ease-in-out infinite;
+}
+
 /* ── Mobile responsiveness ─────────────────────────────────────────────────── */
 
 /* Smooth touch scrolling in modals */

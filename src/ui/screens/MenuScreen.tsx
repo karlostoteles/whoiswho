@@ -200,12 +200,29 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
       style={{
         position: 'fixed', inset: 0,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        paddingBottom: '10vh', // shifts the entire block slightly upwards
+        alignItems: 'center',
+        paddingBottom: 'clamp(16px, 5vh, 10vh)',
         background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
       }}
     >
+      {/* Warm pastel ambient wash behind logo area */}
+      <div style={{
+        position: 'absolute',
+        top: '-10%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '120%',
+        height: '60%',
+        background: 'radial-gradient(ellipse at 50% 40%, rgba(232,164,68,0.06) 0%, rgba(244,114,182,0.04) 30%, rgba(124,58,237,0.03) 50%, transparent 70%)',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }} />
+
+      {/* Spacer — pushes content to center when viewport is tall, collapses when scrolling */}
+      <div style={{ flex: '1 1 0', minHeight: 0 }} />
+
       {/* ─── Top Right Controls ─── */}
       <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 10, display: 'flex', gap: 10 }}>
         {/* Leaderboard Button */}
@@ -237,27 +254,49 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
         </motion.button>
       </div>
 
-      {/* ─── Logo: drops from above with bounce ─── */}
-      <motion.img
-        src="/logo.png"
-        alt="guessNFT"
+      {/* ─── Logo: alive with pulsing glow + breathing scale ─── */}
+      <motion.div
         initial={{ y: -120, opacity: 0, scale: 0.6, rotate: -10 }}
         animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
         transition={{ delay: 0.15, type: 'spring', stiffness: 120, damping: 12, mass: 0.8 }}
         style={{
-          width: 'clamp(180px, 45vw, 360px)',
-          height: 'auto',
-          filter: 'drop-shadow(0 0 50px rgba(124,58,237,0.5))',
-          marginBottom: -32, // Aggressively reduced spacing between logo and subtitle
           position: 'relative',
           zIndex: 2,
+          marginBottom: 'clamp(-40px, -4vw, -16px)',
         }}
-      />
+      >
+        {/* Blurred gradient glow behind logo — pulses gold/pink/purple */}
+        <div
+          className="logo-glow-bg"
+          style={{
+            position: 'absolute',
+            inset: '10%',
+            borderRadius: '40%',
+            background: 'radial-gradient(ellipse at 30% 50%, rgba(232,164,68,0.4) 0%, rgba(244,114,182,0.25) 35%, rgba(124,58,237,0.2) 60%, transparent 80%)',
+            filter: 'blur(35px)',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Logo with screen blend — black bg becomes invisible */}
+        <motion.img
+          src="/newlogo.png"
+          alt="guessNFT"
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+          style={{
+            width: 'clamp(180px, 45vw, 360px)',
+            height: 'auto',
+            display: 'block',
+            mixBlendMode: 'screen',
+            position: 'relative',
+          }}
+        />
+      </motion.div>
 
       {/* ─── Title: Pixar-style jumping letters ─── */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '4px',
-        marginBottom: 8, position: 'relative', zIndex: 1, width: '90%'
+        marginBottom: 12, position: 'relative', zIndex: 1, width: '90%'
       }}>
         {t('menu.title').split(' ').map((word, wordIdx) => (
           <div key={`word-${wordIdx}`} style={{ display: 'flex', whiteSpace: 'pre' }}>
@@ -279,9 +318,9 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
                     fontFamily: "'Space Grotesk', sans-serif",
                     fontSize: 'clamp(20px, 5vw, 36px)',
                     fontWeight: 800, letterSpacing: '-0.02em',
-                    background: 'linear-gradient(135deg, #E8A444 0%, #F0C060 50%, #E8A444 100%)',
+                    background: 'linear-gradient(135deg, #E8A444 0%, #F472B6 50%, #A78BFA 100%)',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 0 10px rgba(232,164,68,0.2))',
+                    filter: 'drop-shadow(0 0 12px rgba(244,114,182,0.25))',
                     display: 'inline-block',
                     cursor: 'default',
                   }}
@@ -306,7 +345,7 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
           border: '1px solid rgba(124,58,237,0.5)', borderRadius: 20,
           padding: '3px 14px', fontSize: 11, fontWeight: 700,
           letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-          color: '#A78BFA', marginBottom: 8,
+          color: '#A78BFA', marginBottom: 12,
         }}
       >
         {t('menu.badge')}
@@ -317,10 +356,23 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.95, duration: 0.8 }}
-        style={{ fontSize: 15, color: 'rgba(255,255,254,0.38)', fontWeight: 500, marginBottom: 24, textAlign: 'center' }}
+        style={{ fontSize: 15, color: 'rgba(255,255,254,0.55)', fontWeight: 500, marginBottom: 24, textAlign: 'center' }}
       >
         {t('menu.subtitle')}
       </motion.div>
+
+      {/* Pastel accent divider */}
+      <motion.div
+        initial={{ scaleX: 0, opacity: 0 }}
+        animate={{ scaleX: 1, opacity: 1 }}
+        transition={{ delay: 1.0, duration: 0.8, ease: 'easeOut' }}
+        style={{
+          width: 'clamp(120px, 30vw, 200px)',
+          height: 1,
+          background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.35), rgba(167,139,250,0.35), transparent)',
+          marginBottom: 16,
+        }}
+      />
 
       {/* Login Button (if not connected) */}
       <LoginButtonSection />
@@ -348,6 +400,9 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
           <PlayFreeTile onClick={onFreePlay} />
         </motion.div>
       </div>
+
+      {/* Bottom spacer — mirrors top spacer for centering */}
+      <div style={{ flex: '1 1 0', minHeight: 0 }} />
     </motion.div>
   );
 }

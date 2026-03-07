@@ -102,4 +102,9 @@ export const COLORS = {
   accent: '#E8A444',
   yes: '#4CAF50',
   no: '#E05555',
+  // Pastel pop accents — derived from logo palette (gold G, pink N?, purple FT)
+  pastelGold: '#F0C97A',
+  pastelPink: '#F472B6',
+  pastelPurple: '#A78BFA',
+  pastelMint: '#6EE7B7',
 } as const;
