@@ -6,7 +6,7 @@ import { useRef, useState, useCallback, useEffect, memo } from 'react';
 import { useFrame, ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { GamePhase } from '@/core/store/types';
-import { usePhase, useActivePlayer, useEliminatedIds, useGameActions } from '@/core/store/selectors';
+import { usePhase, useGameActions } from '@/core/store/selectors';
 
 interface CharacterTileProps {
   characterId: string;
@@ -63,8 +63,6 @@ export const CharacterTile = memo(({
   characterId, characterName, texture, tileW, tileH, pivotRef,
 }: CharacterTileProps) => {
   const phase = usePhase();
-  const activePlayer = useActivePlayer();
-  const eliminatedIds = useEliminatedIds(activePlayer);
   const { toggleElimination } = useGameActions();
   const [hovered, setHovered] = useState(false);
 
@@ -98,9 +96,6 @@ export const CharacterTile = memo(({
     setHovered(false);
     document.body.style.cursor = 'auto';
   }, []);
-
-  // Suppress unused variable warning — eliminatedIds is used by parent CharacterGrid
-  void eliminatedIds;
 
   return (
     /* Pivot at tile bottom — parent CharacterGrid controls rotation.x for flip */
