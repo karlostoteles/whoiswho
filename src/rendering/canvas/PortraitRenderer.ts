@@ -193,6 +193,104 @@ function hashCode(s: string): number {
   return hash;
 }
 
+/**
+ * Render a character portrait directly to an HTMLCanvasElement.
+ *
+ * Same drawing logic as `renderPortrait` but returns the raw canvas
+ * instead of wrapping it in a THREE.CanvasTexture.  Used by the
+ * TextureAtlas pipeline to avoid creating 999 CanvasTexture objects.
+ */
+export function renderPortraitCanvas(
+  character: Character,
+  nftImage?: HTMLImageElement | HTMLCanvasElement,
+  lowRes: boolean = false,
+): HTMLCanvasElement {
+  const finalSize = lowRes ? 64 : SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = finalSize;
+  canvas.height = finalSize;
+  const ctx = canvas.getContext('2d')!;
+
+  if (lowRes) ctx.scale(64 / SIZE, 64 / SIZE);
+
+  const memeConf = MEME_CONFIG[character.id];
+  const bg = memeConf
+    ? memeConf.bg
+    : DEFAULT_BG_COLORS[Math.abs(hashCode(character.id)) % DEFAULT_BG_COLORS.length];
+
+  const portraitH = SIZE - (lowRes ? 0 : NAME_HEIGHT);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, SIZE, portraitH || SIZE);
+
+  if (!lowRes) {
+    const vgGrad = ctx.createRadialGradient(SIZE / 2, portraitH / 2, 60, SIZE / 2, portraitH / 2, SIZE / 2);
+    vgGrad.addColorStop(0, 'rgba(255,255,255,0.12)');
+    vgGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
+    ctx.fillStyle = vgGrad;
+    ctx.fillRect(0, 0, SIZE, portraitH);
+  }
+
+  if (nftImage) {
+    ctx.drawImage(nftImage, 0, 0, SIZE, portraitH || SIZE);
+  } else {
+    const traits = character.traits;
+    if (traits.hair_style === 'long' || traits.hair_style === 'curly') {
+      drawHair(ctx, traits);
+      drawFace(ctx, traits);
+    } else {
+      drawFace(ctx, traits);
+      drawHair(ctx, traits);
+    }
+    drawAccessories(ctx, traits);
+  }
+
+  if (!lowRes) {
+    if (memeConf?.badge) {
+      const bRadius = 34;
+      const bx = SIZE - bRadius - 10;
+      const by = bRadius + 10;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(bx, by, bRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = `${bRadius * 1.0}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(memeConf.badge, bx, by + 2);
+      ctx.restore();
+    }
+
+    const bannerY = portraitH;
+    const bannerGrad = ctx.createLinearGradient(0, bannerY, 0, SIZE);
+    bannerGrad.addColorStop(0, 'rgba(8,8,18,0.93)');
+    bannerGrad.addColorStop(1, 'rgba(8,8,18,0.98)');
+    ctx.fillStyle = bannerGrad;
+    ctx.fillRect(0, bannerY, SIZE, NAME_HEIGHT);
+
+    ctx.fillStyle = lighten(bg, 50);
+    ctx.fillRect(0, bannerY, SIZE, 3);
+
+    const nameLen = character.name.length;
+    const fontSize = nameLen > 12 ? 38 : nameLen > 9 ? 44 : 52;
+    ctx.save();
+    ctx.font = `bold ${fontSize}px "Space Grotesk", "Inter", Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = lighten(bg, 40);
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(character.name, SIZE / 2, bannerY + NAME_HEIGHT / 2 + 2);
+    ctx.restore();
+  }
+
+  return canvas;
+}
+
 function lighten(hex: string, amount: number): string {
   if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return 'rgba(255,255,255,0)';
   const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amount);
