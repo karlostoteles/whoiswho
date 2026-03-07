@@ -6,7 +6,7 @@ import { OnlineLobbyScreen } from './OnlineLobbyScreen';
 import { useGameActions } from '@/core/store/selectors';
 import { MEME_CHARACTERS } from '@/core/data/memeCharacters';
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
-import { useWalletStore, useWalletStatus, useWalletAddress } from '@/services/starknet/walletStore';
+import { useWalletStatus, useWalletAddress } from '@/services/starknet/walletStore';
 import { useWalletConnection } from '@/services/starknet/hooks';
 import { WalletButton } from '../widgets/WalletButton';
 import { LeaderboardScreen } from './LeaderboardScreen';
@@ -18,54 +18,23 @@ export function MenuScreen() {
   const [loading, setLoading] = useState(false);
   const [nftStatus, setNftStatus] = useState<string>('');
   const { startSetup, setGameMode, recoverOnlineGame } = useGameActions();
-  const { connectWallet } = useWalletConnection();
 
   const handleFreePlay = () => {
     setGameMode('free', MEME_CHARACTERS);
     startSetup();
   };
 
-  /** Connect wallet → read owned Schizodios → start free game with those NFTs */
-  const handleNFTFreePlay = async () => {
+  /** Instant Schizodio free play — loads full collection, no wallet needed */
+  const handleSchizodioFreePlay = async () => {
     setLoading(true);
-    setNftStatus('Connecting wallet...');
+    setNftStatus('Loading Schizodio collection...');
     try {
-      // Use the robust connection hook used in Online mode
-      await connectWallet();
-
-      const state = useWalletStore.getState();
-      if (state.status === 'error') {
-        throw new Error(state.error || 'Connection failed');
-      }
-
-      setNftStatus('Loading your collection...');
-
-      // Wait for the hook to finish loading NFTs
-      // We check every 500ms for up to 15 seconds
-      let attempts = 0;
-      while (useWalletStore.getState().status === 'loading_nfts' && attempts < 30) {
-        await new Promise(r => setTimeout(r, 500));
-        attempts++;
-      }
-
-      const finalState = useWalletStore.getState();
-      const ownedCount = finalState.ownedNFTs.length;
-
-      if (ownedCount === 0) {
-        setNftStatus('No Schizodios found! Using full collection instead...');
-        await new Promise(r => setTimeout(r, 1500));
-      } else {
-        setNftStatus(`Found ${ownedCount} Schizodios! Loading the board...`);
-      }
-
-      // Load the FULL collection (999 chars) for the board
       const allChars = await generateAllCollectionCharacters();
-
       setGameMode('nft-free', allChars);
       startSetup();
     } catch (err: any) {
-      console.error('[MenuScreen] NFT ownership check failed:', err);
-      setNftStatus(`Error: ${err?.message || 'Failed to connect'}`);
+      console.error('[MenuScreen] Collection load failed:', err);
+      setNftStatus(`Error: ${err?.message || 'Failed to load collection'}`);
       await new Promise(r => setTimeout(r, 2000));
       setLoading(false);
       setNftStatus('');
@@ -111,7 +80,7 @@ export function MenuScreen() {
             key="free-pick"
             onBack={() => setView('menu')}
             onCTVersion={handleFreePlay}
-            onSchizodio={handleNFTFreePlay}
+            onSchizodio={handleSchizodioFreePlay}
             loading={loading}
             nftStatus={nftStatus}
           />
@@ -561,15 +530,15 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, loading, nftStatus }: 
             subtitle={t('menu.ct_version_sub')}
             tag="24 CHARACTERS"
           />
-          {/* Schizodio vs AI — connects wallet & checks NFT ownership */}
+          {/* Schizodio vs AI — instant play, no wallet needed */}
           <OptionCard
             onClick={loading ? () => { } : onSchizodio}
-            accent="#06B6D4"
-            accentRgb="6,182,212"
+            accent="#E8A444"
+            accentRgb="232,164,68"
             icon="💀"
             title={nftStatus || t('menu.nft_version')}
-            subtitle={t('menu.nft_version_sub')}
-            tag="NFT"
+            subtitle="Play with the full Schizodio collection — no NFT needed"
+            tag="999 CHARACTERS"
             disabled={loading}
           />
         </div>
@@ -596,34 +565,18 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
       style={{
         position: 'fixed', inset: 0,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
+        alignItems: 'center',
         background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
         padding: 24,
+        overflowY: 'auto',
       }}
     >
-      <div style={{ width: 'min(480px, 100%)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: 'min(480px, 100%)', display: 'flex', flexDirection: 'column', paddingTop: 24, paddingBottom: 32 }}>
         <SubHeader onBack={onBack} title={t('menu.play_real')} />
 
-        {/* Collection badge */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          marginBottom: 16,
-        }}>
-          <div style={{
-            background: 'rgba(232,164,68,0.1)',
-            border: '1px solid rgba(232,164,68,0.25)',
-            borderRadius: 8, padding: '4px 12px',
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-            color: 'rgba(232,164,68,0.7)',
-            fontFamily: "'Space Grotesk', sans-serif",
-            textTransform: 'uppercase' as const,
-          }}>
-            ⬡ SCHIZODIO Collection
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Normal */}
+        {/* ─── SCHIZODIO Collection ─── */}
+        <CollectionBadge label="SCHIZODIO" accentRgb="232,164,68" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
           <OptionCard
             onClick={onNormal}
             accent="#E8A444"
@@ -633,7 +586,6 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
             subtitle={t('menu.normal_sub')}
             tag={t('menu.online')}
           />
-          {/* SCHIZO Mode — soon */}
           <OptionCard
             onClick={() => { }}
             accent="#E05555"
@@ -644,34 +596,46 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
             tag={t('menu.coming_soon')}
             disabled
           />
-          {/* Ducks — soon */}
+        </div>
+
+        {/* ─── DUCKS Collection ─── */}
+        <CollectionBadge label="DUCKS" accentRgb="251,191,36" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
           <OptionCard
             onClick={() => { }}
             accent="#FBBF24"
             accentRgb="251,191,36"
-            icon="🦆"
+            icon="D"
             title="Starknet Ducks"
             subtitle="The quackiest collection descends on the board"
             tag={t('menu.coming_soon')}
             disabled
           />
-          {/* Blobert — soon */}
+        </div>
+
+        {/* ─── BLOBERT Collection ─── */}
+        <CollectionBadge label="BLOBERT" accentRgb="167,139,250" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
           <OptionCard
             onClick={() => { }}
             accent="#A78BFA"
             accentRgb="167,139,250"
-            icon="🧙‍♂️"
+            icon="B"
             title="Blobert"
             subtitle="A magical assembly of highly intelligent blobs"
             tag={t('menu.coming_soon')}
             disabled
           />
-          {/* SchizoSol — soon */}
+        </div>
+
+        {/* ─── SCHIZOSOL Collection ─── */}
+        <CollectionBadge label="SCHIZOSOL" accentRgb="20,241,149" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <OptionCard
             onClick={() => { }}
             accent="#14F195"
             accentRgb="20,241,149"
-            icon="☀️"
+            icon="S"
             title="SchizoSol"
             subtitle="The Solana integration expands the madness"
             tag={t('menu.coming_soon')}
@@ -680,6 +644,29 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// ─── Reusable collection section badge ──────────────────────────────────────
+
+function CollectionBadge({ label, accentRgb }: { label: string; accentRgb: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      marginBottom: 12,
+    }}>
+      <div style={{
+        background: `rgba(${accentRgb},0.1)`,
+        border: `1px solid rgba(${accentRgb},0.25)`,
+        borderRadius: 8, padding: '4px 12px',
+        fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+        color: `rgba(${accentRgb},0.7)`,
+        fontFamily: "'Space Grotesk', sans-serif",
+        textTransform: 'uppercase' as const,
+      }}>
+        ⬡ {label} Collection
+      </div>
+    </div>
   );
 }
 
