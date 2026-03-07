@@ -267,7 +267,7 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
         animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
         transition={{ delay: 0.15, type: 'spring', stiffness: 120, damping: 12, mass: 0.8 }}
         style={{
-          width: 'clamp(180px, 45vw, 340px)',
+          width: 'clamp(240px, 60vw, 480px)',
           height: 'auto',
           filter: 'drop-shadow(0 0 50px rgba(124,58,237,0.5))',
           marginBottom: 4,
