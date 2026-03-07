@@ -19,7 +19,7 @@ pub struct PlayerJoined {
     player2: ContractAddress,
 }
 
-/// Emitted each time a player submits their commitment hash via `commit_character`.
+/// Emitted each time a player submits their commitment via `commit_character`.
 #[derive(Drop, Serde)]
 #[dojo::event]
 pub struct CharacterCommitted {
@@ -41,26 +41,18 @@ pub struct QuestionAsked {
     asked_by: ContractAddress,
 }
 
-/// Emitted when the non-active player answers via `answer_question`.
+/// Emitted when the opponent answers a question with a valid ZK proof via
+/// `answer_question_with_proof`. The answer is extracted from the verified proof output.
 #[derive(Drop, Serde)]
 #[dojo::event]
-pub struct QuestionAnswered {
+pub struct QuestionAnsweredVerified {
     #[key]
     game_id: felt252,
     turn_number: u16,
-    answer: bool,
-    answered_by: ContractAddress,
-}
-
-/// Emitted when a player updates their elimination board via `eliminate_characters`.
-/// `eliminated_bitmap` contains only the NEW bits sent this turn, not the cumulative value.
-#[derive(Drop, Serde)]
-#[dojo::event]
-pub struct CharactersEliminated {
-    #[key]
-    game_id: felt252,
-    by_player: ContractAddress,
-    eliminated_bitmap: u128,
+    question_id: u16,
+    computed_answer: bool,
+    answerer: ContractAddress,
+    proof_verified: bool,
 }
 
 /// Emitted when the active player makes their final guess via `make_guess`.
@@ -104,19 +96,6 @@ pub struct TimeoutClaimed {
     timed_out_player: ContractAddress,
 }
 
-/// Emitted when a player answers via `answer_question_with_proof` (ZK-verified answer).
-#[derive(Drop, Serde)]
-#[dojo::event]
-pub struct QuestionAnsweredVerified {
-    #[key]
-    pub game_id: felt252,
-    pub turn_number: u16,
-    pub question_id: u16,
-    pub computed_answer: bool,
-    pub answerer: ContractAddress,
-    pub proof_verified: bool,
-}
-
 /// Emitted when the game reaches `PHASE_COMPLETED` by any means (reveal or timeout).
 #[derive(Drop, Serde)]
 #[dojo::event]
@@ -124,4 +103,15 @@ pub struct GameCompleted {
     #[key]
     game_id: felt252,
     winner: ContractAddress,
+}
+
+// RESERVED — kept for future non-ZK answer path (not emitted yet).
+#[derive(Drop, Serde)]
+#[dojo::event]
+pub struct QuestionAnswered {
+    #[key]
+    game_id: felt252,
+    turn_number: u16,
+    answer: bool,
+    answered_by: ContractAddress,
 }

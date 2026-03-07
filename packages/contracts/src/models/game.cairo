@@ -2,8 +2,16 @@ use starknet::ContractAddress;
 
 /// Core game session state. One record per game, keyed by `game_id`.
 ///
-/// Phase transitions are linear and enforced by `game_actions`:
-///   WaitingForPlayer2 → CommitPhase → P1QuestionSelect ↔ P2QuestionSelect → RevealPhase → Completed
+/// Phase transitions:
+///   WAITING_FOR_PLAYER2 → COMMIT_PHASE → PLAYING → REVEAL → COMPLETED
+///
+/// During PLAYING, `awaiting_answer` tracks the sub-state:
+///   false → active player (current_turn) selects a question or makes a guess
+///   true  → the other player must answer with a ZK proof via `answer_question_with_proof`
+///
+/// The `current_turn` field is NOT flipped when transitioning to REVEAL — it retains
+/// the value set during the last Q&A cycle, which identifies the player who made the guess.
+/// `reveal_character` relies on this invariant to resolve the winner correctly.
 #[derive(Copy, Drop, Serde)]
 #[dojo::model]
 pub struct Game {
@@ -16,39 +24,39 @@ pub struct Game {
     pub player2: ContractAddress,
     /// Current game phase — see `constants::PHASE_*`.
     pub phase: u8,
-    /// Which player must act next: `1` = player1, `2` = player2.
+    /// Which player is the active asker/guesser: `1` = player1, `2` = player2.
+    /// Not flipped during REVEAL — retains the guesser's identity for winner resolution.
     pub current_turn: u8,
     /// Total number of turns played (incremented on `ask_question` and `make_guess`).
+    /// Also used as a turn-specific nonce in ZK proofs to prevent replay attacks.
     pub turn_count: u16,
     /// Address of the winner (zero until the game is completed).
     pub winner: ContractAddress,
-    /// NFT collection address that defines the character set. Both players use the same ordering.
-    pub collection_id: felt252,
-    /// Seconds of inactivity before the inactive player can be timed out.
-    pub timeout_seconds: u64,
     /// Block timestamp when the game was created.
     pub created_at: u64,
     /// Block timestamp of the last state-changing action — used for timeout checks.
     pub last_action_at: u64,
-    /// ID of the most recent question asked (echoed for client convenience).
+    /// ID of the most recent question asked. Used by `answer_question_with_proof`
+    /// to bind the proof to the exact question that was asked (anti-replay).
     pub last_question_id: u16,
-    /// Answer to the most recent question (echoed for client convenience).
-    pub last_answer: bool,
     /// Character ID that the active player guessed in `make_guess` — verified during reveal.
     pub guess_character_id: felt252,
     /// Poseidon2 BN254 Merkle root of the character collection — stored as u256 because BN254
-    /// outputs may exceed the Stark field prime (~16% of outputs). Never recomputed on-chain.
+    /// outputs may exceed the Stark field prime (~16% of outputs). Committed to at game creation;
+    /// never recomputed on-chain (would require hashing 1024 NFT leaves).
     pub traits_root: u256,
     /// Which question schema this game uses (0 = SCHIZODIO v1).
     pub question_set_id: u8,
+    /// During PHASE_PLAYING: false = active player must ask/guess, true = other player must answer.
+    pub awaiting_answer: bool,
 }
 
 /// Commit-reveal record for a single player in a game.
 ///
-/// The commitment scheme: player computes `hash = pedersen(character_id, salt)` client-side
-/// and submits only the hash on-chain. After the guess is made, both players reveal
-/// `(character_id, salt)`. The contract re-hashes and checks against the stored value,
-/// preventing either player from changing their character after seeing the guess.
+/// Players compute `hash = pedersen(character_id, salt)` client-side and submit only the hash
+/// on-chain at commit time. After a guess is made, both players reveal `(character_id, salt)`.
+/// The contract re-derives the hash and compares it to `hash`, preventing any player from
+/// changing their character choice after seeing their opponent's guess.
 #[derive(Copy, Drop, Serde)]
 #[dojo::model]
 pub struct Commitment {
@@ -58,42 +66,22 @@ pub struct Commitment {
     /// Player who made this commitment.
     #[key]
     pub player: ContractAddress,
-    /// `pedersen(character_id, salt)` — zero means no commitment yet.
-    /// Used in the reveal phase to verify the character choice.
+    /// `pedersen(character_id, salt)` — zero means not yet committed.
     pub hash: felt252,
-    /// Poseidon2 BN254 commitment: hash4(game_id, player, character_id, salt).
-    /// Used in ZK proof verification. Separate from `hash` — different scheme, different purpose.
+    /// Poseidon2 BN254 commitment: `hash4(game_id, player, character_id, salt)`.
+    /// Separate from `hash` — this binds ZK proofs to the player's specific character choice.
     pub zk_commitment: u256,
     /// True after the player successfully calls `reveal_character`.
     pub revealed: bool,
-    /// Set to the revealed `character_id` after a successful reveal (zero before reveal).
+    /// Revealed character ID (zero before reveal).
     pub character_id: felt252,
-}
-
-/// Per-player elimination state. One record per (game, player).
-///
-/// `eliminated_bitmap` is a bitfield where bit `i` = 1 means character at index `i`
-/// has been eliminated from this player's board. New eliminations are OR-merged into the
-/// existing bitmap so clients cannot accidentally un-eliminate characters.
-///
-/// Note: `u128` supports up to 128 characters. Phase 1 standardizes on this limit.
-#[derive(Copy, Drop, Serde)]
-#[dojo::model]
-pub struct Board {
-    #[key]
-    pub game_id: felt252,
-    #[key]
-    pub player: ContractAddress,
-    /// OR-accumulating bitfield of eliminated character indices.
-    pub eliminated_bitmap: u128,
-    /// Remaining non-eliminated characters (informational; not enforced by contract).
-    pub remaining_count: u16,
 }
 
 /// Immutable record of a single turn action (question or final guess).
 ///
-/// Written once per turn by `ask_question` (action_type = QUESTION) or
-/// `make_guess` (action_type = GUESS). The answer is filled in by `answer_question`.
+/// Written by `ask_question` (action_type = ACTION_TYPE_QUESTION) or
+/// `make_guess` (action_type = ACTION_TYPE_GUESS). The answer is filled in
+/// by `answer_question_with_proof`.
 #[derive(Copy, Drop, Serde)]
 #[dojo::model]
 pub struct Turn {
@@ -104,7 +92,7 @@ pub struct Turn {
     pub turn_number: u16,
     /// `ACTION_TYPE_QUESTION` or `ACTION_TYPE_GUESS` — see `constants`.
     pub action_type: u8,
-    /// Question template ID chosen by the asker.
+    /// Question template ID chosen by the asker (zero for guess turns).
     pub question_id: u16,
     /// Answer provided by the responding player (false for guess turns).
     pub answer: bool,
