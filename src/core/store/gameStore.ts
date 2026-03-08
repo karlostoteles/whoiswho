@@ -64,6 +64,7 @@ const initialState: GameState = {
   onlinePlayerNum: null,
   soundEnabled: true,
   dangerZoneEnabled: true,
+  turnTimerEndsAt: null,
 };
 
 export const useGameStore = create<GameState & GameActions>()(
@@ -292,6 +293,7 @@ export const useGameStore = create<GameState & GameActions>()(
               state.currentQuestion = null;
               state.guessedCharacterId = null;
               state.phase = GamePhase.TURN_TRANSITION;
+              state.turnTimerEndsAt = Date.now() + 15000;
             }
             break;
           }
@@ -303,6 +305,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
     askQuestion: (questionId) =>
       set((state) => {
+        state.turnTimerEndsAt = null;
         const q = QUESTIONS.find((q) => q.id === questionId);
         if (!q) return;
 
@@ -384,11 +387,13 @@ export const useGameStore = create<GameState & GameActions>()(
         state.turnNumber += 1;
         state.currentQuestion = null;
         state.phase = GamePhase.TURN_TRANSITION;
+        state.turnTimerEndsAt = Date.now() + 15000;
       }),
 
     startGuess: () =>
       set((state) => {
         state.phase = GamePhase.GUESS_SELECT;
+        state.turnTimerEndsAt = Date.now() + 15000;
       }),
 
     cancelGuess: () =>
@@ -401,11 +406,13 @@ export const useGameStore = create<GameState & GameActions>()(
           state.turnNumber += 1;
           state.currentQuestion = null;
           state.phase = GamePhase.TURN_TRANSITION;
+          state.turnTimerEndsAt = Date.now() + 15000;
         } else {
           // Free mode or no question yet: return to question select
           state.currentQuestion = null;
           state.cpuQuestion = null;
           state.phase = GamePhase.QUESTION_SELECT;
+          state.turnTimerEndsAt = Date.now() + 15000;
         }
       }),
 
@@ -502,30 +509,23 @@ export const useGameStore = create<GameState & GameActions>()(
         state.onlineGameId = null;
         state.onlineRoomCode = null;
         state.onlinePlayerNum = null;
+        state.turnTimerEndsAt = null;
 
-        // Clear saved session on explicit reset/game over
-        localStorage.removeItem('guessnft_online_session');
+        // Note: We DO NOT remove the local session from localStorage here
+        // so the user can back out to the menu and see their open games.
       }),
 
     // ─── Online-specific actions ───────────────────────────────────────────────
 
-    recoverOnlineGame: (characters) =>
+    recoverOnlineGame: (characters, session) =>
       set((state) => {
-        const saved = localStorage.getItem('guessnft_online_session');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            state.mode = 'online';
-            state.characters = characters;
-            state.onlineGameId = parsed.gameId;
-            state.onlineRoomCode = parsed.roomCode;
-            state.onlinePlayerNum = parsed.playerNum;
-            // Temporarily set phase to waiting, the sync hook will verify status
-            state.phase = GamePhase.ONLINE_WAITING;
-          } catch (e) {
-            localStorage.removeItem('guessnft_online_session');
-          }
-        }
+        state.mode = 'online';
+        state.characters = characters;
+        state.onlineGameId = session.gameId;
+        state.onlineRoomCode = session.roomCode;
+        state.onlinePlayerNum = session.playerNum;
+        // Temporarily set phase to waiting, the sync hook will verify status
+        state.phase = GamePhase.ONLINE_WAITING;
       }),
 
     setOnlineGame: (gameId, roomCode, playerNum) =>
@@ -534,13 +534,23 @@ export const useGameStore = create<GameState & GameActions>()(
         state.onlineRoomCode = roomCode;
         state.onlinePlayerNum = playerNum;
 
-        // Save session so we can recover on refresh
-        localStorage.setItem('guessnft_online_session', JSON.stringify({
-          gameId,
-          roomCode,
-          playerNum,
-          timestamp: Date.now()
-        }));
+        // Save session to array so we can list multiple open games
+        try {
+          const raw = localStorage.getItem('guessnft_online_sessions');
+          let sessions: any[] = raw ? JSON.parse(raw) : [];
+          // Filter out duplicates of this same game
+          sessions = sessions.filter(s => s.gameId !== gameId);
+          sessions.unshift({
+            gameId,
+            roomCode,
+            playerNum,
+            timestamp: Date.now()
+          });
+          // Keep max 5 sessions
+          localStorage.setItem('guessnft_online_sessions', JSON.stringify(sessions.slice(0, 5)));
+        } catch (e) {
+          console.error("Failed to save session", e);
+        }
       }),
 
     advanceToGameStart: () =>
@@ -552,6 +562,7 @@ export const useGameStore = create<GameState & GameActions>()(
         // Rotation is 0 for P1, PI for P2
         state.boardRotation = state.onlinePlayerNum === 2 ? Math.PI : 0;
         state.phase = GamePhase.QUESTION_SELECT;
+        state.turnTimerEndsAt = Date.now() + 15000;
       }),
 
     receiveOpponentQuestion: (questionId, answer) =>
@@ -595,9 +606,22 @@ export const useGameStore = create<GameState & GameActions>()(
 
     applyGuessResult: (isCorrect, winner) =>
       set((state) => {
+        state.turnTimerEndsAt = null;
         if (isCorrect && winner !== null) {
           state.winner = winner;
           state.phase = GamePhase.GUESS_RESULT;
+
+          // Game is over. Remove this game from local sessions
+          if (state.onlineGameId) {
+            try {
+              const raw = localStorage.getItem('guessnft_online_sessions');
+              if (raw) {
+                const sessions = JSON.parse(raw);
+                const filtered = sessions.filter((s: any) => s.gameId !== state.onlineGameId);
+                localStorage.setItem('guessnft_online_sessions', JSON.stringify(filtered));
+              }
+            } catch (e) { }
+          }
         } else {
           state.phase = GamePhase.GUESS_WRONG;
         }
@@ -624,6 +648,54 @@ export const useGameStore = create<GameState & GameActions>()(
     setDangerZoneEnabled: (enabled) =>
       set((state) => {
         state.dangerZoneEnabled = enabled;
+      }),
+
+    startTurnTimer: () =>
+      set((state) => {
+        state.turnTimerEndsAt = Date.now() + 15000;
+      }),
+
+    handleTurnTimeout: () =>
+      set((state) => {
+        if (!state.turnTimerEndsAt || Date.now() < state.turnTimerEndsAt) return;
+        state.turnTimerEndsAt = null;
+
+        if (state.phase === GamePhase.QUESTION_SELECT) {
+          // Auto-select a random valid question
+          const askedIds = new Set([
+            ...state.questionHistory.map((q) => q.questionId),
+            ...(state.currentQuestion ? [state.currentQuestion.questionId] : []),
+          ]);
+          const available = QUESTIONS.filter((q) => !askedIds.has(q.id));
+          if (available.length > 0) {
+            const randomQ = available[Math.floor(Math.random() * available.length)];
+            const record = {
+              questionId: randomQ.id,
+              questionText: randomQ.text,
+              traitKey: randomQ.traitKey,
+              traitValue: randomQ.traitValue,
+              answer: null as any,
+              askedBy: state.activePlayer,
+              turnNumber: state.turnNumber,
+            };
+            state.currentQuestion = record;
+            state.phase = GamePhase.ANSWER_PENDING;
+          } else {
+            state.phase = GamePhase.TURN_TRANSITION;
+            state.turnTimerEndsAt = Date.now() + 15000;
+          }
+        } else if (state.phase === GamePhase.ELIMINATION) {
+          const next = getOpponent(state.activePlayer);
+          state.activePlayer = next;
+          state.boardRotation = next === 'player1' ? 0 : Math.PI;
+          state.turnNumber += 1;
+          state.currentQuestion = null;
+          state.phase = GamePhase.TURN_TRANSITION;
+          state.turnTimerEndsAt = Date.now() + 15000;
+        } else if (state.phase === GamePhase.GUESS_SELECT) {
+          state.phase = GamePhase.ELIMINATION;
+          state.turnTimerEndsAt = Date.now() + 15000;
+        }
       }),
   }))
 );

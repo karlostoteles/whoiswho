@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhase, useTurnNumber, useGameMode, useEliminatedIds, useGameCharacters, useActivePlayer } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
+import { useGameStore } from '@/core/store/gameStore';
 
 /**
  * TurnIndicator — shows only turn number and tiles remaining.
@@ -12,6 +14,29 @@ export function TurnIndicator() {
   const turnNumber = useTurnNumber();
   const characters = useGameCharacters();
   const eliminatedIds = useEliminatedIds(activePlayer);
+  const turnTimerEndsAt = useGameStore(s => s.turnTimerEndsAt);
+  const handleTurnTimeout = useGameStore(s => s.handleTurnTimeout);
+
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!turnTimerEndsAt) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const checkTime = () => {
+      const remaining = Math.max(0, turnTimerEndsAt - Date.now());
+      setTimeLeft(Math.ceil(remaining / 1000));
+      if (remaining <= 0) {
+        handleTurnTimeout();
+      }
+    };
+
+    checkTime(); // Check immediately
+    const interval = setInterval(checkTime, 100);
+    return () => clearInterval(interval);
+  }, [turnTimerEndsAt, handleTurnTimeout]);
 
   const remaining = characters.length - eliminatedIds.length;
   const total = characters.length;
@@ -93,6 +118,41 @@ export function TurnIndicator() {
             height: 18,
             background: 'rgba(255,255,255,0.1)',
           }} />
+
+          {/* Turn timer countdown */}
+          {timeLeft !== null && (
+            <>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}>
+                <span style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontWeight: 800,
+                  fontSize: 16,
+                  color: timeLeft <= 5 ? '#EF4444' : '#E8A444',
+                }}>
+                  0:{timeLeft.toString().padStart(2, '0')}
+                </span>
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  color: timeLeft <= 5 ? 'rgba(239,68,68,0.7)' : 'rgba(255,255,254,0.35)',
+                  textTransform: 'uppercase',
+                }}>
+                  sec
+                </span>
+              </div>
+
+              <div style={{
+                width: 1,
+                height: 18,
+                background: 'rgba(255,255,255,0.1)',
+              }} />
+            </>
+          )}
 
           {/* Tiles remaining with green→red color */}
           <div style={{

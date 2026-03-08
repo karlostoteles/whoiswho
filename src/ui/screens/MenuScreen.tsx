@@ -43,23 +43,19 @@ export function MenuScreen() {
     }
   };
 
-  // Attempt session recovery on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('guessnft_online_session');
-    if (saved) {
-      setLoading(true);
-      setNftStatus('Reconnecting to room...');
-      generateAllCollectionCharacters()
-        .then((allChars) => {
-          recoverOnlineGame(allChars);
-          setView('online');
-        })
-        .finally(() => {
-          setLoading(false);
-          setNftStatus('');
-        });
-    }
-  }, [recoverOnlineGame]);
+  const handleResumeGame = (session: any) => {
+    setLoading(true);
+    setNftStatus('Reconnecting to room...');
+    generateAllCollectionCharacters()
+      .then((allChars) => {
+        recoverOnlineGame(allChars, session);
+        setView('online');
+      })
+      .finally(() => {
+        setLoading(false);
+        setNftStatus('');
+      });
+  };
 
   return (
     <motion.div
@@ -75,6 +71,7 @@ export function MenuScreen() {
             onFreePlay={() => setView('free-pick')}
             onPlayOnline={() => setView('real-pick')}
             onLeaderboard={() => setView('leaderboard')}
+            onResumeGame={handleResumeGame}
           />
         )}
         {view === 'free-pick' && (
@@ -170,10 +167,27 @@ interface MenuMainProps {
   onFreePlay: () => void;
   onPlayOnline: () => void;
   onLeaderboard: () => void;
+  onResumeGame: (session: any) => void;
 }
 
-function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
+function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard, onResumeGame }: MenuMainProps) {
   const { t, i18n } = useTranslation();
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('guessnft_online_sessions');
+      if (raw) {
+        setActiveSessions(JSON.parse(raw));
+      }
+    } catch (e) { }
+  }, []);
+
+  const handleAbandon = (gameId: string) => {
+    const updated = activeSessions.filter((s) => s.gameId !== gameId);
+    setActiveSessions(updated);
+    localStorage.setItem('guessnft_online_sessions', JSON.stringify(updated));
+  };
 
   const toggleLang = () => {
     i18n.changeLanguage(i18n.language.startsWith('es') ? 'en' : 'es');
@@ -350,6 +364,57 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
           marginBottom: 16,
         }}
       />
+
+      {/* ─── Active Games Section ─── */}
+      {activeSessions.length > 0 && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 12, marginTop: 10, width: '100%', maxWidth: 400, padding: '0 20px',
+        }}>
+          <div style={{
+            fontSize: 12, fontWeight: 700, color: 'rgba(255,255,254,0.4)',
+            letterSpacing: '0.1em', textTransform: 'uppercase'
+          }}>
+            Active Games
+          </div>
+          {activeSessions.map((session) => (
+            <div key={session.gameId} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 12, padding: '12px 16px', gap: 16,
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#FFF' }}>Room {session.roomCode}</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,254,0.5)' }}>Player {session.playerNum}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <motion.button
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={() => onResumeGame(session)}
+                  style={{
+                    background: 'rgba(232,164,68,0.2)', border: '1px solid rgba(232,164,68,0.4)',
+                    color: '#E8A444', borderRadius: 8, padding: '6px 12px', fontSize: 12,
+                    fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  Resume
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={() => handleAbandon(session.gameId)}
+                  style={{
+                    background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.2)',
+                    color: '#F472B6', borderRadius: 8, padding: '6px 10px', fontSize: 12,
+                    fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </motion.button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ─── Two main tiles: slide in from sides ─── */}
       <div style={{

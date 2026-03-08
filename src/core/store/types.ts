@@ -65,6 +65,8 @@ export interface GameState {
   // Global client settings
   soundEnabled: boolean;
   dangerZoneEnabled: boolean;
+  // Turn timer state
+  turnTimerEndsAt: number | null;
 }
 
 export interface GameActions {
@@ -84,7 +86,7 @@ export interface GameActions {
   goBackToSetupP1: () => void;
   // Online-specific actions (called by useOnlineGameSync hook)
   setOnlineGame: (gameId: string, roomCode: string, playerNum: 1 | 2) => void;
-  recoverOnlineGame: (characters: Character[]) => void;
+  recoverOnlineGame: (characters: Character[], session: { gameId: string; roomCode: string; playerNum: 1 | 2 }) => void;
   advanceToGameStart: () => void;
   receiveOpponentQuestion: (questionId: string, answer: boolean) => void;
   applyOpponentAnswer: (answer: boolean) => void;
@@ -95,4 +97,7 @@ export interface GameActions {
   // Settings toggle
   setSoundEnabled: (enabled: boolean) => void;
   setDangerZoneEnabled: (enabled: boolean) => void;
+  // Timer actions
+  startTurnTimer: () => void;
+  handleTurnTimeout: () => void;
 }
