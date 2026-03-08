@@ -182,6 +182,9 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
   useEffect(() => {
     if (!characters || characters.length === 0) return;
 
+    // Reset animation states so round-2 characters aren't stuck in 'dead' phase
+    animRef.current.clear();
+
     // Build stable index map: character.id → atlas cell index
     const indexMap = new Map<string, number>();
     characters.forEach((c, i) => indexMap.set(c.id, i));

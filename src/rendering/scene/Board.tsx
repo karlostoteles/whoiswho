@@ -160,7 +160,7 @@ export function Board({ width = BOARD.width, depth = BOARD.depth }: BoardProps) 
       <mesh position={[0, -0.06, 0]} receiveShadow>
         <boxGeometry args={[w + 0.44, BOARD.height + 0.18, d + 0.44]} />
         <meshStandardMaterial
-          color="#ffffff"
+          color="#3c1e0b"
           map={woodTex ?? undefined}
           roughness={0.65}
           metalness={0.02}
