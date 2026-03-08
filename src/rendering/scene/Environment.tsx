@@ -1,8 +1,13 @@
+import { Environment as DreiEnvironment } from '@react-three/drei';
+
 export function Environment() {
   return (
     <>
       <color attach="background" args={['#0f0e17']} />
       <fog attach="fog" args={['#0f0e17', 22, 48]} />
+
+      {/* IBL — gives metallic card borders and the gold inlay something to reflect */}
+      <DreiEnvironment preset="studio" background={false} />
 
       {/* Hemisphere: cool sky / warm ground — base ambient fill with directionality */}
       <hemisphereLight args={['#2a3a7a', '#2a1608', 0.32]} />

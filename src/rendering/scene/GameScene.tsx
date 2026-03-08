@@ -6,6 +6,7 @@ import { Board } from './Board';
 import { CharacterGrid } from './CharacterGrid';
 import { MysteryCard } from './MysteryCard';
 import { CameraController } from './CameraController';
+import { SlotGridOverlay } from './SlotGridOverlay';
 import { useCharacterTextures, useCardBackTexture } from '@/shared/hooks/useCharacterTextures';
 import { useAdaptiveGrid } from '@/shared/hooks/useAdaptiveGrid';
 import { useBoardRotation } from '@/core/store/selectors';
@@ -37,6 +38,7 @@ export function GameScene() {
       <group rotation={[BOARD.tiltAngle, 0, 0]}>
         <group ref={boardRef}>
           <Board width={layout.gridW} depth={layout.gridD} />
+          <SlotGridOverlay />
           <CharacterGrid textures={textures} tileW={layout.tileW} />
           <MysteryCard textures={textures} cardBackTexture={cardBackTexture} />
         </group>

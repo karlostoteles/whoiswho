@@ -5,3 +5,4 @@ export { CharacterTile } from './CharacterTile';
 export { Environment } from './Environment';
 export { GameScene } from './GameScene';
 export { MysteryCard } from './MysteryCard';
+export { SlotGridOverlay } from './SlotGridOverlay';

@@ -8,7 +8,7 @@ interface BoardProps {
   depth?: number;
 }
 
-/** Procedural felt texture — subtle woven grid gives the surface tactile depth. */
+/** Procedural felt texture — deep navy baize, subtle woven grid. */
 function useFeltTexture(): THREE.CanvasTexture | null {
   const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
 
@@ -19,13 +19,13 @@ function useFeltTexture(): THREE.CanvasTexture | null {
     canvas.height = SIZE;
     const ctx = canvas.getContext('2d')!;
 
-    // Base casino green
-    ctx.fillStyle = '#1d3b26';
+    // Deep midnight navy — not grass
+    ctx.fillStyle = '#0b0d2a';
     ctx.fillRect(0, 0, SIZE, SIZE);
 
-    // Diagonal bias-weave lines
+    // Diagonal bias-weave lines (blue-tinted threads)
     const cell = 20;
-    ctx.strokeStyle = 'rgba(255,255,255,0.032)';
+    ctx.strokeStyle = 'rgba(100,120,255,0.025)';
     ctx.lineWidth = 0.7;
     for (let i = -SIZE; i < SIZE * 2; i += cell) {
       ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + SIZE, SIZE); ctx.stroke();
@@ -36,15 +36,68 @@ function useFeltTexture(): THREE.CanvasTexture | null {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(SIZE, y); ctx.stroke();
     }
 
-    // Sparse fiber glints
+    // Sparse fiber glints (cooler tint)
     for (let i = 0; i < 700; i++) {
-      ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.055})`;
+      ctx.fillStyle = `rgba(160,180,255,${Math.random() * 0.045})`;
       ctx.fillRect(Math.random() * SIZE, Math.random() * SIZE, 1, 1);
     }
 
     const t = new THREE.CanvasTexture(canvas);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(5, 4);
+    t.colorSpace = THREE.SRGBColorSpace;
+
+    setTex(t);
+    return () => { t.dispose(); };
+  }, []);
+
+  return tex;
+}
+
+/** Procedural walnut wood texture for the board outer rim. */
+function useWoodTexture(): THREE.CanvasTexture | null {
+  const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
+
+  useEffect(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+
+    // Warm walnut base gradient
+    const bg = ctx.createLinearGradient(0, 0, 0, 128);
+    bg.addColorStop(0,   '#4a2610');
+    bg.addColorStop(0.4, '#3c1e0b');
+    bg.addColorStop(0.7, '#4e2c12');
+    bg.addColorStop(1,   '#3c1e0b');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 512, 128);
+
+    // Grain lines — slightly wavy vertical strokes
+    for (let i = 0; i < 36; i++) {
+      const x = (i / 36) * 512 + (Math.random() - 0.5) * 14;
+      ctx.strokeStyle = `rgba(0,0,0,${Math.random() * 0.15 + 0.02})`;
+      ctx.lineWidth = Math.random() * 1.8 + 0.4;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.bezierCurveTo(
+        x + (Math.random() - 0.5) * 10, 40,
+        x + (Math.random() - 0.5) * 10, 90,
+        x + (Math.random() - 0.5) * 8,  128,
+      );
+      ctx.stroke();
+    }
+
+    // Top-edge shine (catches the key light)
+    const shine = ctx.createLinearGradient(0, 0, 0, 26);
+    shine.addColorStop(0, 'rgba(255,195,110,0.16)');
+    shine.addColorStop(1, 'rgba(255,195,110,0)');
+    ctx.fillStyle = shine;
+    ctx.fillRect(0, 0, 512, 26);
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(10, 1);
     t.colorSpace = THREE.SRGBColorSpace;
 
     setTex(t);
@@ -99,13 +152,19 @@ export function Board({ width = BOARD.width, depth = BOARD.depth }: BoardProps) 
   const d = Math.max(BOARD.depth, depth + 2.0);
 
   const feltTex = useFeltTexture();
+  const woodTex = useWoodTexture();
 
   return (
     <group>
-      {/* Outer frame — modern black sleek edge */}
+      {/* Outer walnut rim — wider than before so it wraps around the felt visibly */}
       <mesh position={[0, -0.06, 0]} receiveShadow>
-        <boxGeometry args={[w + 0.32, BOARD.height + 0.12, d + 0.32]} />
-        <meshStandardMaterial color="#0c0603" roughness={0.72} metalness={0.05} />
+        <boxGeometry args={[w + 0.44, BOARD.height + 0.18, d + 0.44]} />
+        <meshStandardMaterial
+          color="#ffffff"
+          map={woodTex ?? undefined}
+          roughness={0.65}
+          metalness={0.02}
+        />
       </mesh>
 
       {/* Main inner board body */}
@@ -114,19 +173,19 @@ export function Board({ width = BOARD.width, depth = BOARD.depth }: BoardProps) 
         <meshStandardMaterial color={BOARD.color} roughness={0.82} />
       </mesh>
 
-      {/* Casino felt surface with woven texture */}
+      {/* Navy felt surface — recessed 5mm below board top so the rim wraps it */}
       {feltTex && (
         <mesh
-          position={[0, BOARD.height / 2 + 0.001, 0]}
+          position={[0, BOARD.height / 2 - 0.004, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           receiveShadow
         >
-          <planeGeometry args={[w - 0.32, d - 0.32]} />
+          <planeGeometry args={[w - 0.26, d - 0.26]} />
           <meshStandardMaterial color="#ffffff" map={feltTex} roughness={0.97} />
         </mesh>
       )}
 
-      {/* Gold inlay border around the felt */}
+      {/* Gold inlay border sits above the recessed felt, reads as embedded trim */}
       <GoldInlay w={w} d={d} />
     </group>
   );
