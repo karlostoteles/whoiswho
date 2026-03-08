@@ -404,9 +404,11 @@ function PlayRealTile({ onClick }: { onClick: () => void }) {
     <motion.button
       onClick={() => { sfx.cardClick(); onClick(); }}
       whileHover={{ scale: 1.04, y: -6, boxShadow: '0 0 56px rgba(232,164,68,0.35), 0 8px 32px rgba(0,0,0,0.5)' }}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.95, rotateX: 60, y: 15, transition: { duration: 0.2 } }}
       initial={false}
       style={{
+        transformPerspective: 800,
+        transformOrigin: 'bottom center',
         width: 'clamp(156px, 42vw, 188px)',
         height: 'clamp(228px, 60vw, 272px)',
         background: 'linear-gradient(165deg, #1c1228 0%, #0e0c1e 100%)',
@@ -426,15 +428,22 @@ function PlayRealTile({ onClick }: { onClick: () => void }) {
           position: 'absolute', inset: 0,
           background: 'linear-gradient(to bottom, transparent 60%, rgba(14,12,30,0.9) 100%)',
         }} />
-        <svg viewBox="0 0 120 120" width="100%" height="100%"
-          style={{ position: 'absolute', inset: 0 }} preserveAspectRatio="xMidYMid meet">
-          <text x="60" y="112" textAnchor="middle" fill="#E8A444" fontSize="14" fontWeight="900"
-            fontFamily="Space Grotesk, sans-serif" opacity="0.9" letterSpacing="0.1em">1Vs1</text>
-        </svg>
+        {/* Removed 1Vs1 text svg */}
+        {/* Premiere Badge embedded inside the card at bottom */}
+        <div style={{
+          position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(232,164,68,0.2)', border: '1px solid rgba(232,164,68,0.4)',
+          borderRadius: 8, padding: '2px 8px', fontSize: 9, fontWeight: 700,
+          letterSpacing: '0.08em', color: '#E8A444',
+          fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' as const,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+        }}>
+          {t('menu.badge')}
+        </div>
       </div>
       <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(232,164,68,0.45), transparent)', flexShrink: 0 }} />
       <div style={{ padding: '11px 13px 13px', textAlign: 'left', fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
           {t('menu.play_real')}
         </div>
         <div style={{ fontSize: 10, color: 'rgba(232,164,68,0.65)', fontWeight: 700, marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
@@ -457,9 +466,11 @@ function PlayFreeTile({ onClick }: { onClick: () => void }) {
     <motion.button
       onClick={() => { sfx.cardClick(); onClick(); }}
       whileHover={{ scale: 1.04, y: -6, boxShadow: '0 0 48px rgba(124,58,237,0.3), 0 8px 32px rgba(0,0,0,0.5)' }}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.95, rotateX: 60, y: 15, transition: { duration: 0.2 } }}
       initial={false}
       style={{
+        transformPerspective: 800,
+        transformOrigin: 'bottom center',
         width: 'clamp(156px, 42vw, 188px)',
         height: 'clamp(228px, 60vw, 272px)',
         background: 'linear-gradient(165deg, #101428 0%, #080c1e 100%)',
