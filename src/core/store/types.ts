@@ -62,6 +62,9 @@ export interface GameState {
   onlineGameId: string | null;
   onlineRoomCode: string | null;
   onlinePlayerNum: 1 | 2 | null;
+  // Global client settings
+  soundEnabled: boolean;
+  dangerZoneEnabled: boolean;
 }
 
 export interface GameActions {
@@ -89,4 +92,7 @@ export interface GameActions {
   applyGuessResult: (isCorrect: boolean, winner: PlayerId | null) => void;
   /** Enrich stub NFT characters with real trait attributes from fetchTraitsBatch(). */
   enrichNFTCharacters: (traitMap: Map<string, NFTAttribute[]>) => void;
+  // Settings toggle
+  setSoundEnabled: (enabled: boolean) => void;
+  setDangerZoneEnabled: (enabled: boolean) => void;
 }

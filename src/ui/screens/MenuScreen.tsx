@@ -326,22 +326,7 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
         ))}
       </div>
 
-      {/* ─── Badge: slides up with fade ─── */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.7, type: 'spring', stiffness: 200, damping: 20 }}
-        style={{
-          display: 'inline-block',
-          background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(91,33,182,0.3))',
-          border: '1px solid rgba(124,58,237,0.5)', borderRadius: 20,
-          padding: '3px 14px', fontSize: 11, fontWeight: 700,
-          letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-          color: '#A78BFA', marginBottom: 12,
-        }}
-      >
-        {t('menu.badge')}
-      </motion.div>
+      {/* Removed Badge from subtitle area per user request (it was moved to the PlayForReal tile) */}
 
       {/* ─── Subtitle: gentle fade in ─── */}
       <motion.div
@@ -400,11 +385,25 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
 
 function PlayRealTile({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
+  const [isClicked, setIsClicked] = useState(false);
+
+  const handleClick = () => {
+    if (isClicked) return;
+    sfx.cardClick();
+    setIsClicked(true);
+    setTimeout(() => {
+      onClick();
+      setIsClicked(false);
+    }, 250);
+  };
+
   return (
     <motion.button
-      onClick={() => { sfx.cardClick(); onClick(); }}
-      whileHover={{ scale: 1.04, y: -6, boxShadow: '0 0 56px rgba(232,164,68,0.35), 0 8px 32px rgba(0,0,0,0.5)' }}
-      whileTap={{ scale: 0.95, rotateX: 60, y: 15, transition: { duration: 0.2 } }}
+      onClick={handleClick}
+      whileHover={!isClicked ? { scale: 1.04, y: -6, boxShadow: '0 0 56px rgba(232,164,68,0.35), 0 8px 32px rgba(0,0,0,0.5)' } : {}}
+      whileTap={!isClicked ? { scale: 0.97 } : {}}
+      animate={isClicked ? { scale: 0.95, rotateX: 60, y: 15, opacity: 0 } : { scale: 1, rotateX: 0, y: 0, opacity: 1 }}
+      transition={{ duration: 0.25, ease: 'easeIn' }}
       initial={false}
       style={{
         transformPerspective: 800,
@@ -462,11 +461,25 @@ function PlayRealTile({ onClick }: { onClick: () => void }) {
 
 function PlayFreeTile({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
+  const [isClicked, setIsClicked] = useState(false);
+
+  const handleClick = () => {
+    if (isClicked) return;
+    sfx.cardClick();
+    setIsClicked(true);
+    setTimeout(() => {
+      onClick();
+      setIsClicked(false);
+    }, 250);
+  };
+
   return (
     <motion.button
-      onClick={() => { sfx.cardClick(); onClick(); }}
-      whileHover={{ scale: 1.04, y: -6, boxShadow: '0 0 48px rgba(124,58,237,0.3), 0 8px 32px rgba(0,0,0,0.5)' }}
-      whileTap={{ scale: 0.95, rotateX: 60, y: 15, transition: { duration: 0.2 } }}
+      onClick={handleClick}
+      whileHover={!isClicked ? { scale: 1.04, y: -6, boxShadow: '0 0 48px rgba(124,58,237,0.3), 0 8px 32px rgba(0,0,0,0.5)' } : {}}
+      whileTap={!isClicked ? { scale: 0.97 } : {}}
+      animate={isClicked ? { scale: 0.95, rotateX: 60, y: 15, opacity: 0 } : { scale: 1, rotateX: 0, y: 0, opacity: 1 }}
+      transition={{ duration: 0.25, ease: 'easeIn' }}
       initial={false}
       style={{
         transformPerspective: 800,
@@ -560,26 +573,41 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, onSchizodioRandom, loa
       <div style={{ width: 'min(480px, 100%)', display: 'flex', flexDirection: 'column' }}>
         <SubHeader onBack={onBack} title={t('menu.practice')} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* CT Version */}
           <OptionCard
             onClick={onCTVersion}
             accent="#7C3AED"
             accentRgb="124,58,237"
-            icon="🤖"
+            icon={
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="10" rx="2" />
+                <circle cx="12" cy="5" r="2" />
+                <path d="M12 7v4" />
+                <line x1="8" y1="16" x2="8" y2="16" />
+                <line x1="16" y1="16" x2="16" y2="16" />
+              </svg>
+            }
             title={t('menu.ct_version')}
             subtitle={t('menu.ct_version_sub')}
-            tag="24 CHARACTERS"
+            tag="24 CHARS"
           />
           {/* Schizodio vs AI — requires login, prompts random if 0 NFTs */}
           <OptionCard
             onClick={handleSchizodioClick}
             accent="#E8A444"
             accentRgb="232,164,68"
-            icon="💀"
+            icon={
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2c-4.4 0-8 3.6-8 8 0 5 4 9 4 12h8c0-3 4-7 4-12 0-4.4-3.6-8-8-8z" />
+                <path d="M5 10c0-3.9 3.1-7 7-7s7 3.1 7 7" />
+                <path d="M12 11v2" />
+                <path d="M9 14h6" />
+              </svg>
+            }
             title={nftStatus || t('menu.nft_version')}
             subtitle={walletStatus === 'ready' ? "Play with the full Schizodio collection." : "Login required to play Schizodio mode."}
-            tag="999 CHARACTERS"
+            tag="999 CHARS"
             disabled={loading}
           />
         </div>
@@ -713,14 +741,20 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
       <div style={{ width: 'min(480px, 100%)', display: 'flex', flexDirection: 'column', paddingTop: 24, paddingBottom: 32 }}>
         <SubHeader onBack={onBack} title={t('menu.play_real')} />
 
-        {/* ─── SCHIZODIO Collection ─── */}
-        <CollectionBadge label="SCHIZODIO" accentRgb="232,164,68" />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+          <CollectionBadge label="SCHIZODIO" accentRgb="232,164,68" />
           <OptionCard
             onClick={onNormal}
             accent="#E8A444"
             accentRgb="232,164,68"
-            icon="⚔️"
+            icon={
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+                <path d="M13 19l6 2 3-3-2-6" />
+                <path d="M9.5 14.5L3 21" />
+                <path d="M21 3l-6.5 6.5" />
+              </svg>
+            }
             title={t('menu.normal')}
             subtitle={t('menu.normal_sub')}
             tag={t('menu.online')}
@@ -729,7 +763,12 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
             onClick={() => { }}
             accent="#E05555"
             accentRgb="224,85,85"
-            icon="🔥"
+            icon={
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.5 3.5 6.5 1.5 2 1.5 3.5 1.5 4.5a2.5 2.5 0 0 1-5 0Z" />
+                <path d="M12 22s-7-3-7-8c0-3.5 4.5-5.5 4.5-5.5s1.5 2.5 1.5 4c0 1.5-1.5 2.5-1.5 4 0 2 2.5 2 2.5 2s2.5 0 2.5-2c0-1.5-1.5-2.5-1.5-4 0-1.5 1.5-4 1.5-4s4.5 2 4.5 5.5c0 5-7 8-7 8Z" />
+              </svg>
+            }
             title={t('menu.schizo_mode')}
             subtitle={t('menu.schizo_mode_sub')}
             tag={t('menu.coming_soon')}
@@ -738,13 +777,13 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
         </div>
 
         {/* ─── DUCKS Collection ─── */}
-        <CollectionBadge label="DUCKS" accentRgb="251,191,36" />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+          <CollectionBadge label="DUCKS" accentRgb="251,191,36" />
           <OptionCard
             onClick={() => { }}
             accent="#FBBF24"
             accentRgb="251,191,36"
-            icon="D"
+            icon="🦆"
             title="Starknet Ducks"
             subtitle="The quackiest collection descends on the board"
             tag={t('menu.coming_soon')}
@@ -753,13 +792,13 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
         </div>
 
         {/* ─── BLOBERT Collection ─── */}
-        <CollectionBadge label="BLOBERT" accentRgb="167,139,250" />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+          <CollectionBadge label="BLOBERT" accentRgb="167,139,250" />
           <OptionCard
             onClick={() => { }}
             accent="#A78BFA"
             accentRgb="167,139,250"
-            icon="B"
+            icon="🔮"
             title="Blobert"
             subtitle="A magical assembly of highly intelligent blobs"
             tag={t('menu.coming_soon')}
@@ -768,13 +807,13 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
         </div>
 
         {/* ─── SCHIZOSOL Collection ─── */}
-        <CollectionBadge label="SCHIZOSOL" accentRgb="20,241,149" />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <CollectionBadge label="SCHIZOSOL" accentRgb="20,241,149" />
           <OptionCard
             onClick={() => { }}
             accent="#14F195"
             accentRgb="20,241,149"
-            icon="S"
+            icon="⛓️"
             title="SchizoSol"
             subtitle="The Solana integration expands the madness"
             tag={t('menu.coming_soon')}
@@ -815,7 +854,7 @@ interface OptionCardProps {
   onClick: () => void;
   accent: string;
   accentRgb: string;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   subtitle: string;
   tag: string;
@@ -823,66 +862,153 @@ interface OptionCardProps {
 }
 
 function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, disabled }: OptionCardProps) {
+  const [rotateX, setRotateX] = useState(0);
+  const [rotateY, setRotateY] = useState(0);
+  const [isClicked, setIsClicked] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled || isClicked) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const degX = (y - centerY) / 8;
+    const degY = (centerX - x) / 12;
+    setRotateX(degX);
+    setRotateY(degY);
+  };
+
+  const handleMouseLeave = () => {
+    if (isClicked) return;
+    setRotateX(0);
+    setRotateY(0);
+  };
+
+  const handleClick = () => {
+    if (disabled || isClicked) return;
+    sfx.cardClick();
+    setIsClicked(true);
+    setTimeout(() => {
+      onClick();
+      // Reset after transition complete (if staying on screen)
+      // setIsClicked(false); 
+    }, 300);
+  };
+
   return (
-    <motion.button
-      onClick={disabled ? undefined : () => { sfx.click(); onClick(); }}
-      whileHover={disabled ? {} : { scale: 1.02, x: 4 }}
-      whileTap={disabled ? {} : { scale: 0.98 }}
-      style={{
-        background: disabled
-          ? 'rgba(255,255,255,0.04)'
-          : `rgba(${accentRgb},0.15)`,
-        border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.1)' : `rgba(${accentRgb},0.4)`}`,
-        borderRadius: 14, padding: '16px 18px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        outline: 'none', textAlign: 'left', width: '100%',
-        display: 'flex', alignItems: 'center', gap: 16,
-        opacity: disabled ? 0.45 : 1,
-        transition: 'background 0.2s, border-color 0.2s',
-        fontFamily: "'Space Grotesk', sans-serif",
-      }}
-    >
-      {/* Icon */}
-      <div style={{
-        width: 48, height: 48, borderRadius: 12, flexShrink: 0,
-        background: disabled ? 'rgba(255,255,255,0.06)' : `rgba(${accentRgb},0.2)`,
-        border: `1px solid ${disabled ? 'rgba(255,255,255,0.1)' : `rgba(${accentRgb},0.35)`}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22,
-      }}>
-        {icon}
-      </div>
+    <div style={{ perspective: '800px', width: '100%' }}>
+      <motion.button
+        onClick={handleClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        animate={isClicked
+          ? { rotateX: 60, opacity: 0, y: 20, scale: 0.95 }
+          : { rotateX, rotateY, opacity: 1, y: 0, scale: 1 }
+        }
+        whileHover={(disabled || isClicked) ? {} : { scale: 1.02 }}
+        whileTap={(disabled || isClicked) ? {} : { scale: 0.98, rotateX: 0, rotateY: 0 }}
+        transition={{
+          type: isClicked ? 'spring' : 'tween',
+          stiffness: 300,
+          damping: 20,
+          duration: isClicked ? 0.3 : 0.1
+        }}
+        style={{
+          position: 'relative',
+          background: disabled
+            ? 'rgba(255,255,255,0.03)'
+            : `linear-gradient(145deg, rgba(${accentRgb},0.2) 0%, rgba(${accentRgb},0.08) 100%)`,
+          border: `1px solid ${disabled ? 'rgba(255,255,255,0.08)' : `rgba(${accentRgb},0.45)`}`,
+          borderRadius: 18,
+          padding: '20px 22px',
+          cursor: (disabled || isClicked) ? 'not-allowed' : 'pointer',
+          outline: 'none',
+          textAlign: 'left',
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 20,
+          opacity: disabled ? 0.4 : 1,
+          boxShadow: (disabled || isClicked)
+            ? '0 4px 12px rgba(0,0,0,0.2)'
+            : `0 12px 28px rgba(0,0,0,0.35), 0 0 0 1px rgba(${accentRgb}, 0.1), inset 0 1px 1px rgba(255,255,255,0.1)`,
+          transformStyle: 'preserve-3d',
+          transformOrigin: 'bottom center',
+          fontFamily: "'Space Grotesk', sans-serif",
+          overflow: 'hidden',
+        }}
+      >
+        {/* Shine/Reflection effect */}
+        {!disabled && !isClicked && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.05) 100%)',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }} />
+        )}
 
-      {/* Text */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Noise texture overlay */}
         <div style={{
-          fontSize: 15, fontWeight: 700,
-          color: disabled ? 'rgba(255,255,254,0.35)' : '#FFFFFE',
-          letterSpacing: '-0.01em', marginBottom: 3,
-        }}>
-          {title}
-        </div>
-        <div style={{
-          fontSize: 12, color: 'rgba(255,255,254,0.38)',
-          fontWeight: 400, lineHeight: 1.4,
-        }}>
-          {subtitle}
-        </div>
-      </div>
+          position: 'absolute', inset: 0,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+          opacity: 0.04, mixBlendMode: 'overlay',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }} />
 
-      {/* Tag */}
-      <div style={{
-        flexShrink: 0,
-        background: disabled ? 'rgba(255,255,255,0.05)' : `rgba(${accentRgb},0.15)`,
-        border: `1px solid ${disabled ? 'rgba(255,255,255,0.08)' : `rgba(${accentRgb},0.3)`}`,
-        borderRadius: 8, padding: '3px 10px',
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-        color: disabled ? 'rgba(255,255,254,0.25)' : accent,
-        textTransform: 'uppercase' as const,
-      }}>
-        {tag}
-      </div>
-    </motion.button>
+        {/* Icon slot - recessed look */}
+        <div style={{
+          width: 56, height: 56, borderRadius: 14, flexShrink: 0,
+          background: disabled ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.25)',
+          border: `1px solid ${disabled ? 'rgba(255,255,255,0.05)' : `rgba(${accentRgb},0.3)`}`,
+          boxShadow: 'inset 0 4px 10px rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 24,
+          color: (disabled || isClicked) ? 'rgba(255,255,254,0.2)' : accent,
+          zIndex: 2,
+          position: 'relative',
+          transform: 'translateZ(20px)',
+        }} >
+          {icon}
+        </div>
+
+        {/* Text content */}
+        <div style={{ flex: 1, minWidth: 0, zIndex: 2, transform: 'translateZ(10px)' }}>
+          <div style={{
+            fontSize: 16, fontWeight: 800,
+            color: (disabled || isClicked) ? 'rgba(255,255,254,0.3)' : '#FFFFFE',
+            letterSpacing: '-0.02em', marginBottom: 4,
+            textShadow: (disabled || isClicked) ? 'none' : '0 2px 4px rgba(0,0,0,0.3)',
+          }}>
+            {title}
+          </div>
+          <div style={{
+            fontSize: 12, color: 'rgba(255,255,254,0.35)',
+            fontWeight: 400, lineHeight: 1.45,
+          }}>
+            {subtitle}
+          </div>
+        </div>
+
+        {/* Tag - floating forward */}
+        <div style={{
+          flexShrink: 0,
+          background: (disabled || isClicked) ? 'rgba(255,255,255,0.04)' : `rgba(${accentRgb},0.25)`,
+          border: `1px solid ${(disabled || isClicked) ? 'rgba(255,255,255,0.06)' : `rgba(${accentRgb},0.5)`}`,
+          borderRadius: 8, padding: '4px 11px',
+          fontSize: 10, fontWeight: 800, letterSpacing: '0.08em',
+          color: (disabled || isClicked) ? 'rgba(255,255,254,0.2)' : '#FFF',
+          textTransform: 'uppercase' as const,
+          zIndex: 3,
+          transform: 'translateZ(30px)',
+          boxShadow: (disabled || isClicked) ? 'none' : `0 4px 12px rgba(0,0,0,0.25), 0 0 10px rgba(${accentRgb}, 0.2)`,
+        }}>
+          {tag}
+        </div>
+      </motion.button>
+    </div>
   );
 }
 

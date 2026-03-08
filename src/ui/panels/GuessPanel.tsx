@@ -7,7 +7,7 @@ import { useActivePlayer, useEliminatedIds, useCurrentQuestion, useGameActions, 
 import { sfx } from '@/shared/audio/sfx';
 
 export function GuessPanel() {
-  const [isGuessingMode, setIsGuessingMode] = useState(false);
+  const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
   const activePlayer = useActivePlayer();
   const eliminatedIds = useEliminatedIds(activePlayer);
   const currentQuestion = useCurrentQuestion();
@@ -23,17 +23,14 @@ export function GuessPanel() {
   const remainingCount = characters.length - elimSet.size;
 
   const handleCharClick = (charId: string) => {
-    if (!isGuessingMode) {
-      sfx.click();
-      // Optional: show info?
-      return;
-    }
-    makeGuess(charId);
+    sfx.click();
+    setSelectedCharId(prev => prev === charId ? null : charId);
   };
 
-  const handleToggleRisk = () => {
-    sfx.click();
-    setIsGuessingMode(!isGuessingMode);
+  const handleConfirmGuess = () => {
+    if (!selectedCharId) return;
+    sfx.riskIt();
+    makeGuess(selectedCharId);
   };
 
   return (
@@ -55,14 +52,15 @@ export function GuessPanel() {
     >
       <Card style={{
         width: 'min(800px, calc(100vw - 32px))',
-        maxHeight: 'calc(100vh - 48px)',
+        maxHeight: 'calc(100vh - 120px)', // Leave space for top and bottom headers
+        marginTop: '60px', // Push down so it doesn't overlap Opponent Counter and Header Button
         overflowY: 'auto',
         position: 'relative',
         padding: '32px 24px',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <AnimatePresence mode="wait">
-            {!isGuessingMode ? (
+            {!selectedCharId ? (
               <motion.div
                 key="board-header"
                 initial={{ opacity: 0, y: -10 }}
@@ -84,7 +82,7 @@ export function GuessPanel() {
                   color: 'rgba(255,255,254,0.4)',
                   marginBottom: 16,
                 }}>
-                  Review the characters before making your move
+                  Select a character to risk your turn
                 </div>
               </motion.div>
             ) : (
@@ -104,7 +102,7 @@ export function GuessPanel() {
                   letterSpacing: '-0.02em',
                   marginBottom: 6,
                 }}>
-                  🎯 Risk It All!
+                  🎯 Ready to Guess?
                 </div>
                 <div style={{
                   fontSize: 14,
@@ -143,21 +141,30 @@ export function GuessPanel() {
               {midTurn ? 'End Turn' : 'Close Board'}
             </Button>
 
-            <Button
-              variant="no"
-              size="md"
-              onClick={handleToggleRisk}
-              style={isGuessingMode ? {
-                background: 'linear-gradient(135deg, #E05555, #C04444)',
-                borderColor: '#FF6B6B',
-                boxShadow: '0 0 24px rgba(224,85,85,0.5)',
-              } : {
-                background: 'linear-gradient(135deg, rgba(224,85,85,0.2), rgba(180,50,50,0.3))',
-                borderColor: 'rgba(224,85,85,0.4)',
-              }}
-            >
-              {isGuessingMode ? '✕ Cancel Guess' : '🎲 Risk It!'}
-            </Button>
+            <AnimatePresence>
+              {selectedCharId && (
+                <motion.div
+                  initial={{ width: 0, opacity: 0, scale: 0.8 }}
+                  animate={{ width: 'auto', opacity: 1, scale: 1 }}
+                  exit={{ width: 0, opacity: 0, scale: 0.8 }}
+                  style={{ display: 'inline-block', overflow: 'hidden' }}
+                >
+                  <Button
+                    variant="no"
+                    size="md"
+                    onClick={handleConfirmGuess}
+                    style={{
+                      background: 'linear-gradient(135deg, #E05555, #C04444)',
+                      borderColor: '#FF6B6B',
+                      boxShadow: '0 0 24px rgba(224,85,85,0.5)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    🎯 Guess NOW!
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -171,24 +178,27 @@ export function GuessPanel() {
         }}>
           {activeCharacters.map((char) => {
             const isEliminated = false; // All shown are active
+            const isSelected = selectedCharId === char.id;
             return (
               <motion.button
                 key={char.id}
                 onClick={() => !isEliminated && handleCharClick(char.id)}
                 whileHover={isEliminated ? {} : {
                   scale: 1.05,
-                  borderColor: isGuessingMode ? 'rgba(224,85,85,0.6)' : 'rgba(232,164,68,0.5)',
-                  background: isGuessingMode ? 'rgba(224,85,85,0.1)' : 'rgba(255,255,255,0.08)',
+                  borderColor: isSelected ? 'rgba(224,85,85,0.8)' : 'rgba(232,164,68,0.5)',
+                  background: isSelected ? 'rgba(224,85,85,0.15)' : 'rgba(255,255,255,0.08)',
                 }}
                 whileTap={isEliminated ? {} : { scale: 0.95 }}
                 style={{
                   background: isEliminated
                     ? 'rgba(255,255,255,0.02)'
-                    : 'rgba(255,255,255,0.05)',
+                    : isSelected
+                      ? 'rgba(224,85,85,0.15)'
+                      : 'rgba(255,255,255,0.05)',
                   border: `2px solid ${isEliminated
                     ? 'rgba(255,255,255,0.05)'
-                    : isGuessingMode
-                      ? 'rgba(224,85,85,0.4)'
+                    : isSelected
+                      ? 'rgba(224,85,85,0.6)'
                       : 'rgba(252,192,64,0.25)'
                     }`,
                   borderRadius: 12,
@@ -202,9 +212,10 @@ export function GuessPanel() {
                   opacity: isEliminated ? 0.2 : 1,
                   transition: 'border-color 0.2s, background 0.2s',
                   position: 'relative',
+                  boxShadow: isSelected ? '0 0 20px rgba(224,85,85,0.3)' : 'none',
                 }}
               >
-                {isGuessingMode && !isEliminated && (
+                {isSelected && !isEliminated && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -225,7 +236,7 @@ export function GuessPanel() {
                       boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                     }}
                   >
-                    !
+                    ✓
                   </motion.div>
                 )}
                 <img

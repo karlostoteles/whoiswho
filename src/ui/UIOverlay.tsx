@@ -15,8 +15,7 @@ import { PhaseTransition } from './overlays/PhaseTransition';
 import { AutoEliminatingOverlay } from './overlays/AutoEliminatingOverlay';
 import { GuessWrongOverlay } from './overlays/GuessWrongOverlay';
 import { TurnIndicator } from './widgets/TurnIndicator';
-import { WalletButton } from './widgets/WalletButton';
-import { HomeButton } from './widgets/HomeButton';
+import { HeaderMenu } from './widgets/HeaderMenu';
 import { CPUThinkingIndicator } from './widgets/CPUThinkingIndicator';
 import { OpponentCounter } from './widgets/OpponentCounter';
 import { ConfirmedTraits } from './widgets/ConfirmedTraits';
@@ -43,9 +42,8 @@ export function UIOverlay() {
       <EndGameVignette />
       <TurnIndicator />
 
-      {/* Wallet connection status — always visible */}
-      <WalletButton />
-      <HomeButton />
+      {/* Unified Settings / Wallet Menu — top-left corner */}
+      <HeaderMenu />
 
 
       {/* CPU thinking indicator — free mode only */}

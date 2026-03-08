@@ -62,6 +62,8 @@ const initialState: GameState = {
   onlineGameId: null,
   onlineRoomCode: null,
   onlinePlayerNum: null,
+  soundEnabled: true,
+  dangerZoneEnabled: true,
 };
 
 export const useGameStore = create<GameState & GameActions>()(
@@ -612,6 +614,16 @@ export const useGameStore = create<GameState & GameActions>()(
     enrichNFTCharacters: (traitMap) =>
       set((state) => {
         enrichCharacters(state.characters, traitMap);
+      }),
+
+    setSoundEnabled: (enabled) =>
+      set((state) => {
+        state.soundEnabled = enabled;
+      }),
+
+    setDangerZoneEnabled: (enabled) =>
+      set((state) => {
+        state.dangerZoneEnabled = enabled;
       }),
   }))
 );

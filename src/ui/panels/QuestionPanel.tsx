@@ -84,6 +84,7 @@ export function QuestionPanel() {
       position: 'fixed', bottom: 0, left: 0, right: 0,
       display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
       zIndex: 30, pointerEvents: 'none',
+      paddingTop: isMobile ? 80 : 0, // Prevent overlap with header on mobile
     }}>
       <AnimatePresence mode="wait">
 
