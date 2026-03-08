@@ -366,28 +366,59 @@ function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
         }}
       />
 
-      {/* ─── Two main tiles: slide in from sides ─── */}
+      {/* ─── Menu: Game Modes embedded in Nanobanana Framework ─── */}
       <div style={{
-        display: 'flex', gap: 'clamp(12px, 3vw, 28px)',
-        alignItems: 'stretch', justifyContent: 'center',
-        flexWrap: 'wrap',
-        marginTop: 20,
-        padding: '0 16px',
+        position: 'relative',
+        width: 'clamp(340px, 90vw, 480px)',
+        margin: '20px auto 0',
+        padding: '12%', // Give space for the thick plastic border
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
-        <motion.div
-          initial={{ x: -100, opacity: 0, rotate: -5 }}
-          animate={{ x: 0, opacity: 1, rotate: 0 }}
-          transition={{ delay: 1.1, type: 'spring', stiffness: 130, damping: 16 }}
-        >
-          <PlayRealTile onClick={onPlayOnline} />
-        </motion.div>
-        <motion.div
-          initial={{ x: 100, opacity: 0, rotate: 5 }}
-          animate={{ x: 0, opacity: 1, rotate: 0 }}
-          transition={{ delay: 1.25, type: 'spring', stiffness: 130, damping: 16 }}
-        >
-          <PlayFreeTile onClick={onFreePlay} />
-        </motion.div>
+        {/* Nanobanana Framework Image */}
+        <img
+          src="/images/board_card_framework.png"
+          alt="Board Game Framework"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            zIndex: 0,
+            pointerEvents: 'none',
+            filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.6))',
+          }}
+        />
+
+        {/* Embedded Game Modes */}
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          gap: '4%',
+          width: '100%',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+        }}>
+          <motion.div
+            initial={{ x: -60, opacity: 0, scale: 0.9 }}
+            animate={{ x: 0, opacity: 1, scale: 1 }}
+            transition={{ delay: 1.1, type: 'spring', stiffness: 130, damping: 16 }}
+            style={{ flex: 1 }}
+          >
+            <PlayRealTile onClick={onPlayOnline} />
+          </motion.div>
+          <motion.div
+            initial={{ x: 60, opacity: 0, scale: 0.9 }}
+            animate={{ x: 0, opacity: 1, scale: 1 }}
+            transition={{ delay: 1.25, type: 'spring', stiffness: 130, damping: 16 }}
+            style={{ flex: 1 }}
+          >
+            <PlayFreeTile onClick={onFreePlay} />
+          </motion.div>
+        </div>
       </div>
 
       {/* Bottom spacer — mirrors top spacer for centering */}
@@ -407,12 +438,13 @@ function PlayRealTile({ onClick }: { onClick: () => void }) {
       whileTap={{ scale: 0.97 }}
       initial={false}
       style={{
-        width: 'clamp(156px, 42vw, 188px)',
-        height: 'clamp(228px, 60vw, 272px)',
+        width: '100%',
+        aspectRatio: '0.69',
+        height: 'auto',
         background: 'linear-gradient(165deg, #1c1228 0%, #0e0c1e 100%)',
-        border: '1.5px solid rgba(232,164,68,0.5)', borderRadius: 16,
+        border: '2px solid #E8A444', borderRadius: 12,
         cursor: 'pointer', outline: 'none', padding: 0, overflow: 'hidden',
-        boxShadow: '0 0 28px rgba(232,164,68,0.16), 0 4px 20px rgba(0,0,0,0.4)',
+        boxShadow: 'inset 0 0 16px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.4)',
         display: 'flex', flexDirection: 'column', position: 'relative',
       }}
     >
@@ -460,12 +492,13 @@ function PlayFreeTile({ onClick }: { onClick: () => void }) {
       whileTap={{ scale: 0.97 }}
       initial={false}
       style={{
-        width: 'clamp(156px, 42vw, 188px)',
-        height: 'clamp(228px, 60vw, 272px)',
+        width: '100%',
+        aspectRatio: '0.69',
+        height: 'auto',
         background: 'linear-gradient(165deg, #101428 0%, #080c1e 100%)',
-        border: '1.5px solid rgba(124,58,237,0.4)', borderRadius: 16,
+        border: '2px solid #7C3AED', borderRadius: 12,
         cursor: 'pointer', outline: 'none', padding: 0, overflow: 'hidden',
-        boxShadow: '0 0 22px rgba(124,58,237,0.12), 0 4px 20px rgba(0,0,0,0.4)',
+        boxShadow: 'inset 0 0 16px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.4)',
         display: 'flex', flexDirection: 'column', position: 'relative',
       }}
     >
@@ -474,28 +507,18 @@ function PlayFreeTile({ onClick }: { onClick: () => void }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <img
-          src="/ai_background.jpg"
-          alt="AI Background"
+          src="/images/practice-bg.jpg"
+          alt="Practice Background"
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
         <div style={{
           position: 'absolute', inset: 0,
           background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,30,0.95) 100%)',
         }} />
-        {/* Free badge */}
-        <div style={{
-          position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(124,58,237,0.28)', border: '1px solid rgba(124,58,237,0.5)',
-          borderRadius: 10, padding: '2px 10px', fontSize: 10, fontWeight: 700,
-          letterSpacing: '0.1em', color: '#A78BFA',
-          fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' as const,
-        }}>
-          {t('menu.free_to_play')}
-        </div>
       </div>
       <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.38), transparent)', flexShrink: 0 }} />
       <div style={{ padding: '11px 13px 13px', textAlign: 'left', fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
           {t('menu.practice')}
         </div>
         <div style={{ fontSize: 10, color: 'rgba(167,139,250,0.65)', fontWeight: 700, marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
