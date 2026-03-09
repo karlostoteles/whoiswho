@@ -24,6 +24,9 @@ export const usePlayerState = (player: PlayerId) =>
 export const useEliminatedIds = (player: PlayerId) =>
   useGameStore((s) => s.players[player].eliminatedCharacterIds);
 
+export const useSecretCharacterId = (player: PlayerId) =>
+  useGameStore((s) => s.players[player].secretCharacterId);
+
 // Actions are stable — grab them directly from the store, not via selector
 // This avoids creating a new object each render (which causes infinite loops)
 const actions = {

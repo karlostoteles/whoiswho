@@ -21,7 +21,7 @@ import { useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BOARD, getTileLOD, computeAdaptiveGrid } from '@/core/rules/constants';
-import { useGameCharacters, useActivePlayer, useEliminatedIds, useGameMode, useOnlinePlayerNum } from '@/core/store/selectors';
+import { useGameCharacters, useActivePlayer, useEliminatedIds, useGameMode, useOnlinePlayerNum, useSecretCharacterId } from '@/core/store/selectors';
 import { CharacterTile } from './CharacterTile';
 import { TextureAtlas } from '@/rendering/canvas/TextureAtlas';
 import { renderPortraitCanvas } from '@/rendering/canvas/PortraitRenderer';
@@ -532,6 +532,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
     : activePlayer;
 
   const eliminatedIds = useEliminatedIds(myPlayerKey);
+  const mySecretId = useSecretCharacterId(myPlayerKey);
 
   const groupRefs = useRef<Map<string, THREE.Group>>(new Map());
   const pivotRefs = useRef<Map<string, THREE.Group>>(new Map());
@@ -539,8 +540,8 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
 
   const activeChars = useMemo(() => {
     const elimSet = new Set(eliminatedIds);
-    return characters.filter((c) => !elimSet.has(c.id));
-  }, [characters, eliminatedIds]);
+    return characters.filter((c) => !elimSet.has(c.id) && c.id !== mySecretId);
+  }, [characters, eliminatedIds, mySecretId]);
   const layout = useMemo(() => computeAdaptiveGrid(activeChars.length), [activeChars.length]);
   const targets = useMemo(
     () => computeTargetPositions(activeChars, layout.cols, layout.tileW, layout.tileH, layout.gap),
@@ -553,7 +554,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
     const elimSet = new Set(eliminatedIds);
     const newlyEliminated: string[] = [];
     for (const char of characters) {
-      const isEliminated = elimSet.has(char.id);
+      const isEliminated = elimSet.has(char.id) || char.id === mySecretId;
       const target = targets.get(char.id);
 
       if (!existing.has(char.id)) {
@@ -677,7 +678,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
                   const target = targets.get(char.id);
                   const [tx, tz] = target ?? [0, 0];
                   const elimSet = new Set(eliminatedIds);
-                  const isElim = elimSet.has(char.id);
+                  const isElim = elimSet.has(char.id) || char.id === mySecretId;
                   animRef.current.set(char.id, {
                     id: char.id, x: tx, z: tz, tx, tz,
                     scale: isElim ? 0 : 1, targetScale: isElim ? 0 : 1,
