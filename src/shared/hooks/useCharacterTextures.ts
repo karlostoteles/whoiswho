@@ -1,28 +1,20 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGameCharacters } from '@/core/store/selectors';
 import { renderPortrait, renderCardBack } from '@/rendering/canvas/PortraitRenderer';
 import { getTileLOD } from '@/core/rules/constants';
-
-/**
- * Extract the image hash from a schizodio URL.
- * Input:  "https://v1assets.schizod.io/images/revealed/5b377cf6...png"
- * Output: "5b377cf6..."
- */
-function extractImageHash(url: string): string | null {
-  const match = url.match(/\/([a-f0-9]+)\.png$/i);
-  return match ? match[1] : null;
-}
-
-export const globalTextureCache = new Map<string, THREE.Texture>();
+import ImageCache from '@/shared/services/ImageCache';
 
 /**
  * Returns a texture map for all game characters.
  *
+ * OPTIMIZED: Uses unified ImageCache to prevent duplicate loading.
+ * Images are loaded ONCE and shared between Three.js and React UI.
+ *
  * Strategy:
- *   1. Procedural portrait (instant)
- *   2. Async upgrade via /api/nft-img?hash=... (fast — skips metadata fetch)
- *   3. Fallback: /api/nft-art/{id} (slower — fetches metadata first)
+ *   1. Procedural portrait (instant) - generated locally
+ *   2. Unified cache check - reuse if already loaded by React UI
+ *   3. Async load via ImageCache - shared with other consumers
  */
 export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Texture> {
   const characters = useGameCharacters() || [];
@@ -30,149 +22,126 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
   const isMinimal = lod === 'minimal';
   const isLargeBoard = characters.length > 100;
 
-  const [textures, setTextures] = useState<Map<string, THREE.Texture>>(() => new Map(globalTextureCache));
+  const [textures, setTextures] = useState<Map<string, THREE.Texture>>(() => new Map());
 
-  // 1. Build procedural textures
+  // Build textures from cache + procedural fallbacks
   useEffect(() => {
     if (isMinimal) return;
 
-    if (isLargeBoard) {
-      const placeholder = renderPortrait({
-        id: 'placeholder', name: 'Loading...',
-        traits: {
-          hair_color: 'black', hair_style: 'short',
-          skin_tone: 'medium', eye_color: 'brown',
-          gender: 'male', has_glasses: false,
-          has_hat: false, has_beard: false,
-          has_earrings: false,
-        } as any
-      }, undefined, true);
+    let cancelled = false;
+    const newTextures = new Map<string, THREE.Texture>();
 
-      setTextures((prev) => {
-        const next = new Map(prev);
-        for (const char of characters) {
-          if (!globalTextureCache.has(char.id) && !next.has(char.id)) {
-            next.set(char.id, placeholder);
-          } else if (globalTextureCache.has(char.id)) {
-            next.set(char.id, globalTextureCache.get(char.id)!);
-          }
+    // Phase 1: Instant procedural placeholders
+    for (const char of characters) {
+      // Check unified cache first
+      const cachedTexture = ImageCache.getTexture(char.id);
+      if (cachedTexture) {
+        newTextures.set(char.id, cachedTexture);
+        continue;
+      }
+
+      // Check procedural cache
+      const proceduralCanvas = ImageCache.getProcedural(char.id);
+      if (proceduralCanvas) {
+        const texture = new THREE.CanvasTexture(proceduralCanvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.needsUpdate = true;
+        newTextures.set(char.id, texture);
+        continue;
+      }
+
+      // Generate procedural placeholder
+      if (!isLargeBoard) {
+        const canvas = renderPortrait(char, undefined, true);
+        if (canvas instanceof HTMLCanvasElement) {
+          ImageCache.setProcedural(char.id, canvas);
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.needsUpdate = true;
+          newTextures.set(char.id, texture);
         }
-        return next;
-      });
-      return; // Not automatically disposing placeholder on unmount to avoid breaking cache usage later
-    }
-
-    setTextures((prev) => {
-      const next = new Map(prev);
-      for (const char of characters) {
-        if (!globalTextureCache.has(char.id) && !next.has(char.id)) {
-          const tex = renderPortrait(char, undefined, false);
-          next.set(char.id, tex);
-        } else if (globalTextureCache.has(char.id)) {
-          next.set(char.id, globalTextureCache.get(char.id)!);
+      } else {
+        // Large board: use single placeholder texture
+        const placeholderCanvas = renderPortrait({
+          id: 'placeholder', name: 'Loading...',
+          traits: {
+            hair_color: 'black', hair_style: 'short',
+            skin_tone: 'medium', eye_color: 'brown',
+            gender: 'male', has_glasses: false,
+            has_hat: false, has_beard: false,
+            has_earrings: false,
+          } as any
+        }, undefined, true);
+        if (placeholderCanvas instanceof HTMLCanvasElement) {
+          const placeholderTex = new THREE.CanvasTexture(placeholderCanvas);
+          placeholderTex.colorSpace = THREE.SRGBColorSpace;
+          placeholderTex.needsUpdate = true;
+          newTextures.set(char.id, placeholderTex);
         }
       }
-      return next;
-    });
-  }, [isMinimal, characters, isLargeBoard]);
-
-  // Track all async loaded textures during THIS effect so we can potentially clean them up if needed
-  // However we now keep them globally so they avoid reloading 
-  // 2. Async upgrade: load real art
-  useEffect(() => {
-    if (isMinimal || !characters || characters.length === 0) return;
-
-    let cancelled = false;
-    const BATCH_SIZE = 20;
-    const BATCH_DELAY = 80;
-    const IMG_SIZE = 64; // Small for WebGL tiles — saves GPU memory
-
-    function loadImageAsTexture(url: string): Promise<THREE.Texture | null> {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = IMG_SIZE;
-            canvas.height = IMG_SIZE;
-            const ctx = canvas.getContext('2d')!;
-            ctx.drawImage(img, 0, 0, IMG_SIZE, IMG_SIZE);
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.needsUpdate = true;
-            resolve(texture);
-          } catch {
-            resolve(null);
-          }
-        };
-        img.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 12000);
-        img.src = url;
-      });
     }
 
-    const loadBatches = async () => {
+    if (!cancelled) {
+      setTextures(newTextures);
+    }
+
+    // Phase 2: Async load real NFT images via unified cache
+    const loadRealImages = async () => {
+      const BATCH_SIZE = 20;
+      const BATCH_DELAY = 80;
+
       for (let i = 0; i < characters.length; i += BATCH_SIZE) {
         if (cancelled) break;
         const batch = characters.slice(i, i + BATCH_SIZE);
-        const batchTextures = new Map<string, THREE.Texture>();
 
         await Promise.all(
           batch.map(async (char) => {
             if (cancelled) return;
-            const existing = globalTextureCache.get(char.id);
-            if (existing) {
-              batchTextures.set(char.id, existing);
+
+            // Skip if already has real image (not procedural)
+            const cached = ImageCache.get(char.id);
+            const isProcedural = ImageCache.getProcedural(char.id) === cached;
+
+            if (cached && !isProcedural) {
+              // Already has real image, ensure texture is created
+              const texture = ImageCache.getTexture(char.id);
+              if (texture) {
+                setTextures(prev => {
+                  const next = new Map(prev);
+                  next.set(char.id, texture);
+                  return next;
+                });
+              }
               return;
             }
 
-            const numericId = char.id.replace('nft_', '');
-
-            // Fast path: use image hash directly (skips metadata fetch)
-            const hash = char.imageUrl ? extractImageHash(char.imageUrl) : null;
-            const urls = [
-              hash ? `/api/nft-img?hash=${hash}` : null,
-              `/nft/${numericId}.png`,           // local (from download pipeline)
-              `/api/nft-art/${numericId}`,        // slow fallback (metadata + image)
-            ].filter(Boolean) as string[];
-
-            for (const url of urls) {
-              const texture = await loadImageAsTexture(url);
-              if (texture && !cancelled) {
-                globalTextureCache.set(char.id, texture);
-                batchTextures.set(char.id, texture);
-                break;
-              } else if (texture) {
-                texture.dispose();
+            // Load via unified cache (deduplicated)
+            const image = await ImageCache.load(char.id, (char as any).imageUrl);
+            if (image && !cancelled) {
+              const texture = ImageCache.getTexture(char.id);
+              if (texture) {
+                setTextures(prev => {
+                  const next = new Map(prev);
+                  next.set(char.id, texture);
+                  return next;
+                });
               }
             }
           })
         );
 
-        if (cancelled) break;
-
-        if (batchTextures.size > 0) {
-          setTextures((prev) => {
-            const next = new Map(prev);
-            for (const [id, tex] of batchTextures) {
-              next.set(id, tex);
-            }
-            return next;
-          });
+        if (!cancelled && i + BATCH_SIZE < characters.length) {
+          await new Promise(r => setTimeout(r, BATCH_DELAY));
         }
-
-        await new Promise(r => setTimeout(r, BATCH_DELAY));
       }
     };
 
-    loadBatches();
+    loadRealImages();
+
     return () => {
       cancelled = true;
-      // We purposefully DO NOT dispose them off the GPU because 
-      // they remain in globalTextureCache for instant restoration
     };
-  }, [characters, isMinimal]);
+  }, [isMinimal, characters, isLargeBoard]);
 
   return textures;
 }
@@ -180,3 +149,6 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
 export function useCardBackTexture(): THREE.CanvasTexture {
   return useMemo(() => renderCardBack(), []);
 }
+
+// Re-export for backward compatibility
+export { globalTextureCache } from '@/shared/services/ImageCache';

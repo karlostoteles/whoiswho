@@ -2,9 +2,14 @@ import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useGameCharacters, useGameMode } from '@/core/store/selectors';
 import type { NFTCharacter } from '@/core/data/nftCharacterAdapter';
+import ImageCache from '@/shared/services/ImageCache';
 
 /**
  * Loads NFT images as Three.js textures.
+ *
+ * OPTIMIZED: Uses unified ImageCache to prevent duplicate loading.
+ * Images loaded here are shared with React UI and other consumers.
+ *
  * Only active in NFT mode. Falls back gracefully if image fails to load.
  * Returns a Map<characterId, CanvasTexture> for NFT characters with loaded images.
  */
@@ -19,9 +24,6 @@ export function useNFTTextures(): Map<string, THREE.Texture> {
       return;
     }
 
-    const loader = new THREE.TextureLoader();
-    loader.crossOrigin = 'anonymous';
-    const loaded = new Map<string, THREE.Texture>();
     let cancelled = false;
 
     const nftChars = characters.filter(
@@ -33,45 +35,41 @@ export function useNFTTextures(): Map<string, THREE.Texture> {
       return;
     }
 
-    // Load all NFT images concurrently
-    const promises = nftChars.map(
-      (char) =>
-        new Promise<void>((resolve) => {
-          // Convert IPFS URLs to gateway
-          let url = char.imageUrl;
-          if (url.startsWith('ipfs://')) {
-            url = url.replace('ipfs://', 'https://ipfs.io/ipfs/');
+    // Load via unified cache (deduplicated with other consumers)
+    const loadTextures = async () => {
+      for (const char of nftChars) {
+        if (cancelled) break;
+
+        // Check cache first
+        const existingTexture = ImageCache.getTexture(char.id);
+        if (existingTexture) {
+          setTextures(prev => {
+            const next = new Map(prev);
+            next.set(char.id, existingTexture);
+            return next;
+          });
+          continue;
+        }
+
+        // Load via unified cache
+        const image = await ImageCache.load(char.id, char.imageUrl);
+        if (image && !cancelled) {
+          const texture = ImageCache.getTexture(char.id);
+          if (texture) {
+            setTextures(prev => {
+              const next = new Map(prev);
+              next.set(char.id, texture);
+              return next;
+            });
           }
-
-          loader.load(
-            url,
-            (texture) => {
-              if (!cancelled) {
-                texture.colorSpace = THREE.SRGBColorSpace;
-                loaded.set(char.id, texture);
-              }
-              resolve();
-            },
-            undefined,
-            () => {
-              // Failed to load — will fall back to procedural portrait
-              console.warn(`[nft-textures] Failed to load image for ${char.name} (${char.id})`);
-              resolve();
-            }
-          );
-        })
-    );
-
-    Promise.all(promises).then(() => {
-      if (!cancelled) {
-        setTextures(new Map(loaded));
+        }
       }
-    });
+    };
+
+    loadTextures();
 
     return () => {
       cancelled = true;
-      // Dispose textures on cleanup
-      loaded.forEach((tex) => tex.dispose());
     };
   }, [characters, mode]);
 

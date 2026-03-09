@@ -1,15 +1,18 @@
 /**
  * CharacterGrid — adaptive, animated grid of character tiles.
  *
+ * OPTIMIZED: Uses unified ImageCache to prevent duplicate image loading.
+ * All image loading goes through ImageCache, shared with React UI.
+ *
  * Two rendering paths based on LOD (derived from tileW):
  *
  *  minimal (tileW < 0.38)
  *    → InstancedMesh with texture atlas: all tiles share one draw call.
  *      Per-instance UV offsets sample each tile's portrait from a shared atlas.
- *      Staggered flip → shrink elimination animation.  Progressive NFT loading.
+ *      Staggered flip → shrink elimination animation. Progressive NFT loading.
  *
  *  flat / full (tileW >= 0.38)
- *    → Individual CharacterTile React elements.  Parent group refs tracked in
+ *    → Individual CharacterTile React elements. Parent group refs tracked in
  *      a Map; a single useFrame lerps every group position + handles the
  *      flip→shrink elimination animation.
  */
@@ -23,14 +26,14 @@ import { CharacterTile } from './CharacterTile';
 import { TextureAtlas } from '@/rendering/canvas/TextureAtlas';
 import { renderPortraitCanvas } from '@/rendering/canvas/PortraitRenderer';
 import { sfx } from '@/shared/audio/sfx';
-import { globalTextureCache } from '@/shared/hooks/useCharacterTextures';
+import ImageCache from '@/shared/services/ImageCache';
 
 interface CharacterGridProps {
   textures: Map<string, THREE.Texture>;
   tileW: number;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
@@ -69,7 +72,7 @@ function computeTargetPositions(
   return map;
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
+// ─── Main component ────────────────────────────────────────────────────────
 
 export function CharacterGrid({ textures, tileW }: CharacterGridProps) {
   const lod = getTileLOD(tileW);
@@ -79,7 +82,7 @@ export function CharacterGrid({ textures, tileW }: CharacterGridProps) {
   return <IndividualGrid textures={textures} tileW={tileW} />;
 }
 
-// ─── Atlas shader source ──────────────────────────────────────────────────────
+// ─── Atlas shader source ───────────────────────────────────────────────────
 
 const ATLAS_VERT = /* glsl */`
 attribute vec4 aAtlasUV; // uOffset, vOffset, uScale, vScale
@@ -101,20 +104,10 @@ void main() {
 }
 `;
 
-// ─── Helpers for NFT image loading ────────────────────────────────────────────
-
-function extractImageHash(url: string): string | null {
-  const match = url.match(/\/([a-f0-9]+)\.png$/i);
-  return match ? match[1] : null;
-}
-
 // X-axis unit vector (pre-allocated for quaternion rotation)
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 
-// Global cache for procedurally generated placeholder faces
-export const proceduralCanvasCache = new Map<string, HTMLCanvasElement>();
-
-// ─── Minimal LOD: InstancedMesh + Texture Atlas (one draw call) ───────────────
+// ─── Minimal LOD: InstancedMesh + Texture Atlas (one draw call) ───────────
 
 type MinimalPhase = 'alive' | 'waiting' | 'flipping' | 'shrinking' | 'dead';
 
@@ -178,7 +171,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     });
   }, []);
 
-  // ── Atlas construction + procedural portrait rendering ──────────────────────
+  // ── Atlas construction using unified ImageCache ──────────────────────────
   useEffect(() => {
     if (!characters || characters.length === 0) return;
 
@@ -198,38 +191,44 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     // Bind atlas texture to shader uniform
     material.uniforms.uAtlas.value = atlas.texture;
 
-    // Fill all cells with existing cached images or fallback to procedural
+    // Fill all cells from unified cache or procedural fallback
     for (let i = 0; i < characters.length; i++) {
       const char = characters[i];
-      const cached = globalTextureCache.get(char.id);
 
-      if (cached && cached.image) {
-        // Draw the cached REAL image instantly
-        atlas.drawCell(i, cached.image as HTMLImageElement);
-      } else if (proceduralCanvasCache.has(char.id)) {
-        // Draw the cached PROCEDURAL placeholder instantly
-        atlas.drawCell(i, proceduralCanvasCache.get(char.id)!);
-      } else {
-        // Fallback to solid color until procedural batch reaches it
-        const hue = idToHue(char.id);
-        const hsl = `hsl(${Math.round(hue)}, 70%, 55%)`;
-        atlas.fillCell(i, hsl);
+      // Check unified cache first (may have been loaded by React UI)
+      const cachedImage = ImageCache.get(char.id);
+      if (cachedImage) {
+        atlas.drawCell(i, cachedImage);
+        continue;
       }
+
+      // Check procedural cache
+      const proceduralCanvas = ImageCache.getProcedural(char.id);
+      if (proceduralCanvas) {
+        atlas.drawCell(i, proceduralCanvas);
+        continue;
+      }
+
+      // Fallback to solid color
+      const hue = idToHue(char.id);
+      const hsl = `hsl(${Math.round(hue)}, 70%, 55%)`;
+      atlas.fillCell(i, hsl);
     }
 
-    // Batch-render procedural portraits into atlas cells
+    // Batch-render procedural portraits into atlas cells (for characters not yet cached)
     let procIdx = 0;
     let rafId = 0;
     let procCancelled = false;
     const PROC_BATCH = 50;
+
     function renderProceduralBatch() {
       if (procCancelled) return;
       const end = Math.min(procIdx + PROC_BATCH, characters.length);
       for (; procIdx < end; procIdx++) {
         const char = characters[procIdx];
-        if (!globalTextureCache.has(char.id) && !proceduralCanvasCache.has(char.id)) {
+        if (!ImageCache.has(char.id) && !ImageCache.getProcedural(char.id)) {
           const canvas = renderPortraitCanvas(char, undefined, true);
-          proceduralCanvasCache.set(char.id, canvas);
+          ImageCache.setProcedural(char.id, canvas);
           atlas.drawCell(procIdx, canvas);
         }
       }
@@ -251,7 +250,6 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
         prebuiltLoadedRef.current = true;
       }
     };
-    // onerror: silently fall through to procedural + per-image NFT loading
     prebuilt.src = '/atlas/schizodio-atlas.webp';
 
     return () => {
@@ -262,86 +260,42 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     };
   }, [characters, material]);
 
-  // ── Progressive NFT image loading ───────────────────────────────────────────
+  // ── Progressive NFT image loading via unified ImageCache ─────────────────
   useEffect(() => {
     if (!characters || characters.length === 0) return;
 
     let cancelled = false;
-    const BATCH_SIZE = 20;
-    const BATCH_DELAY = 80;
-    const IMG_SIZE = 128; // Match atlas cell size for crisp rendering
 
-    function loadImage(url: string): Promise<HTMLImageElement | null> {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 12000);
-        img.src = url;
-      });
-    }
-
-    const loadBatches = async () => {
+    const loadImages = async () => {
       // Wait for atlas to be ready; also allows pre-built atlas time to load
       await new Promise(r => setTimeout(r, 300));
       // If pre-built atlas loaded successfully, it already has all 999 NFT images — skip
       if (prebuiltLoadedRef.current) return;
 
-      for (let i = 0; i < characters.length; i += BATCH_SIZE) {
-        if (cancelled) break;
-        const batch = characters.slice(i, i + BATCH_SIZE);
+      // Load via unified cache (deduplicates with React UI loads)
+      await ImageCache.batchLoad(
+        characters.map(c => ({ id: c.id, imageUrl: (c as any).imageUrl })),
+        { batchSize: 20, batchDelay: 80 }
+      );
 
-        await Promise.all(
-          batch.map(async (char) => {
-            if (cancelled) return;
-            const atlas = atlasRef.current;
-            if (!atlas) return;
+      // Update atlas with newly loaded images
+      if (cancelled || !atlasRef.current) return;
 
-            // Skip if already in global cache
-            if (globalTextureCache.has(char.id)) return;
-
-            const numericId = char.id.replace('nft_', '');
-            const hash = char.imageUrl ? extractImageHash(char.imageUrl) : null;
-            const urls = [
-              hash ? `/api/nft-img?hash=${hash}` : null,
-              `/nft/${numericId}.png`,
-              `/api/nft-art/${numericId}`,
-            ].filter(Boolean) as string[];
-
-            for (const url of urls) {
-              const img = await loadImage(url);
-              if (img && !cancelled && atlasRef.current) {
-                // Generate a fully initialized CanvasTexture to guarantee WebGL survival across component bounds
-                const canvas = document.createElement('canvas');
-                canvas.width = IMG_SIZE;
-                canvas.height = IMG_SIZE;
-                const ctx = canvas.getContext('2d')!;
-                ctx.drawImage(img, 0, 0, IMG_SIZE, IMG_SIZE);
-                const texture = new THREE.CanvasTexture(canvas);
-                texture.colorSpace = THREE.SRGBColorSpace;
-                texture.needsUpdate = true;
-                globalTextureCache.set(char.id, texture);
-
-                const idx = charIndexMapRef.current.get(char.id);
-                if (idx !== undefined) {
-                  atlasRef.current.drawCell(idx, canvas); // Draw using the canvas to preserve precise bounds
-                }
-                break;
-              }
-            }
-          })
-        );
-
-        if (cancelled) break;
-
-        // Mark atlas dirty once per batch
-        if (atlasRef.current) atlasRef.current.markDirty();
-        await new Promise(r => setTimeout(r, BATCH_DELAY));
+      for (let i = 0; i < characters.length; i++) {
+        const char = characters[i];
+        const image = ImageCache.get(char.id);
+        if (image) {
+          // Check if this is a real image (not procedural)
+          const isProcedural = ImageCache.getProcedural(char.id) === image;
+          if (!isProcedural) {
+            atlasRef.current.drawCell(i, image);
+          }
+        }
       }
+      atlasRef.current.markDirty();
     };
 
-    loadBatches();
+    loadImages();
     return () => { cancelled = true; };
   }, [characters]);
 
@@ -518,7 +472,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
   );
 }
 
-// ─── Standard LOD: individual CharacterTile components ─────────────────────────
+// ─── Standard LOD: individual CharacterTile components ──────────────────────
 
 type AnimPhase = 'alive' | 'waiting' | 'flipping' | 'shrinking' | 'dead';
 
@@ -728,3 +682,6 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
     </group>
   );
 }
+
+// Re-export proceduralCanvasCache for backward compatibility
+export { proceduralCanvasCache } from '@/shared/services/ImageCache';
