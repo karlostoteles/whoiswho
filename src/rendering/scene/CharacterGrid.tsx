@@ -76,6 +76,15 @@ function computeTargetPositions(
 
 export function CharacterGrid({ textures, tileW }: CharacterGridProps) {
   const startedMinimalRef = useRef(false);
+  const prevCharsRef = useRef<object | null>(null);
+  const characters = useGameCharacters();
+
+  // Reset LOD lock when a different character set loads (e.g. CT game after Schizodio)
+  if (prevCharsRef.current !== characters) {
+    prevCharsRef.current = characters;
+    startedMinimalRef.current = false;
+  }
+
   const lod = getTileLOD(tileW);
   if (lod === 'minimal') startedMinimalRef.current = true;
   if (startedMinimalRef.current) {
@@ -377,6 +386,16 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
           newlyEliminated.push(char.id);
           st.phase = 'waiting';
           st.flipTimer = 0;
+        }
+        // Revive tiles no longer eliminated (player switch or game reset)
+        if (!isEliminated && (st.phase === 'dead' || st.phase === 'shrinking')) {
+          const [tx, tz] = target ?? [0, 0];
+          st.phase = 'alive';
+          st.scale = 1;
+          st.flipAngle = 0;
+          st.flipDelay = 0;
+          st.flipTimer = 0;
+          st.x = tx; st.z = tz; st.tx = tx; st.tz = tz;
         }
       }
 

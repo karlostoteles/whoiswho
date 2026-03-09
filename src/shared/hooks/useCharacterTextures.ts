@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGameCharacters } from '@/core/store/selectors';
-import { renderPortrait, renderCardBack } from '@/rendering/canvas/PortraitRenderer';
+import { renderPortraitCanvas, renderCardBack } from '@/rendering/canvas/PortraitRenderer';
 import { getTileLOD } from '@/core/rules/constants';
 import ImageCache from '@/shared/services/ImageCache';
 
@@ -52,7 +52,7 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
 
       // Generate procedural placeholder
       if (!isLargeBoard) {
-        const canvas = renderPortrait(char, undefined, true);
+        const canvas = renderPortraitCanvas(char, undefined, true);
         if (canvas instanceof HTMLCanvasElement) {
           ImageCache.setProcedural(char.id, canvas);
           const texture = new THREE.CanvasTexture(canvas);
@@ -62,7 +62,7 @@ export function useCharacterTextures(tileW: number = 1.4): Map<string, THREE.Tex
         }
       } else {
         // Large board: use single placeholder texture
-        const placeholderCanvas = renderPortrait({
+        const placeholderCanvas = renderPortraitCanvas({
           id: 'placeholder', name: 'Loading...',
           traits: {
             hair_color: 'black', hair_style: 'short',
