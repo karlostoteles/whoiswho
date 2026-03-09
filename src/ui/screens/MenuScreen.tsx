@@ -6,7 +6,7 @@ import { OnlineLobbyScreen } from './OnlineLobbyScreen';
 import { useGameActions } from '@/core/store/selectors';
 import { MEME_CHARACTERS } from '@/core/data/memeCharacters';
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
-import { useWalletStatus, useWalletAddress } from '@/services/starknet/walletStore';
+import { useWalletStatus } from '@/services/starknet/walletStore';
 import { useWalletConnection } from '@/services/starknet/hooks';
 import { WalletButton } from '../widgets/WalletButton';
 import { LeaderboardScreen } from './LeaderboardScreen';
@@ -20,6 +20,7 @@ export function MenuScreen() {
   const [loading, setLoading] = useState(false);
   const [nftStatus, setNftStatus] = useState<string>('');
   const { startSetup, setGameMode, recoverOnlineGame } = useGameActions();
+  const walletStatus = useWalletStatus();
 
   const handleFreePlay = () => {
     setGameMode('free', MEME_CHARACTERS);
@@ -61,6 +62,15 @@ export function MenuScreen() {
     }
   }, [recoverOnlineGame]);
 
+  // Compute which sub-view to show within the 'menu' view
+  const mainSubView =
+    walletStatus === 'ready' ? 'mode-select' :
+    (walletStatus === 'connecting' || walletStatus === 'connected' || walletStatus === 'loading_nfts') ? 'connecting' :
+    'landing';
+
+  // AnimatePresence key — drives transitions for all views
+  const animKey = view === 'menu' ? mainSubView : view;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -69,22 +79,34 @@ export function MenuScreen() {
       style={{ position: 'fixed', inset: 0, pointerEvents: 'auto', zIndex: 20 }}
     >
       <AnimatePresence mode="wait">
-        {view === 'menu' && (
-          <MenuMain
-            key="menu"
+        {animKey === 'landing' && (
+          <LandingView
+            key="landing"
             onFreePlay={() => setView('free-pick')}
-            onPlayOnline={() => setView('real-pick')}
             onLeaderboard={() => setView('leaderboard')}
           />
         )}
-        {view === 'free-pick' && (
+        {animKey === 'connecting' && (
+          <ConnectingView
+            key="connecting"
+            walletStatus={walletStatus}
+          />
+        )}
+        {animKey === 'mode-select' && (
+          <ModeSelectView
+            key="mode-select"
+            onLocal={() => setView('free-pick')}
+            onOnline={() => setView('real-pick')}
+            onLeaderboard={() => setView('leaderboard')}
+          />
+        )}
+        {animKey === 'free-pick' && (
           <FreePickView
             key="free-pick"
             onBack={() => setView('menu')}
             onCTVersion={handleFreePlay}
             onSchizodio={handleSchizodioFreePlay}
             onSchizodioRandom={async () => {
-              // Assign the player a random character bypassing the setup phase
               setLoading(true);
               setNftStatus('Assigning random character...');
               try {
@@ -103,20 +125,20 @@ export function MenuScreen() {
             nftStatus={nftStatus}
           />
         )}
-        {view === 'real-pick' && (
+        {animKey === 'real-pick' && (
           <RealPickView
             key="real-pick"
             onBack={() => setView('menu')}
             onNormal={() => setView('online')}
           />
         )}
-        {view === 'online' && (
+        {animKey === 'online' && (
           <OnlineLobbyScreen
             key="online"
             onBack={() => setView('real-pick')}
           />
         )}
-        {view === 'leaderboard' && (
+        {animKey === 'leaderboard' && (
           <LeaderboardScreen
             key="leaderboard"
             onBack={() => setView('menu')}
@@ -129,14 +151,480 @@ export function MenuScreen() {
   );
 }
 
+// ─── Shared top-right controls (leaderboard + lang toggle) ───────────────────
+
+function TopRightControls({ onLeaderboard }: { onLeaderboard: () => void }) {
+  const { i18n } = useTranslation();
+  const toggleLang = () => {
+    i18n.changeLanguage(i18n.language.startsWith('es') ? 'en' : 'es');
+  };
+  return (
+    <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 10, display: 'flex', gap: 10 }}>
+      <motion.button
+        onClick={onLeaderboard}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        style={{
+          background: 'rgba(232,164,68,0.15)', border: '1px solid rgba(232,164,68,0.3)',
+          borderRadius: 8, padding: '6px 10px', fontSize: 13,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#E8A444', cursor: 'pointer', outline: 'none',
+        }}
+      >
+        🏆
+      </motion.button>
+      <motion.button
+        onClick={toggleLang}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        style={{
+          background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 700,
+          color: '#FFFFFE', cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif",
+          outline: 'none',
+        }}
+      >
+        {i18n.language.startsWith('es') ? '🇪🇸 ES' : '🇬🇧 EN'}
+      </motion.button>
+    </div>
+  );
+}
+
+// ─── Shared logo + title block ────────────────────────────────────────────────
+
+function LogoAndTitle({ delayBase = 0.15 }: { delayBase?: number }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <motion.div
+        initial={{ y: -120, opacity: 0, scale: 0.6, rotate: -10 }}
+        animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
+        transition={{ delay: delayBase, type: 'spring', stiffness: 120, damping: 12, mass: 0.8 }}
+        style={{ position: 'relative', zIndex: 2, marginBottom: 'clamp(-40px, -4vw, -16px)' }}
+      >
+        <div
+          className="logo-glow-bg"
+          style={{
+            position: 'absolute', inset: '10%', borderRadius: '40%',
+            background: 'radial-gradient(ellipse at 30% 50%, rgba(232,164,68,0.4) 0%, rgba(244,114,182,0.25) 35%, rgba(124,58,237,0.2) 60%, transparent 80%)',
+            filter: 'blur(35px)', pointerEvents: 'none',
+          }}
+        />
+        <motion.img
+          src="/newlogo.png"
+          alt="guessNFT"
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+          style={{
+            width: 'clamp(180px, 45vw, 360px)', height: 'auto',
+            display: 'block', mixBlendMode: 'screen', position: 'relative',
+          }}
+        />
+      </motion.div>
+
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center',
+        gap: '4px', marginBottom: 12, position: 'relative', zIndex: 1, width: '90%',
+      }}>
+        {t('menu.title').split(' ').map((word, wordIdx) => (
+          <div key={`word-${wordIdx}`} style={{ display: 'flex', whiteSpace: 'pre' }}>
+            {word.split('').map((char, charIdx) => {
+              const letterIndex = wordIdx * 10 + charIdx;
+              return (
+                <motion.span
+                  key={`char-${wordIdx}-${charIdx}`}
+                  initial={{ y: -40, opacity: 0, scale: 0.5 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  transition={{
+                    type: 'spring', stiffness: 300,
+                    damping: 10 + Math.random() * 5,
+                    delay: delayBase + 0.45 + (letterIndex * 0.05),
+                  }}
+                  whileHover={{ y: -10, scale: 1.2, color: '#FFF' }}
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontSize: 'clamp(20px, 5vw, 36px)', fontWeight: 800, letterSpacing: '-0.02em',
+                    background: 'linear-gradient(135deg, #E8A444 0%, #F472B6 50%, #A78BFA 100%)',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    filter: 'drop-shadow(0 0 12px rgba(244,114,182,0.25))',
+                    display: 'inline-block', cursor: 'default',
+                  }}
+                >
+                  {char}
+                </motion.span>
+              );
+            })}
+            {wordIdx !== t('menu.title').split(' ').length - 1 && <span style={{ width: '8px' }}></span>}
+          </div>
+        ))}
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: delayBase + 0.8, duration: 0.8 }}
+        style={{
+          fontSize: 15, color: 'rgba(255,255,254,0.55)',
+          fontWeight: 500, marginBottom: 24, textAlign: 'center',
+        }}
+      >
+        {t('menu.subtitle')}
+      </motion.div>
+
+      <motion.div
+        initial={{ scaleX: 0, opacity: 0 }}
+        animate={{ scaleX: 1, opacity: 1 }}
+        transition={{ delay: delayBase + 0.85, duration: 0.8, ease: 'easeOut' }}
+        style={{
+          width: 'clamp(120px, 30vw, 200px)', height: 1,
+          background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.35), rgba(167,139,250,0.35), transparent)',
+          marginBottom: 32,
+        }}
+      />
+    </>
+  );
+}
+
+// ─── Landing view — shown when wallet is disconnected / error ─────────────────
+
+function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; onLeaderboard: () => void }) {
+  const { connectWallet } = useWalletConnection();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center',
+        paddingBottom: 'clamp(16px, 5vh, 10vh)',
+        background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
+        overflowY: 'auto', overflowX: 'hidden',
+      }}
+    >
+      {/* Warm ambient glow */}
+      <div style={{
+        position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)',
+        width: '120%', height: '60%',
+        background: 'radial-gradient(ellipse at 50% 40%, rgba(232,164,68,0.06) 0%, rgba(244,114,182,0.04) 30%, rgba(124,58,237,0.03) 50%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+
+      <TopRightControls onLeaderboard={onLeaderboard} />
+
+      <div style={{ flex: '1 1 0', minHeight: 0 }} />
+
+      <LogoAndTitle delayBase={0.15} />
+
+      {/* Primary CTA + Free mode link */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.1, type: 'spring', stiffness: 260, damping: 24 }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, position: 'relative', zIndex: 2 }}
+      >
+        <motion.button
+          onClick={() => { sfx.click(); connectWallet(); }}
+          whileHover={{ scale: 1.05, boxShadow: '0 0 48px rgba(232,164,68,0.5), 0 8px 32px rgba(0,0,0,0.5)' }}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            background: 'linear-gradient(135deg, #E8A444, #D4922A)',
+            border: '1px solid rgba(232,164,68,0.6)',
+            borderRadius: 14, padding: '16px 48px',
+            color: '#0f0e17', fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: 17, fontWeight: 800, cursor: 'pointer', outline: 'none',
+            boxShadow: '0 0 28px rgba(232,164,68,0.3), 0 4px 20px rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          Connect with Cartridge
+        </motion.button>
+
+        <motion.button
+          onClick={() => { sfx.click(); onFreePlay(); }}
+          whileHover={{ color: 'rgba(255,255,254,0.8)' }}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', outline: 'none',
+            color: 'rgba(255,255,254,0.4)', fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: 14, fontWeight: 500,
+          }}
+        >
+          Try free mode →
+        </motion.button>
+      </motion.div>
+
+      <div style={{ flex: '1 1 0', minHeight: 0 }} />
+    </motion.div>
+  );
+}
+
+// ─── Connecting view — shown while wallet is connecting / loading NFTs ─────────
+
+function ConnectingView({ walletStatus }: { walletStatus: string }) {
+  const statusText =
+    walletStatus === 'loading_nfts' ? 'Loading NFTs...' :
+    walletStatus === 'connected' ? 'Checking NFTs...' :
+    'Connecting...';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
+      }}
+    >
+      <motion.img
+        src="/newlogo.png"
+        alt="guessNFT"
+        animate={{ scale: [1, 1.03, 1] }}
+        transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+        style={{
+          width: 'clamp(120px, 30vw, 220px)', height: 'auto',
+          display: 'block', mixBlendMode: 'screen', marginBottom: 32,
+        }}
+      />
+      <Spinner large />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        style={{
+          marginTop: 20,
+          fontFamily: "'Space Grotesk', sans-serif",
+          fontSize: 16, fontWeight: 600,
+          color: 'rgba(255,255,254,0.6)',
+        }}
+      >
+        {statusText}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Mode select view — shown after wallet is ready ───────────────────────────
+
+function ModeSelectView({ onLocal, onOnline, onLeaderboard }: {
+  onLocal: () => void;
+  onOnline: () => void;
+  onLeaderboard: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center',
+        paddingBottom: 'clamp(16px, 5vh, 10vh)',
+        background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
+        overflowY: 'auto', overflowX: 'hidden',
+      }}
+    >
+      {/* Warm ambient glow */}
+      <div style={{
+        position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)',
+        width: '120%', height: '60%',
+        background: 'radial-gradient(ellipse at 50% 40%, rgba(232,164,68,0.06) 0%, rgba(244,114,182,0.04) 30%, rgba(124,58,237,0.03) 50%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+
+      {/* WalletButton positions itself fixed top-left */}
+      <WalletButton />
+
+      <TopRightControls onLeaderboard={onLeaderboard} />
+
+      <div style={{ flex: '1 1 0', minHeight: 0 }} />
+
+      <LogoAndTitle delayBase={0} />
+
+      {/* Two mode tiles */}
+      <div style={{
+        display: 'flex', gap: 'clamp(12px, 3vw, 28px)',
+        alignItems: 'stretch', justifyContent: 'center',
+        flexWrap: 'wrap', marginTop: 20, padding: '0 16px',
+      }}>
+        <motion.div
+          initial={{ x: -100, opacity: 0, rotate: -5 }}
+          animate={{ x: 0, opacity: 1, rotate: 0 }}
+          transition={{ delay: 0.2, type: 'spring', stiffness: 130, damping: 16 }}
+        >
+          <LocalGameTile onClick={onLocal} />
+        </motion.div>
+        <motion.div
+          initial={{ x: 100, opacity: 0, rotate: 5 }}
+          animate={{ x: 0, opacity: 1, rotate: 0 }}
+          transition={{ delay: 0.35, type: 'spring', stiffness: 130, damping: 16 }}
+        >
+          <OnlineGameTile onClick={onOnline} />
+        </motion.div>
+      </div>
+
+      <div style={{ flex: '1 1 0', minHeight: 0 }} />
+    </motion.div>
+  );
+}
+
+// ─── Tile: Local Game ──────────────────────────────────────────────────────────
+
+function LocalGameTile({ onClick }: { onClick: () => void }) {
+  const [isClicked, setIsClicked] = useState(false);
+
+  const handleClick = () => {
+    if (isClicked) return;
+    sfx.cardClick();
+    setIsClicked(true);
+    setTimeout(() => {
+      onClick();
+      setIsClicked(false);
+    }, 250);
+  };
+
+  return (
+    <motion.button
+      onClick={handleClick}
+      whileHover={!isClicked ? { scale: 1.04, y: -6, boxShadow: '0 0 48px rgba(124,58,237,0.3), 0 8px 32px rgba(0,0,0,0.5)' } : {}}
+      whileTap={!isClicked ? { scale: 0.97 } : {}}
+      animate={isClicked ? { scale: 0.95, rotateX: 60, y: 15, opacity: 0 } : { scale: 1, rotateX: 0, y: 0, opacity: 1 }}
+      transition={{ duration: 0.25, ease: 'easeIn' }}
+      initial={false}
+      style={{
+        transformPerspective: 800, transformOrigin: 'bottom center',
+        width: 'clamp(156px, 42vw, 188px)', height: 'clamp(228px, 60vw, 272px)',
+        background: 'linear-gradient(165deg, #101428 0%, #080c1e 100%)',
+        border: '1.5px solid rgba(124,58,237,0.4)', borderRadius: 16,
+        cursor: 'pointer', outline: 'none', padding: 0, overflow: 'hidden',
+        boxShadow: '0 0 22px rgba(124,58,237,0.12), 0 4px 20px rgba(0,0,0,0.4)',
+        display: 'flex', flexDirection: 'column', position: 'relative',
+      }}
+    >
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img
+          src="/images/practice-bg.jpg"
+          alt="Local Game"
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,30,0.95) 100%)',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.4)',
+          borderRadius: 8, padding: '2px 8px', fontSize: 9, fontWeight: 700,
+          letterSpacing: '0.08em', color: '#A78BFA',
+          fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' as const,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+        }}>
+          LOCAL
+        </div>
+      </div>
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.38), transparent)', flexShrink: 0 }} />
+      <div style={{ padding: '11px 13px 13px', textAlign: 'left', fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+          Local Game
+        </div>
+        <div style={{ fontSize: 10, color: 'rgba(167,139,250,0.65)', fontWeight: 700, marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
+          Pass &amp; play or vs AI
+        </div>
+      </div>
+      <div style={{
+        position: 'absolute', top: 9, right: 9, width: 6, height: 6, borderRadius: '50%',
+        background: '#7C3AED', boxShadow: '0 0 8px rgba(124,58,237,0.9)',
+      }} />
+    </motion.button>
+  );
+}
+
+// ─── Tile: Online Game ────────────────────────────────────────────────────────
+
+function OnlineGameTile({ onClick }: { onClick: () => void }) {
+  const [isClicked, setIsClicked] = useState(false);
+
+  const handleClick = () => {
+    if (isClicked) return;
+    sfx.cardClick();
+    setIsClicked(true);
+    setTimeout(() => {
+      onClick();
+      setIsClicked(false);
+    }, 250);
+  };
+
+  return (
+    <motion.button
+      onClick={handleClick}
+      whileHover={!isClicked ? { scale: 1.04, y: -6, boxShadow: '0 0 56px rgba(232,164,68,0.35), 0 8px 32px rgba(0,0,0,0.5)' } : {}}
+      whileTap={!isClicked ? { scale: 0.97 } : {}}
+      animate={isClicked ? { scale: 0.95, rotateX: 60, y: 15, opacity: 0 } : { scale: 1, rotateX: 0, y: 0, opacity: 1 }}
+      transition={{ duration: 0.25, ease: 'easeIn' }}
+      initial={false}
+      style={{
+        transformPerspective: 800, transformOrigin: 'bottom center',
+        width: 'clamp(156px, 42vw, 188px)', height: 'clamp(228px, 60vw, 272px)',
+        background: 'linear-gradient(165deg, #1c1228 0%, #0e0c1e 100%)',
+        border: '1.5px solid rgba(232,164,68,0.5)', borderRadius: 16,
+        cursor: 'pointer', outline: 'none', padding: 0, overflow: 'hidden',
+        boxShadow: '0 0 28px rgba(232,164,68,0.16), 0 4px 20px rgba(0,0,0,0.4)',
+        display: 'flex', flexDirection: 'column', position: 'relative',
+      }}
+    >
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <img
+          src="/vs_background.jpg"
+          alt="Online Game"
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to bottom, transparent 60%, rgba(14,12,30,0.9) 100%)',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(232,164,68,0.2)', border: '1px solid rgba(232,164,68,0.4)',
+          borderRadius: 8, padding: '2px 8px', fontSize: 9, fontWeight: 700,
+          letterSpacing: '0.08em', color: '#E8A444',
+          fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' as const,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+        }}>
+          ONLINE · LIVE
+        </div>
+      </div>
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(232,164,68,0.45), transparent)', flexShrink: 0 }} />
+      <div style={{ padding: '11px 13px 13px', textAlign: 'left', fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+          Online Game
+        </div>
+        <div style={{ fontSize: 10, color: 'rgba(232,164,68,0.65)', fontWeight: 700, marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
+          1v1 with Schizodio
+        </div>
+      </div>
+      <div style={{
+        position: 'absolute', top: 9, right: 9, width: 6, height: 6, borderRadius: '50%',
+        background: '#E8A444', boxShadow: '0 0 8px rgba(232,164,68,0.9)',
+      }} />
+    </motion.button>
+  );
+}
+
 // ─── Shared header / back button ───────────────────────────────────────────────
 
 function SubHeader({ onBack, title }: { onBack: () => void; title: string }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 14,
-      marginBottom: 32,
-    }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 32 }}>
       <motion.button
         onClick={() => { sfx.click(); onBack(); }}
         whileHover={{ scale: 1.08, background: 'rgba(255,255,255,0.1)' }}
@@ -164,366 +652,6 @@ function SubHeader({ onBack, title }: { onBack: () => void; title: string }) {
   );
 }
 
-// ─── Main menu view ─────────────────────────────────────────────────────────────
-
-interface MenuMainProps {
-  onFreePlay: () => void;
-  onPlayOnline: () => void;
-  onLeaderboard: () => void;
-}
-
-function MenuMain({ onFreePlay, onPlayOnline, onLeaderboard }: MenuMainProps) {
-  const { t, i18n } = useTranslation();
-
-  const toggleLang = () => {
-    i18n.changeLanguage(i18n.language.startsWith('es') ? 'en' : 'es');
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      style={{
-        position: 'fixed', inset: 0,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center',
-        paddingBottom: 'clamp(16px, 5vh, 10vh)',
-        background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-      }}
-    >
-      {/* Warm pastel ambient wash behind logo area */}
-      <div style={{
-        position: 'absolute',
-        top: '-10%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '120%',
-        height: '60%',
-        background: 'radial-gradient(ellipse at 50% 40%, rgba(232,164,68,0.06) 0%, rgba(244,114,182,0.04) 30%, rgba(124,58,237,0.03) 50%, transparent 70%)',
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
-
-      {/* Spacer — pushes content to center when viewport is tall, collapses when scrolling */}
-      <div style={{ flex: '1 1 0', minHeight: 0 }} />
-
-      {/* ─── Top Left Controls ─── */}
-      <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}>
-        <LoginButtonSection />
-      </div>
-
-      {/* ─── Top Right Controls ─── */}
-      <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 10, display: 'flex', gap: 10 }}>
-        {/* Leaderboard Button */}
-        <motion.button
-          onClick={onLeaderboard}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            background: 'rgba(232,164,68,0.15)', border: '1px solid rgba(232,164,68,0.3)',
-            borderRadius: 8, padding: '6px 10px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#E8A444', cursor: 'pointer', outline: 'none',
-          }}
-        >
-          🏆
-        </motion.button>
-        {/* Language Toggle */}
-        <motion.button
-          onClick={toggleLang}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 700,
-            color: '#FFFFFE', cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif",
-            outline: 'none',
-          }}
-        >
-          {i18n.language.startsWith('es') ? '🇪🇸 ES' : '🇬🇧 EN'}
-        </motion.button>
-      </div>
-
-      {/* ─── Logo: alive with pulsing glow + breathing scale ─── */}
-      <motion.div
-        initial={{ y: -120, opacity: 0, scale: 0.6, rotate: -10 }}
-        animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
-        transition={{ delay: 0.15, type: 'spring', stiffness: 120, damping: 12, mass: 0.8 }}
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          marginBottom: 'clamp(-40px, -4vw, -16px)',
-        }}
-      >
-        {/* Blurred gradient glow behind logo — pulses gold/pink/purple */}
-        <div
-          className="logo-glow-bg"
-          style={{
-            position: 'absolute',
-            inset: '10%',
-            borderRadius: '40%',
-            background: 'radial-gradient(ellipse at 30% 50%, rgba(232,164,68,0.4) 0%, rgba(244,114,182,0.25) 35%, rgba(124,58,237,0.2) 60%, transparent 80%)',
-            filter: 'blur(35px)',
-            pointerEvents: 'none',
-          }}
-        />
-        {/* Logo with screen blend — black bg becomes invisible */}
-        <motion.img
-          src="/newlogo.png"
-          alt="guessNFT"
-          animate={{ scale: [1, 1.03, 1] }}
-          transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-          style={{
-            width: 'clamp(180px, 45vw, 360px)',
-            height: 'auto',
-            display: 'block',
-            mixBlendMode: 'screen',
-            position: 'relative',
-          }}
-        />
-      </motion.div>
-
-      {/* ─── Title: Pixar-style jumping letters ─── */}
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '4px',
-        marginBottom: 12, position: 'relative', zIndex: 1, width: '90%'
-      }}>
-        {t('menu.title').split(' ').map((word, wordIdx) => (
-          <div key={`word-${wordIdx}`} style={{ display: 'flex', whiteSpace: 'pre' }}>
-            {word.split('').map((char, charIdx) => {
-              const letterIndex = wordIdx * 10 + charIdx; // rough staggered delay grouping
-              return (
-                <motion.span
-                  key={`char-${wordIdx}-${charIdx}`}
-                  initial={{ y: -40, opacity: 0, scale: 0.5 }}
-                  animate={{ y: 0, opacity: 1, scale: 1 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 10 + Math.random() * 5,
-                    delay: 0.6 + (letterIndex * 0.05), // stagger effect
-                  }}
-                  whileHover={{ y: -10, scale: 1.2, color: "#FFF" }}
-                  style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontSize: 'clamp(20px, 5vw, 36px)',
-                    fontWeight: 800, letterSpacing: '-0.02em',
-                    background: 'linear-gradient(135deg, #E8A444 0%, #F472B6 50%, #A78BFA 100%)',
-                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 0 12px rgba(244,114,182,0.25))',
-                    display: 'inline-block',
-                    cursor: 'default',
-                  }}
-                >
-                  {char}
-                </motion.span>
-              );
-            })}
-            {wordIdx !== t('menu.title').split(' ').length - 1 && <span style={{ width: '8px' }}></span>}
-          </div>
-        ))}
-      </div>
-
-      {/* Removed Badge from subtitle area per user request (it was moved to the PlayForReal tile) */}
-
-      {/* ─── Subtitle: gentle fade in ─── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.95, duration: 0.8 }}
-        style={{ fontSize: 15, color: 'rgba(255,255,254,0.55)', fontWeight: 500, marginBottom: 24, textAlign: 'center' }}
-      >
-        {t('menu.subtitle')}
-      </motion.div>
-
-      {/* Pastel accent divider */}
-      <motion.div
-        initial={{ scaleX: 0, opacity: 0 }}
-        animate={{ scaleX: 1, opacity: 1 }}
-        transition={{ delay: 1.0, duration: 0.8, ease: 'easeOut' }}
-        style={{
-          width: 'clamp(120px, 30vw, 200px)',
-          height: 1,
-          background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.35), rgba(167,139,250,0.35), transparent)',
-          marginBottom: 16,
-        }}
-      />
-
-      {/* ─── Two main tiles: slide in from sides ─── */}
-      <div style={{
-        display: 'flex', gap: 'clamp(12px, 3vw, 28px)',
-        alignItems: 'stretch', justifyContent: 'center',
-        flexWrap: 'wrap',
-        marginTop: 20,
-        padding: '0 16px',
-      }}>
-        <motion.div
-          initial={{ x: -100, opacity: 0, rotate: -5 }}
-          animate={{ x: 0, opacity: 1, rotate: 0 }}
-          transition={{ delay: 1.1, type: 'spring', stiffness: 130, damping: 16 }}
-        >
-          <PlayRealTile onClick={onPlayOnline} />
-        </motion.div>
-        <motion.div
-          initial={{ x: 100, opacity: 0, rotate: 5 }}
-          animate={{ x: 0, opacity: 1, rotate: 0 }}
-          transition={{ delay: 1.25, type: 'spring', stiffness: 130, damping: 16 }}
-        >
-          <PlayFreeTile onClick={onFreePlay} />
-        </motion.div>
-      </div>
-
-      {/* Bottom spacer — mirrors top spacer for centering */}
-      <div style={{ flex: '1 1 0', minHeight: 0 }} />
-    </motion.div>
-  );
-}
-
-// ─── Tile: Play for Real ───────────────────────────────────────────────────────
-
-function PlayRealTile({ onClick }: { onClick: () => void }) {
-  const { t } = useTranslation();
-  const [isClicked, setIsClicked] = useState(false);
-
-  const handleClick = () => {
-    if (isClicked) return;
-    sfx.cardClick();
-    setIsClicked(true);
-    setTimeout(() => {
-      onClick();
-      setIsClicked(false);
-    }, 250);
-  };
-
-  return (
-    <motion.button
-      onClick={handleClick}
-      whileHover={!isClicked ? { scale: 1.04, y: -6, boxShadow: '0 0 56px rgba(232,164,68,0.35), 0 8px 32px rgba(0,0,0,0.5)' } : {}}
-      whileTap={!isClicked ? { scale: 0.97 } : {}}
-      animate={isClicked ? { scale: 0.95, rotateX: 60, y: 15, opacity: 0 } : { scale: 1, rotateX: 0, y: 0, opacity: 1 }}
-      transition={{ duration: 0.25, ease: 'easeIn' }}
-      initial={false}
-      style={{
-        transformPerspective: 800,
-        transformOrigin: 'bottom center',
-        width: 'clamp(156px, 42vw, 188px)',
-        height: 'clamp(228px, 60vw, 272px)',
-        background: 'linear-gradient(165deg, #1c1228 0%, #0e0c1e 100%)',
-        border: '1.5px solid rgba(232,164,68,0.5)', borderRadius: 16,
-        cursor: 'pointer', outline: 'none', padding: 0, overflow: 'hidden',
-        boxShadow: '0 0 28px rgba(232,164,68,0.16), 0 4px 20px rgba(0,0,0,0.4)',
-        display: 'flex', flexDirection: 'column', position: 'relative',
-      }}
-    >
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        <img
-          src="/vs_background.jpg"
-          alt="1Vs1 Background"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, transparent 60%, rgba(14,12,30,0.9) 100%)',
-        }} />
-        {/* Removed 1Vs1 text svg */}
-        {/* Premiere Badge embedded inside the card at bottom */}
-        <div style={{
-          position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(232,164,68,0.2)', border: '1px solid rgba(232,164,68,0.4)',
-          borderRadius: 8, padding: '2px 8px', fontSize: 9, fontWeight: 700,
-          letterSpacing: '0.08em', color: '#E8A444',
-          fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' as const,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-        }}>
-          {t('menu.badge')}
-        </div>
-      </div>
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(232,164,68,0.45), transparent)', flexShrink: 0 }} />
-      <div style={{ padding: '11px 13px 13px', textAlign: 'left', fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
-          {t('menu.play_real')}
-        </div>
-        <div style={{ fontSize: 10, color: 'rgba(232,164,68,0.65)', fontWeight: 700, marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
-          {t('menu.play_real_sub')}
-        </div>
-      </div>
-      <div style={{
-        position: 'absolute', top: 9, right: 9, width: 6, height: 6, borderRadius: '50%',
-        background: '#E8A444', boxShadow: '0 0 8px rgba(232,164,68,0.9)',
-      }} />
-    </motion.button>
-  );
-}
-
-// ─── Tile: Play for Free ───────────────────────────────────────────────────────
-
-function PlayFreeTile({ onClick }: { onClick: () => void }) {
-  const { t } = useTranslation();
-  const [isClicked, setIsClicked] = useState(false);
-
-  const handleClick = () => {
-    if (isClicked) return;
-    sfx.cardClick();
-    setIsClicked(true);
-    setTimeout(() => {
-      onClick();
-      setIsClicked(false);
-    }, 250);
-  };
-
-  return (
-    <motion.button
-      onClick={handleClick}
-      whileHover={!isClicked ? { scale: 1.04, y: -6, boxShadow: '0 0 48px rgba(124,58,237,0.3), 0 8px 32px rgba(0,0,0,0.5)' } : {}}
-      whileTap={!isClicked ? { scale: 0.97 } : {}}
-      animate={isClicked ? { scale: 0.95, rotateX: 60, y: 15, opacity: 0 } : { scale: 1, rotateX: 0, y: 0, opacity: 1 }}
-      transition={{ duration: 0.25, ease: 'easeIn' }}
-      initial={false}
-      style={{
-        transformPerspective: 800,
-        transformOrigin: 'bottom center',
-        width: 'clamp(156px, 42vw, 188px)',
-        height: 'clamp(228px, 60vw, 272px)',
-        background: 'linear-gradient(165deg, #101428 0%, #080c1e 100%)',
-        border: '1.5px solid rgba(124,58,237,0.4)', borderRadius: 16,
-        cursor: 'pointer', outline: 'none', padding: 0, overflow: 'hidden',
-        boxShadow: '0 0 22px rgba(124,58,237,0.12), 0 4px 20px rgba(0,0,0,0.4)',
-        display: 'flex', flexDirection: 'column', position: 'relative',
-      }}
-    >
-      <div style={{
-        flex: 1, position: 'relative', overflow: 'hidden',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <img
-          src="/images/practice-bg.jpg"
-          alt="Practice Background"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,30,0.95) 100%)',
-        }} />
-      </div>
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.38), transparent)', flexShrink: 0 }} />
-      <div style={{ padding: '11px 13px 13px', textAlign: 'left', fontFamily: "'Space Grotesk', sans-serif", flexShrink: 0 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFE', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
-          {t('menu.practice')}
-        </div>
-        <div style={{ fontSize: 10, color: 'rgba(167,139,250,0.65)', fontWeight: 700, marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
-          {t('menu.practice_sub')}
-        </div>
-      </div>
-      <div style={{
-        position: 'absolute', top: 9, right: 9, width: 6, height: 6, borderRadius: '50%',
-        background: '#7C3AED', boxShadow: '0 0 8px rgba(124,58,237,0.9)',
-      }} />
-    </motion.button>
-  );
-}
-
 // ─── Free pick sub-view ─────────────────────────────────────────────────────────
 
 interface FreePickProps {
@@ -537,18 +665,11 @@ interface FreePickProps {
 
 function FreePickView({ onBack, onCTVersion, onSchizodio, onSchizodioRandom, loading, nftStatus }: FreePickProps) {
   const { t } = useTranslation();
-  const { connectWallet } = useWalletConnection();
-  const walletStatus = useWalletStatus();
   const ownedNFTs = useOwnedNFTs();
   const [showNoNFTModal, setShowNoNFTModal] = useState(false);
 
   const handleSchizodioClick = () => {
     if (loading) return;
-    if (walletStatus !== 'ready') {
-      connectWallet();
-      return;
-    }
-    // Logged in. Check NFTs.
     if (ownedNFTs.length === 0) {
       setShowNoNFTModal(true);
     } else {
@@ -592,7 +713,7 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, onSchizodioRandom, loa
             subtitle={t('menu.ct_version_sub')}
             tag="24 CHARS"
           />
-          {/* Schizodio vs AI — requires login, prompts random if 0 NFTs */}
+          {/* Schizodio local — no mid-flow login; no-NFT modal handles zero-NFT case */}
           <OptionCard
             onClick={handleSchizodioClick}
             accent="#E8A444"
@@ -606,7 +727,7 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, onSchizodioRandom, loa
               </svg>
             }
             title={nftStatus || t('menu.nft_version')}
-            subtitle={walletStatus === 'ready' ? "Play with the full Schizodio collection." : "Login required to play Schizodio mode."}
+            subtitle="Play with the full Schizodio collection."
             tag="999 CHARS"
             disabled={loading}
           />
@@ -642,27 +763,17 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, onSchizodioRandom, loa
             >
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>💀</div>
-                <h3 style={{
-                  fontFamily: "'Space Grotesk', sans-serif", fontSize: 24,
-                  color: '#FFFFFE', margin: '0 0 8px 0'
-                }}>
+                <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, color: '#FFFFFE', margin: '0 0 8px 0' }}>
                   No Schizodios Found
                 </h3>
-                <p style={{
-                  color: 'rgba(255,255,254,0.7)', fontSize: 15,
-                  lineHeight: 1.5, margin: 0
-                }}>
+                <p style={{ color: 'rgba(255,255,254,0.7)', fontSize: 15, lineHeight: 1.5, margin: 0 }}>
                   You need a Schizodio to select your own character. You can still play by letting us assign you a random character!
                 </p>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <button
-                  onClick={() => {
-                    sfx.click();
-                    setShowNoNFTModal(false);
-                    onSchizodioRandom();
-                  }}
+                  onClick={() => { sfx.click(); setShowNoNFTModal(false); onSchizodioRandom(); }}
                   style={{
                     width: '100%', padding: '16px',
                     background: '#E8A444', color: '#0f0e17',
@@ -675,10 +786,7 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, onSchizodioRandom, loa
                   🎲 Play with Random
                 </button>
                 <button
-                  onClick={() => {
-                    sfx.click();
-                    window.open('https://schizodio.art', '_blank');
-                  }}
+                  onClick={() => { sfx.click(); window.open('https://schizodio.art', '_blank'); }}
                   style={{
                     width: '100%', padding: '16px',
                     background: 'rgba(255,255,255,0.05)', color: '#FFFFFE',
@@ -691,10 +799,7 @@ function FreePickView({ onBack, onCTVersion, onSchizodio, onSchizodioRandom, loa
                   🛒 Get an NFT at schizodio.art
                 </button>
                 <button
-                  onClick={() => {
-                    sfx.click();
-                    setShowNoNFTModal(false);
-                  }}
+                  onClick={() => { sfx.click(); setShowNoNFTModal(false); }}
                   style={{
                     width: '100%', padding: '12px',
                     background: 'transparent', color: 'rgba(255,255,254,0.5)',
@@ -825,14 +930,11 @@ function RealPickView({ onBack, onNormal }: RealPickProps) {
   );
 }
 
-// ─── Reusable collection section badge ──────────────────────────────────────
+// ─── Reusable collection section badge ───────────────────────────────────────
 
 function CollectionBadge({ label, accentRgb }: { label: string; accentRgb: string }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      marginBottom: 12,
-    }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
       <div style={{
         background: `rgba(${accentRgb},0.1)`,
         border: `1px solid rgba(${accentRgb},0.25)`,
@@ -848,7 +950,7 @@ function CollectionBadge({ label, accentRgb }: { label: string; accentRgb: strin
   );
 }
 
-// ─── Reusable horizontal option card ───────────────────────────────────────────
+// ─── Reusable horizontal option card ─────────────────────────────────────────
 
 interface OptionCardProps {
   onClick: () => void;
@@ -873,10 +975,8 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
     const y = e.clientY - rect.top;
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-    const degX = (y - centerY) / 8;
-    const degY = (centerX - x) / 12;
-    setRotateX(degX);
-    setRotateY(degY);
+    setRotateX((y - centerY) / 8);
+    setRotateY((centerX - x) / 12);
   };
 
   const handleMouseLeave = () => {
@@ -889,11 +989,7 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
     if (disabled || isClicked) return;
     sfx.cardClick();
     setIsClicked(true);
-    setTimeout(() => {
-      onClick();
-      // Reset after transition complete (if staying on screen)
-      // setIsClicked(false); 
-    }, 300);
+    setTimeout(() => { onClick(); }, 300);
   };
 
   return (
@@ -910,9 +1006,8 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
         whileTap={(disabled || isClicked) ? {} : { scale: 0.98, rotateX: 0, rotateY: 0 }}
         transition={{
           type: isClicked ? 'spring' : 'tween',
-          stiffness: 300,
-          damping: 20,
-          duration: isClicked ? 0.3 : 0.1
+          stiffness: 300, damping: 20,
+          duration: isClicked ? 0.3 : 0.1,
         }}
         style={{
           position: 'relative',
@@ -920,15 +1015,10 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
             ? 'rgba(255,255,255,0.03)'
             : `linear-gradient(145deg, rgba(${accentRgb},0.2) 0%, rgba(${accentRgb},0.08) 100%)`,
           border: `1px solid ${disabled ? 'rgba(255,255,255,0.08)' : `rgba(${accentRgb},0.45)`}`,
-          borderRadius: 18,
-          padding: '20px 22px',
+          borderRadius: 18, padding: '20px 22px',
           cursor: (disabled || isClicked) ? 'not-allowed' : 'pointer',
-          outline: 'none',
-          textAlign: 'left',
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 20,
+          outline: 'none', textAlign: 'left', width: '100%',
+          display: 'flex', alignItems: 'center', gap: 20,
           opacity: disabled ? 0.4 : 1,
           boxShadow: (disabled || isClicked)
             ? '0 4px 12px rgba(0,0,0,0.2)'
@@ -939,26 +1029,22 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
           overflow: 'hidden',
         }}
       >
-        {/* Shine/Reflection effect */}
+        {/* Shine */}
         {!disabled && !isClicked && (
           <div style={{
             position: 'absolute', inset: 0,
             background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.05) 100%)',
-            pointerEvents: 'none',
-            zIndex: 1,
+            pointerEvents: 'none', zIndex: 1,
           }} />
         )}
-
-        {/* Noise texture overlay */}
+        {/* Noise */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
           opacity: 0.04, mixBlendMode: 'overlay',
-          pointerEvents: 'none',
-          zIndex: 0,
+          pointerEvents: 'none', zIndex: 0,
         }} />
-
-        {/* Icon slot - recessed look */}
+        {/* Icon */}
         <div style={{
           width: 56, height: 56, borderRadius: 14, flexShrink: 0,
           background: disabled ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.25)',
@@ -967,14 +1053,11 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 24,
           color: (disabled || isClicked) ? 'rgba(255,255,254,0.2)' : accent,
-          zIndex: 2,
-          position: 'relative',
-          transform: 'translateZ(20px)',
-        }} >
+          zIndex: 2, position: 'relative', transform: 'translateZ(20px)',
+        }}>
           {icon}
         </div>
-
-        {/* Text content */}
+        {/* Text */}
         <div style={{ flex: 1, minWidth: 0, zIndex: 2, transform: 'translateZ(10px)' }}>
           <div style={{
             fontSize: 16, fontWeight: 800,
@@ -984,15 +1067,11 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
           }}>
             {title}
           </div>
-          <div style={{
-            fontSize: 12, color: 'rgba(255,255,254,0.35)',
-            fontWeight: 400, lineHeight: 1.45,
-          }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,254,0.35)', fontWeight: 400, lineHeight: 1.45 }}>
             {subtitle}
           </div>
         </div>
-
-        {/* Tag - floating forward */}
+        {/* Tag */}
         <div style={{
           flexShrink: 0,
           background: (disabled || isClicked) ? 'rgba(255,255,255,0.04)' : `rgba(${accentRgb},0.25)`,
@@ -1001,8 +1080,7 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
           fontSize: 10, fontWeight: 800, letterSpacing: '0.08em',
           color: (disabled || isClicked) ? 'rgba(255,255,254,0.2)' : '#FFF',
           textTransform: 'uppercase' as const,
-          zIndex: 3,
-          transform: 'translateZ(30px)',
+          zIndex: 3, transform: 'translateZ(30px)',
           boxShadow: (disabled || isClicked) ? 'none' : `0 4px 12px rgba(0,0,0,0.25), 0 0 10px rgba(${accentRgb}, 0.2)`,
         }}>
           {tag}
@@ -1012,61 +1090,7 @@ function OptionCard({ onClick, accent, accentRgb, icon, title, subtitle, tag, di
   );
 }
 
-// ─── Login Button Section ──────────────────────────────────────────────────
-
-function LoginButtonSection() {
-  const { t } = useTranslation();
-  const status = useWalletStatus();
-  const address = useWalletAddress();
-  const { connectWallet } = useWalletConnection();
-  const isConnected = status === 'connected' || status === 'ready' || status === 'loading_nfts';
-  const isConnecting = status === 'connecting' || status === 'loading_nfts';
-
-  if (isConnected && address) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 1.0 }}
-      style={{ marginBottom: 8 }}
-    >
-      <motion.button
-        onClick={connectWallet}
-        disabled={isConnecting}
-        whileHover={isConnecting ? {} : { scale: 1.04, filter: 'brightness(1.1)', boxShadow: '0 0 40px rgba(124,58,237,0.45)' }}
-        whileTap={isConnecting ? {} : { scale: 0.97 }}
-        style={{
-          background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
-          border: '1px solid rgba(124,58,237,0.5)',
-          borderRadius: 12,
-          padding: '12px 32px',
-          color: '#FFFFFE',
-          fontFamily: "'Space Grotesk', sans-serif",
-          fontWeight: 700,
-          fontSize: 15,
-          cursor: isConnecting ? 'wait' : 'pointer',
-          opacity: isConnecting ? 0.7 : 1,
-          outline: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          boxShadow: '0 0 20px rgba(124,58,237,0.25)',
-        }}
-      >
-        {isConnecting ? <><Spinner /> {t('auth.authenticating')}</> : (
-          <>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8, opacity: 0.9 }}>
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-            {t('auth.login')}
-          </>
-        )}
-      </motion.button>
-    </motion.div>
-  );
-}
+// ─── Spinner ──────────────────────────────────────────────────────────────────
 
 function Spinner({ large }: { large?: boolean }) {
   const size = large ? 32 : 14;
@@ -1084,6 +1108,8 @@ function Spinner({ large }: { large?: boolean }) {
   );
 }
 
+// ─── Loading overlay ──────────────────────────────────────────────────────────
+
 function LoadingOverlay({ loading, status }: { loading: boolean; status: string }) {
   return (
     <AnimatePresence>
@@ -1093,16 +1119,12 @@ function LoadingOverlay({ loading, status }: { loading: boolean; status: string 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           style={{
-            position: 'fixed',
-            inset: 0,
+            position: 'fixed', inset: 0,
             background: 'rgba(15, 14, 23, 0.85)',
             backdropFilter: 'blur(8px)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            pointerEvents: 'auto',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            zIndex: 100, pointerEvents: 'auto',
           }}
         >
           <Card style={{ padding: '40px 60px', textAlign: 'center', minWidth: 280 }}>
@@ -1110,18 +1132,11 @@ function LoadingOverlay({ loading, status }: { loading: boolean; status: string 
             <div style={{
               marginTop: 24,
               fontFamily: "'Space Grotesk', sans-serif",
-              fontWeight: 700,
-              fontSize: 18,
-              color: '#FFFFFE',
-              letterSpacing: '-0.01em',
+              fontWeight: 700, fontSize: 18, color: '#FFFFFE', letterSpacing: '-0.01em',
             }}>
               {status || 'Loading...'}
             </div>
-            <div style={{
-              marginTop: 8,
-              fontSize: 12,
-              color: 'rgba(255,255,254,0.4)',
-            }}>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,254,0.4)' }}>
               Please wait while we sync with the blockchain
             </div>
           </Card>
@@ -1136,8 +1151,7 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
     <div style={{
       background: 'rgba(255, 255, 255, 0.05)',
       border: '1px solid rgba(255, 255, 255, 0.1)',
-      borderRadius: 16,
-      padding: 24,
+      borderRadius: 16, padding: 24,
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
       ...style,
     }}>

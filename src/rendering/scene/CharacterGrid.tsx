@@ -238,13 +238,15 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
         rafId = requestAnimationFrame(renderProceduralBatch);
       }
     }
-    rafId = requestAnimationFrame(renderProceduralBatch);
-
-    // Try loading pre-built static atlas (one HTTP request replaces all procedural work)
+    // Try loading pre-built static atlas first — start immediately so the browser
+    // can fetch it (or pull it from cache) before the procedural batch begins.
     const prebuilt = new Image();
+    let procTimeout: ReturnType<typeof setTimeout> | null = null;
+
     prebuilt.onload = () => {
       if (!procCancelled && atlasRef.current === atlas) {
         procCancelled = true;
+        if (procTimeout !== null) { clearTimeout(procTimeout); procTimeout = null; }
         cancelAnimationFrame(rafId);
         atlas.drawFull(prebuilt);
         prebuiltLoadedRef.current = true;
@@ -252,8 +254,16 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     };
     prebuilt.src = '/atlas/schizodio-atlas.webp';
 
+    // Delay the procedural fallback by 500ms — a cached WebP loads in < 50ms, so
+    // on round 2 the atlas wins and procedural portraits never flash on screen.
+    procTimeout = setTimeout(() => {
+      procTimeout = null;
+      if (!procCancelled) rafId = requestAnimationFrame(renderProceduralBatch);
+    }, 500);
+
     return () => {
       procCancelled = true;
+      if (procTimeout !== null) { clearTimeout(procTimeout); procTimeout = null; }
       cancelAnimationFrame(rafId);
       atlas.dispose();
       atlasRef.current = null;
