@@ -6,17 +6,19 @@ pub trait IERC721<TContractState> {
 }
 
 #[starknet::interface]
-pub trait IWhoisWho<TContractState> {
+pub trait IGuessNFT<TContractState> {
     fn create_game(ref self: TContractState, game_id: felt252, p2: ContractAddress);
     fn commit_character(ref self: TContractState, game_id: felt252, commitment: felt252);
+    fn reveal_character(ref self: TContractState, game_id: felt252, character_id: felt252, salt: felt252);
     fn deposit_wager(ref self: TContractState, game_id: felt252, token_id: u256);
     fn opponent_won(ref self: TContractState, game_id: felt252);
-    fn get_game(self: @TContractState, game_id: felt252) -> WhoisWho::Game;
+    fn get_game(self: @TContractState, game_id: felt252) -> GuessNFT::Game;
+    fn get_commitment(self: @TContractState, game_id: felt252, player: ContractAddress) -> felt252;
 }
 
 #[starknet::contract]
-pub mod WhoisWho {
-    use super::{IWhoisWho, IERC721Dispatcher, IERC721DispatcherTrait};
+pub mod GuessNFT {
+    use super::{IGuessNFT, IERC721Dispatcher, IERC721DispatcherTrait};
     use starknet::{ContractAddress, get_caller_address, get_contract_address};
 
     #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -25,6 +27,8 @@ pub mod WhoisWho {
         player2: ContractAddress,
         p1_commitment: felt252,
         p2_commitment: felt252,
+        p1_revealed_char: felt252,
+        p2_revealed_char: felt252,
         p1_wager: u256,
         p2_wager: u256,
         winner: ContractAddress,
@@ -41,6 +45,7 @@ pub mod WhoisWho {
     enum Event {
         GameCreated: GameCreated,
         CharacterCommitted: CharacterCommitted,
+        CharacterRevealed: CharacterRevealed,
         WagerDeposited: WagerDeposited,
         GameWon: GameWon,
     }
@@ -49,6 +54,8 @@ pub mod WhoisWho {
     struct GameCreated { game_id: felt252, player1: ContractAddress, player2: ContractAddress }
     #[derive(Drop, starknet::Event)]
     struct CharacterCommitted { game_id: felt252, player: ContractAddress, commitment: felt252 }
+    #[derive(Drop, starknet::Event)]
+    struct CharacterRevealed { game_id: felt252, player: ContractAddress, character_id: felt252, valid: bool }
     #[derive(Drop, starknet::Event)]
     struct WagerDeposited { game_id: felt252, player: ContractAddress, token_id: u256 }
     #[derive(Drop, starknet::Event)]
@@ -60,7 +67,7 @@ pub mod WhoisWho {
     }
 
     #[abi(embed_v0)]
-    impl WhoisWhoImpl of IWhoisWho<ContractState> {
+    impl GuessNFTImpl of IGuessNFT<ContractState> {
         fn create_game(ref self: ContractState, game_id: felt252, p2: ContractAddress) {
             let caller = get_caller_address();
             let zero_address: ContractAddress = 0_felt252.try_into().unwrap();
@@ -69,6 +76,8 @@ pub mod WhoisWho {
                 player2: p2,
                 p1_commitment: 0,
                 p2_commitment: 0,
+                p1_revealed_char: 0,
+                p2_revealed_char: 0,
                 p1_wager: 0,
                 p2_wager: 0,
                 winner: zero_address,
@@ -92,6 +101,35 @@ pub mod WhoisWho {
 
             self.games.write(game_id, game);
             self.emit(Event::CharacterCommitted(CharacterCommitted { game_id, player: caller, commitment }));
+        }
+
+        fn reveal_character(ref self: ContractState, game_id: felt252, character_id: felt252, salt: felt252) {
+            let caller = get_caller_address();
+            let mut game = self.games.read(game_id);
+            
+            // Compute expected commitment from character_id and salt
+            let expected_commitment = core::pedersen_hash(character_id, salt);
+            
+            let stored_commitment = if caller == game.player1 {
+                game.p1_commitment
+            } else if caller == game.player2 {
+                game.p2_commitment
+            } else {
+                panic!("Not a player");
+            };
+            
+            let valid = expected_commitment == stored_commitment;
+            assert(valid, 'Invalid reveal');
+            
+            // Store revealed character
+            if caller == game.player1 {
+                game.p1_revealed_char = character_id;
+            } else {
+                game.p2_revealed_char = character_id;
+            }
+            
+            self.games.write(game_id, game);
+            self.emit(Event::CharacterRevealed(CharacterRevealed { game_id, player: caller, character_id, valid }));
         }
 
         fn deposit_wager(ref self: ContractState, game_id: felt252, token_id: u256) {
@@ -155,6 +193,17 @@ pub mod WhoisWho {
 
         fn get_game(self: @ContractState, game_id: felt252) -> Game {
             self.games.read(game_id)
+        }
+
+        fn get_commitment(self: @ContractState, game_id: felt252, player: ContractAddress) -> felt252 {
+            let game = self.games.read(game_id);
+            if player == game.player1 {
+                game.p1_commitment
+            } else if player == game.player2 {
+                game.p2_commitment
+            } else {
+                0
+            }
         }
     }
 }

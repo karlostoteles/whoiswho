@@ -14,12 +14,9 @@
  *               Phase 1: verify hash(character_id, salt) === stored_commitment
  *               Phase 2: game_contract.reveal_character(char_id, salt) — contract verifies
  *
- * This file is Phase 1: fully local, no contract. The API surface matches what Phase 2
- * will look like, so wiring up the contract later is a drop-in replacement.
- *
  * Cryptographic note:
  *   Starknet uses Pedersen hash natively. Here we use a JS Pedersen from starknet.js
- *   so commitments are compatible with what the future Cairo contract will verify.
+ *   so commitments are compatible with what the Cairo contract will verify.
  */
 import { hash } from 'starknet';
 import { getAccount } from './sdk';
@@ -172,9 +169,13 @@ export function generateGameSessionId(): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ─── Phase 2 stubs (on-chain) ─────────────────────────────────────────────────
-// When the Cairo contract is deployed, replace the Phase 1 localStorage calls above
-// with these Starknet transaction calls. The commitment value stays identical.
+// ─── Phase 2: On-chain stubs (existing implementation) ───────────────────────────────
+// These use the existing sdk.ts / @cartridge/controller
+
+/**
+ * Submit commitment on-chain.
+ * Uses the existing @cartridge/controller connection from sdk.ts.
+ */
 export async function submitCommitmentOnChain(
   commitment: string,
   gameId: string
@@ -186,13 +187,11 @@ export async function submitCommitmentOnChain(
     calldata: [gameId, commitment],
   }]);
 
-  // controller.execute returns an object with transaction_hash or directly the string depending on version.
-  // Cast to any and return the hash.
   return (tx as any).transaction_hash || String(tx);
 }
 
 /**
- * [Phase 2 stub] Reveal character on-chain.
+ * Reveal character on-chain.
  */
 export async function revealCharacterOnChain(
   characterId: string,
@@ -212,7 +211,7 @@ export async function revealCharacterOnChain(
 }
 
 /**
- * [Phase 2 stub] Deposit wager on-chain.
+ * Deposit wager NFT on-chain.
  */
 export async function depositWagerOnChain(
   gameId: string,
@@ -231,11 +230,9 @@ export async function depositWagerOnChain(
 }
 
 /**
- * [Phase 2 stub] Concede game on-chain (sends both wagers to opponent).
+ * Concede game on-chain (sends both wagers to opponent).
  */
-export async function opponentWonOnChain(
-  gameId: string
-): Promise<string> {
+export async function opponentWonOnChain(gameId: string): Promise<string> {
   const account = getAccount();
 
   const tx = await account.execute([{
