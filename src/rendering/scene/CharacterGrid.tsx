@@ -147,6 +147,25 @@ void main() {
 // X-axis unit vector (pre-allocated for quaternion rotation)
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 
+// Module-level cache for the pre-built atlas image.
+// Loaded once per session; subsequent atlas recreations draw it synchronously.
+let _cachedAtlasImage: HTMLImageElement | null = null;
+let _cachedAtlasPromise: Promise<HTMLImageElement | null> | null = null;
+
+function loadPrebuiltAtlas(): Promise<HTMLImageElement | null> {
+  if (_cachedAtlasImage) return Promise.resolve(_cachedAtlasImage);
+  if (_cachedAtlasPromise) return _cachedAtlasPromise;
+
+  _cachedAtlasPromise = new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { _cachedAtlasImage = img; resolve(img); };
+    img.onerror = () => { _cachedAtlasPromise = null; resolve(null); };
+    img.src = '/atlas/schizodio-atlas.webp';
+  });
+  return _cachedAtlasPromise;
+}
+
 // ─── Minimal LOD: InstancedMesh + Texture Atlas (one draw call) ───────────
 
 type MinimalPhase = 'alive' | 'waiting' | 'flipping' | 'shrinking' | 'dead';
@@ -217,7 +236,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     return geo;
   }, []);
 
-  // ── Atlas construction using unified ImageCache ──────────────────────────
+  // ── Atlas construction ────────────────────────────────────────────────────
   useEffect(() => {
     if (!characters || characters.length === 0) return;
 
@@ -234,85 +253,65 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     // Bind atlas texture to shader uniform
     material.uniforms.uAtlas.value = atlas.texture;
 
-    // Fill all cells from unified cache or procedural fallback
-    for (let i = 0; i < characters.length; i++) {
-      const char = characters[i];
+    let cancelled = false;
 
-      // Check unified cache first (may have been loaded by React UI)
-      const cachedImage = ImageCache.get(char.id);
-      if (cachedImage) {
-        atlas.drawCell(i, cachedImage);
-        continue;
+    const init = async () => {
+      // If the pre-built atlas image is already in the module-level cache,
+      // draw it synchronously — no timer, no race, no procedural fallback.
+      if (_cachedAtlasImage) {
+        if (!cancelled && atlasRef.current === atlas) {
+          atlas.drawFull(_cachedAtlasImage);
+          prebuiltLoadedRef.current = true;
+        }
+        return;
       }
 
-      // Check procedural cache
-      const proceduralCanvas = ImageCache.getProcedural(char.id);
-      if (proceduralCanvas) {
-        atlas.drawCell(i, proceduralCanvas);
-        continue;
+      // Pre-built not yet loaded: fill cells with solid HSL colors immediately
+      // so the board isn't blank, then start the procedural batch as a fallback.
+      for (let i = 0; i < characters.length; i++) {
+        const char = characters[i];
+        const hue = idToHue(char.id);
+        atlas.fillCell(i, `hsl(${Math.round(hue)}, 70%, 55%)`);
       }
+      atlas.markDirty();
 
-      // Fallback to solid color
-      const hue = idToHue(char.id);
-      const hsl = `hsl(${Math.round(hue)}, 70%, 55%)`;
-      atlas.fillCell(i, hsl);
-    }
+      // Procedural portrait batch (runs until pre-built atlas takes over)
+      let procIdx = 0;
+      let rafId = 0;
+      const PROC_BATCH = 50;
 
-    // Batch-render procedural portraits into atlas cells (for characters not yet cached)
-    let procIdx = 0;
-    let rafId = 0;
-    let procCancelled = false;
-    const PROC_BATCH = 50;
-
-    function renderProceduralBatch() {
-      if (procCancelled) return;
-      const end = Math.min(procIdx + PROC_BATCH, characters.length);
-      for (; procIdx < end; procIdx++) {
-        const char = characters[procIdx];
-        if (!ImageCache.has(char.id) && !ImageCache.getProcedural(char.id)) {
-          const canvas = renderPortraitCanvas(char, undefined, true);
-          ImageCache.setProcedural(char.id, canvas);
-          atlas.drawCell(procIdx, canvas);
+      function renderProceduralBatch() {
+        if (cancelled) return;
+        const end = Math.min(procIdx + PROC_BATCH, characters.length);
+        for (; procIdx < end; procIdx++) {
+          const char = characters[procIdx];
+          if (!ImageCache.has(char.id)) {
+            const canvas = renderPortraitCanvas(char, undefined, true);
+            ImageCache.setProcedural(char.id, canvas);
+            atlas.drawCell(procIdx, canvas);
+          }
+        }
+        atlas.markDirty();
+        if (procIdx < characters.length) {
+          rafId = requestAnimationFrame(renderProceduralBatch);
         }
       }
-      // Mark dirty once per batch (not per cell)
-      atlas.markDirty();
-      if (procIdx < characters.length) {
-        rafId = requestAnimationFrame(renderProceduralBatch);
-      }
-    }
-    // Try loading pre-built static atlas first — start immediately so the browser
-    // can fetch it (or pull it from cache) before the procedural batch begins.
-    const prebuilt = new Image();
-    let procTimeout: ReturnType<typeof setTimeout> | null = null;
+      rafId = requestAnimationFrame(renderProceduralBatch);
 
-    prebuilt.onload = () => {
-      if (!procCancelled && atlasRef.current === atlas) {
-        procCancelled = true;
-        if (procTimeout !== null) { clearTimeout(procTimeout); procTimeout = null; }
-        cancelAnimationFrame(rafId);
-        atlas.drawFull(prebuilt);
-        ImageCache.clearProcedural(); // free ~16 MB of procedural canvases
+      // Load pre-built atlas (first session only — subsequent hits module cache)
+      const img = await loadPrebuiltAtlas();
+      cancelAnimationFrame(rafId);
+
+      if (!cancelled && atlasRef.current === atlas && img) {
+        atlas.drawFull(img);
         prebuiltLoadedRef.current = true;
       }
     };
-    prebuilt.onerror = (e) => {
-      console.error('[MinimalGrid] Failed to load static atlas:', e);
-    };
-    prebuilt.crossOrigin = 'anonymous';
-    prebuilt.src = '/atlas/schizodio-atlas.webp';
 
-    // Delay the procedural fallback by 500ms — a cached WebP loads in < 50ms, so
-    // on round 2 the atlas wins and procedural portraits never flash on screen.
-    procTimeout = setTimeout(() => {
-      procTimeout = null;
-      if (!procCancelled) rafId = requestAnimationFrame(renderProceduralBatch);
-    }, 500);
+    init();
 
     return () => {
-      procCancelled = true;
-      if (procTimeout !== null) { clearTimeout(procTimeout); procTimeout = null; }
-      cancelAnimationFrame(rafId);
+      cancelled = true;
       atlas.dispose();
       atlasRef.current = null;
     };
@@ -325,10 +324,12 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     let cancelled = false;
 
     const loadImages = async () => {
-      // Wait for atlas to be ready; also allows pre-built atlas time to load
-      await new Promise(r => setTimeout(r, 300));
-      // If pre-built atlas loaded successfully, it already has all 999 NFT images — skip
-      if (prebuiltLoadedRef.current) return;
+      // If the pre-built atlas is already in the module cache, it covers all
+      // 999 NFT images — no need to load them individually.
+      if (_cachedAtlasImage) return;
+      // Give the async atlas load time to settle before falling back to per-image
+      await new Promise(r => setTimeout(r, 1000));
+      if (_cachedAtlasImage) return;
 
       // Load via unified cache (deduplicates with React UI loads)
       await ImageCache.batchLoad(
