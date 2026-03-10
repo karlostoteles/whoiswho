@@ -63,7 +63,7 @@ export function SecretCardPanel() {
   if (!GAMEPLAY_PHASES.has(phase) || !myChar) return null;
 
   const tokenId = (myChar as any).tokenId ?? (secretId?.startsWith('nft_') ? secretId.replace('nft_', '') : undefined);
-  const imageUrl = (myChar as any).imageUrl ?? (tokenId ? `/api/nft-art/${tokenId}` : undefined);
+  const imageUrl = (myChar as any).imageUrl ?? (tokenId ? `https://v1assets.schizod.io/images/revealed/${tokenId}.png` : undefined);
 
   const SIZE = isMobile ? 120 : 180;
 

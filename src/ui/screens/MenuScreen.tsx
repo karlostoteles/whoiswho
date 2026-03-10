@@ -65,8 +65,8 @@ export function MenuScreen() {
   // Compute which sub-view to show within the 'menu' view
   const mainSubView =
     walletStatus === 'ready' ? 'mode-select' :
-    (walletStatus === 'connecting' || walletStatus === 'connected' || walletStatus === 'loading_nfts') ? 'connecting' :
-    'landing';
+      (walletStatus === 'connecting' || walletStatus === 'connected' || walletStatus === 'loading_nfts') ? 'connecting' :
+        'landing';
 
   // AnimatePresence key — drives transitions for all views
   const animKey = view === 'menu' ? mainSubView : view;
@@ -110,8 +110,11 @@ export function MenuScreen() {
               setLoading(true);
               setNftStatus('Assigning random character...');
               try {
-                const allChars = await generateAllCollectionCharacters();
-                setGameMode('nft-free', allChars);
+                // If we don't have the characters yet, load them ONCE.
+                if (useGameStore.getState().characters.length < 900) {
+                  const allChars = await generateAllCollectionCharacters();
+                  setGameMode('nft-free', allChars);
+                }
                 startSetup();
                 useGameStore.getState().assignRandomSecretCharacter('player1');
               } catch (err: any) {
@@ -370,8 +373,8 @@ function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; on
 function ConnectingView({ walletStatus }: { walletStatus: string }) {
   const statusText =
     walletStatus === 'loading_nfts' ? 'Loading NFTs...' :
-    walletStatus === 'connected' ? 'Checking NFTs...' :
-    'Connecting...';
+      walletStatus === 'connected' ? 'Checking NFTs...' :
+        'Connecting...';
 
   return (
     <motion.div

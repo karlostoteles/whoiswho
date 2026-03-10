@@ -9,6 +9,7 @@
 
 import type { Character } from '@/core/data/characters';
 import { buildTraitsFromBitmap, deriveFreeTraits, hashString } from '@/core/data/nftCharacterAdapter';
+import { resolveUrl } from '@/services/starknet/nftService';
 import schizodioData from '@/core/data/schizodio.json';
 
 export const COLLECTION_SIZE = 999;
@@ -33,7 +34,7 @@ export async function generateAllCollectionCharacters(): Promise<Character[]> {
     chars.push({
       id: `nft_${raw.id}`,
       name: raw.name || `Schizodio #${raw.id}`,
-      imageUrl: raw.image_url,
+      imageUrl: resolveUrl(raw.image_url),
       traits,
     });
   }

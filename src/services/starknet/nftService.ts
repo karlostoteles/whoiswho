@@ -281,37 +281,27 @@ function parseMetadata(raw: string): any {
 }
 
 /**
- * Serverless proxy endpoints (Netlify / Vercel) that scrape schizodio.art
- * server-side and return the image URL without CORS issues.
- *
- * The on-chain tokenURI points to techshaman.42024769.xyz which is currently
- * down (broken SSL + backend offline).  The proxy is our primary image source.
+ * Fetch a Schizodio metadata JSON directly from the official asset server.
+ * This replaces the broken Vercel/Netlify proxy endpoints.
  */
-const PROXY_ENDPOINTS = [
-  '/.netlify/functions/schizodio-meta',
-  '/api/schizodio-meta',
-];
-
-async function fetchViaProxy(tokenId: string): Promise<{
+async function fetchDirectMetadata(tokenId: string): Promise<{
   imageUrl: string;
   name: string;
   attributes: NFTAttribute[];
 } | null> {
-  for (const endpoint of PROXY_ENDPOINTS) {
-    try {
-      const resp = await fetch(`${endpoint}?id=${tokenId}`);
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      if (data.imageUrl) {
-        return {
-          imageUrl: data.imageUrl,
-          name: data.name,
-          attributes: data.attributes ?? [],
-        };
-      }
-    } catch { /* try next endpoint */ }
+  try {
+    const resp = await fetch(`https://v1assets.schizod.io/json/revealed/${tokenId}.json`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return {
+      imageUrl: resolveUrl(data.image || data.image_url || ''),
+      name: data.name || `SCHIZODIO #${tokenId}`,
+      attributes: data.attributes ?? [],
+    };
+  } catch (err) {
+    console.error(`[nftService] Direct metadata fetch failed for #${tokenId}:`, err);
+    return null;
   }
-  return null;
 }
 
 /**
@@ -325,10 +315,10 @@ export async function fetchTokenMetadata(tokenId: string): Promise<{
   imageUrl: string;
   attributes: NFTAttribute[];
 }> {
-  // ── 1. Try proxy first (schizodio.art, server-side) ──────────────────────
-  const proxyResult = await fetchViaProxy(tokenId);
-  if (proxyResult) {
-    return proxyResult; // already includes attributes (may be [] if proxy couldn't parse)
+  // ── 1. Try direct asset server first (Schizodio official) ────────────────
+  const directResult = await fetchDirectMetadata(tokenId);
+  if (directResult) {
+    return directResult;
   }
 
   // ── 2. Fall back to on-chain tokenURI → external metadata server ─────────

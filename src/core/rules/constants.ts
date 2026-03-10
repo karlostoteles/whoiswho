@@ -41,7 +41,7 @@ export interface AdaptiveGridLayout {
 export function computeAdaptiveGrid(activeCount: number): AdaptiveGridLayout {
   const ASPECT = 1.7;     // cols/rows target ratio (16:10ish)
   const USABLE = 14.0;    // world units of usable board width
-  const GAP_FRAC = 0.18;    // gap = GAP_FRAC × tileW
+  const GAP_FRAC = 0.28;    // gap = GAP_FRAC × tileW
 
   const n = Math.max(1, activeCount);
   const cols = Math.ceil(Math.sqrt(n * ASPECT));

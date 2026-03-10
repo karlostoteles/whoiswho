@@ -16,16 +16,16 @@ import { useCPUPlayer } from '@/shared/hooks/useCPUPlayer';
 export function GameScene() {
   useCPUPlayer(); // Drive CPU opponent in free mode
 
-  const { layout }      = useAdaptiveGrid();
-  const characters      = useGameCharacters() || [];
-  const textures        = useCharacterTextures(characters.length >= 100 ? 0 : layout.tileW);
+  const { layout } = useAdaptiveGrid();
+  const characters = useGameCharacters() || [];
+  const textures = useCharacterTextures(layout.tileW);
   const cardBackTexture = useCardBackTexture();
-  const boardRotation   = useBoardRotation();
-  const boardRef        = useRef<THREE.Group>(null);
+  const boardRotation = useBoardRotation();
+  const boardRef = useRef<THREE.Group>(null);
 
   useFrame((_, delta) => {
     if (boardRef.current) {
-      const target  = boardRotation;
+      const target = boardRotation;
       const current = boardRef.current.rotation.y;
       boardRef.current.rotation.y = current + (target - current) * (1 - Math.pow(0.02, delta));
     }

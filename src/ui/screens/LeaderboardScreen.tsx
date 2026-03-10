@@ -17,17 +17,28 @@ export function LeaderboardScreen({ onBack }: LeaderboardScreenProps) {
     const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [demoMode, setDemoMode] = useState(false);
+
     useEffect(() => {
-        // In a real Vercel KV setup, this will fetch from the actual DB endpoint.
-        // For now, checking the route we're about to build.
+        setLoading(true);
         fetch('/api/leaderboard')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("API Blocked");
+                return res.json();
+            })
             .then(data => {
                 setEntries(data.entries || []);
                 setLoading(false);
             })
             .catch(err => {
                 console.error("Failed to load leaderboard:", err);
+                setDemoMode(true);
+                // Fallback mock data for demo
+                setEntries([
+                    { address: '0x01...abcd', wins: 42 },
+                    { address: '0x02...ef01', wins: 38 },
+                    { address: '0x03...2345', wins: 31 },
+                ]);
                 setLoading(false);
             });
     }, []);
@@ -66,12 +77,23 @@ export function LeaderboardScreen({ onBack }: LeaderboardScreenProps) {
                     >
                         ← {t('menu.back', 'Back')}
                     </motion.button>
-                    <span style={{
-                        fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 800,
-                        color: '#E8A444', textShadow: '0 0 12px rgba(232,164,68,0.4)',
-                    }}>
-                        🏆 LEADERBOARD
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <span style={{
+                            fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 800,
+                            color: '#E8A444', textShadow: '0 0 12px rgba(232,164,68,0.4)',
+                        }}>
+                            🏆 LEADERBOARD
+                        </span>
+                        {demoMode && (
+                            <span style={{
+                                fontSize: 10, fontWeight: 800, color: '#FF4A4A', background: 'rgba(255,74,74,0.1)',
+                                padding: '2px 6px', borderRadius: 4, border: '1px solid rgba(255,74,74,0.3)',
+                                fontFamily: "'Space Grotesk', sans-serif", letterSpacing: 0.5
+                            }}>
+                                DEMO MODE
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* List Body */}
@@ -96,7 +118,7 @@ export function LeaderboardScreen({ onBack }: LeaderboardScreenProps) {
                                 transition={{ delay: index * 0.05 }}
                                 style={{
                                     background: index === 0 ? 'rgba(232,164,68,0.15)' : index === 1 ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)',
-                                    border: `1px solid ${index === 0 ? 'rgba(232,164,68,0.4)' : index === 1 ? 'rgba(167,139,250,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                                    border: `1px solid ${index === 0 ? 'rgba(232,164,68,0.4)' : index === 1 ? 'rgba(167,139,250,0.3)' : 'rgba(255,255,255,0.06)'} `,
                                     borderRadius: 12, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 }}
                             >

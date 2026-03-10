@@ -64,8 +64,12 @@ function computeTargetPositions(
   activeChars.forEach((char, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
+
+    // Stagger every other row to allow characters to peek between the row in front.
+    const rowStagger = (row % 2 === 1) ? (tileW + gap) / 2 : 0;
+
     map.set(char.id, [
-      startX + col * (tileW + gap),
+      startX + col * (tileW + gap) + rowStagger,
       startZ + row * (tileH + gap),
     ]);
   });
@@ -75,19 +79,10 @@ function computeTargetPositions(
 // ─── Main component ────────────────────────────────────────────────────────
 
 export function CharacterGrid({ textures, tileW }: CharacterGridProps) {
-  const startedMinimalRef = useRef(false);
-  const prevCharsRef = useRef<object | null>(null);
   const characters = useGameCharacters();
-
-  // Reset LOD lock when a different character set loads (e.g. CT game after Schizodio)
-  if (prevCharsRef.current !== characters) {
-    prevCharsRef.current = characters;
-    startedMinimalRef.current = false;
-  }
-
   const lod = getTileLOD(tileW);
-  if (lod === 'minimal') startedMinimalRef.current = true;
-  if (startedMinimalRef.current) {
+
+  if (lod === 'minimal') {
     return <MinimalGrid tileW={tileW} />;
   }
   return <IndividualGrid textures={textures} tileW={tileW} />;
@@ -98,8 +93,12 @@ export function CharacterGrid({ textures, tileW }: CharacterGridProps) {
 const ATLAS_VERT = /* glsl */`
 attribute vec4 aAtlasUV; // uOffset, vOffset, uScale, vScale
 varying vec2 vAtlasCoord;
+varying vec2 vTileUV;
+varying vec4 vCellRect;
 
 void main() {
+  vTileUV = uv;
+  vCellRect = aAtlasUV;
   vAtlasCoord = aAtlasUV.xy + uv * aAtlasUV.zw;
   gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
 }
@@ -108,9 +107,39 @@ void main() {
 const ATLAS_FRAG = /* glsl */`
 uniform sampler2D uAtlas;
 varying vec2 vAtlasCoord;
+varying vec2 vTileUV;
+
+// We need the atlas cell parameters to correctly map our cropped tile UV
+// back into the atlas. We can extract it from vAtlasCoord, or we can just pass
+// them from the vertex shader inside a varying.
+varying vec4 vCellRect; // xy = offset, zw = scale
 
 void main() {
-  gl_FragColor = texture2D(uAtlas, vAtlasCoord);
+  float borderX = 0.04;
+  float borderY = 0.05;
+  
+  if (vTileUV.x < borderX || vTileUV.x > 1.0 - borderX ||
+      vTileUV.y < borderY || vTileUV.y > 1.0 - borderY) {
+    gl_FragColor = vec4(0.72, 0.53, 0.12, 1.0); // #b88820 gold border
+  } else {
+    // 1:1 image mapped onto a 1:1.35 tall plane.
+    // We want the image to look unstretched (preserve aspect ratio).
+    // This means we only want to show a 1:1.35 horizontal slice of the original square image.
+    // i.e., crop off the left and right edges.
+    
+    float cx = vTileUV.x - 0.5;
+    float croppedU = 0.5 + cx * 1.35;
+    
+    // Clamp to border limits so we don't sample outside the cell
+    croppedU = clamp(croppedU, 0.0, 1.0);
+    
+    // Re-map the corrected U coordinate back into the specific Atlas Cell
+    vec2 finalCoord;
+    finalCoord.x = vCellRect.x + croppedU * vCellRect.z;
+    finalCoord.y = vAtlasCoord.y; // Y is perfectly 1:1 mapped, leave it alone
+    
+    gl_FragColor = texture2D(uAtlas, finalCoord);
+  }
   #include <colorspace_fragment>
 }
 `;
@@ -180,6 +209,12 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
       side: THREE.DoubleSide,
       transparent: false,
     });
+  }, []);
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.translate(0, 0.5, 0); // Origin at bottom center
+    return geo;
   }, []);
 
   // ── Atlas construction using unified ImageCache ──────────────────────────
@@ -264,6 +299,10 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
         prebuiltLoadedRef.current = true;
       }
     };
+    prebuilt.onerror = (e) => {
+      console.error('[MinimalGrid] Failed to load static atlas:', e);
+    };
+    prebuilt.crossOrigin = 'anonymous';
     prebuilt.src = '/atlas/schizodio-atlas.webp';
 
     // Delay the procedural fallback by 500ms — a cached WebP loads in < 50ms, so
@@ -372,7 +411,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
           scale: isEliminated ? 0 : 1,
           targetScale: isEliminated ? 0 : 1,
           phase: isEliminated ? 'dead' : 'alive',
-          flipAngle: 0,
+          flipAngle: isEliminated ? -Math.PI / 2.2 : -0.35,
           flipDelay: 0,
           flipTimer: 0,
         });
@@ -440,10 +479,11 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
       if (!st) continue;
       if (st.phase === 'dead') continue;
 
-      // Position lerp (only alive tiles move to new targets)
+      // Position + Rotation lerp for alive tiles
       if (st.phase === 'alive') {
         st.x = lerp(st.x, st.tx, tPos);
         st.z = lerp(st.z, st.tz, tPos);
+        st.flipAngle = lerp(st.flipAngle, -0.35, tFlip);
       }
 
       // Waiting phase: count delay before starting flip
@@ -476,6 +516,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
       quatBuf.current.setFromAxisAngle(X_AXIS, st.flipAngle);
       posBuf.current.set(st.x, 0, st.z);
       sclBuf.current.set(layout.tileW * st.scale, layout.tileH * st.scale, 0.002);
+
       matBuf.current.compose(posBuf.current, quatBuf.current, sclBuf.current);
       mesh.setMatrixAt(idx, matBuf.current);
       idx++;
@@ -497,8 +538,8 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
         args={[undefined, undefined, characters.length]}
         frustumCulled={false}
         material={material}
+        geometry={geometry}
       >
-        <planeGeometry args={[1, 1]} />
       </instancedMesh>
     </group>
   );
@@ -562,7 +603,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
         existing.set(char.id, {
           id: char.id, x: tx, z: tz, tx, tz,
           scale: 1, targetScale: 1,
-          flipAngle: 0,
+          flipAngle: isEliminated ? -Math.PI / 2.2 : -0.35,
           phase: isEliminated ? 'flipping' : 'alive',
           flipDelay: 0,
           flipTimer: 0,
@@ -583,7 +624,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
           const [tx, tz] = target ? [target[0], target[1]] : [st.tx, st.tz];
           st.phase = 'alive';
           st.scale = 1;
-          st.flipAngle = 0;
+          st.flipAngle = -0.35;
           st.flipDelay = 0;
           st.flipTimer = 0;
           st.x = tx; st.z = tz; st.tx = tx; st.tz = tz;
@@ -594,7 +635,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
             group.position.set(tx, 0, tz);
           }
           const pivot = pivotRefs.current.get(char.id);
-          if (pivot) pivot.rotation.x = 0;
+          if (pivot) pivot.rotation.x = -0.35;
         }
       }
     }
@@ -622,10 +663,13 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
       const group = groupRefs.current.get(st.id);
       if (!group) continue;
 
-      // Position lerp (only alive tiles move to new targets)
+      // Position + Rotation lerp for alive tiles
       if (st.phase === 'alive') {
         st.x = lerp(st.x, st.tx, tPos);
         st.z = lerp(st.z, st.tz, tPos);
+        st.flipAngle = lerp(st.flipAngle, -0.35, tFlip);
+        const pivot = pivotRefs.current.get(st.id);
+        if (pivot) pivot.rotation.x = st.flipAngle;
         group.position.set(st.x, 0, st.z);
       }
 
@@ -682,7 +726,7 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
                   animRef.current.set(char.id, {
                     id: char.id, x: tx, z: tz, tx, tz,
                     scale: isElim ? 0 : 1, targetScale: isElim ? 0 : 1,
-                    flipAngle: 0, phase: isElim ? 'dead' : 'alive',
+                    flipAngle: isElim ? -Math.PI / 2.2 : -0.35, phase: isElim ? 'dead' : 'alive',
                     flipDelay: 0, flipTimer: 0,
                   });
                   el.position.set(tx, 0, tz);

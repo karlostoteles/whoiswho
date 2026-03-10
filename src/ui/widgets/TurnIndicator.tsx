@@ -76,7 +76,7 @@ export function TurnIndicator() {
               color: 'rgba(255,255,254,0.35)',
               textTransform: 'uppercase',
             }}>
-              Turn
+              Round
             </span>
             <span style={{
               fontFamily: "'Space Grotesk', sans-serif",
@@ -84,7 +84,7 @@ export function TurnIndicator() {
               fontSize: 16,
               color: '#E8A444',
             }}>
-              {Math.ceil(turnNumber / 2)}
+              {turnNumber}
             </span>
           </div>
 
