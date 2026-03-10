@@ -147,23 +147,31 @@ void main() {
 // X-axis unit vector (pre-allocated for quaternion rotation)
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 
-// Module-level cache for the pre-built atlas image.
-// Loaded once per session; subsequent atlas recreations draw it synchronously.
-let _cachedAtlasImage: HTMLImageElement | null = null;
-let _cachedAtlasPromise: Promise<HTMLImageElement | null> | null = null;
+// Atlas image cache stored on `window` so it survives Vite HMR module reloads.
+// Module-level variables reset on every hot-update; window properties do not.
+declare global {
+  interface Window {
+    __atlasImageCache: HTMLImageElement | null;
+    __atlasImagePromise: Promise<HTMLImageElement | null> | null;
+  }
+}
+if (typeof window !== 'undefined') {
+  window.__atlasImageCache   ??= null;
+  window.__atlasImagePromise ??= null;
+}
 
 function loadPrebuiltAtlas(): Promise<HTMLImageElement | null> {
-  if (_cachedAtlasImage) return Promise.resolve(_cachedAtlasImage);
-  if (_cachedAtlasPromise) return _cachedAtlasPromise;
+  if (window.__atlasImageCache) return Promise.resolve(window.__atlasImageCache);
+  if (window.__atlasImagePromise) return window.__atlasImagePromise;
 
-  _cachedAtlasPromise = new Promise((resolve) => {
+  window.__atlasImagePromise = new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => { _cachedAtlasImage = img; resolve(img); };
-    img.onerror = () => { _cachedAtlasPromise = null; resolve(null); };
+    img.onload = () => { window.__atlasImageCache = img; resolve(img); };
+    img.onerror = () => { window.__atlasImagePromise = null; resolve(null); };
     img.src = '/atlas/schizodio-atlas.webp';
   });
-  return _cachedAtlasPromise;
+  return window.__atlasImagePromise;
 }
 
 // ─── Minimal LOD: InstancedMesh + Texture Atlas (one draw call) ───────────
@@ -265,11 +273,11 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     let cancelled = false;
 
     const init = async () => {
-      // If the pre-built atlas image is already in the module-level cache,
+      // If the pre-built atlas image is already cached on window (survives HMR),
       // draw it synchronously — no timer, no race, no procedural fallback.
-      if (_cachedAtlasImage) {
+      if (window.__atlasImageCache) {
         if (!cancelled && atlasRef.current === atlas) {
-          atlas.drawFull(_cachedAtlasImage);
+          atlas.drawFull(window.__atlasImageCache);
           prebuiltLoadedRef.current = true;
         }
         return;
@@ -333,12 +341,12 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     let cancelled = false;
 
     const loadImages = async () => {
-      // If the pre-built atlas is already in the module cache, it covers all
+      // If the pre-built atlas is already cached on window, it covers all
       // 999 NFT images — no need to load them individually.
-      if (_cachedAtlasImage) return;
+      if (window.__atlasImageCache) return;
       // Give the async atlas load time to settle before falling back to per-image
       await new Promise(r => setTimeout(r, 1000));
-      if (_cachedAtlasImage) return;
+      if (window.__atlasImageCache) return;
 
       // Load via unified cache (deduplicates with React UI loads)
       await ImageCache.batchLoad(
