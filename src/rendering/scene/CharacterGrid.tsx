@@ -219,6 +219,15 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     [activeChars, layout],
   );
 
+  // Stable key: only changes when the actual character set changes (count + IDs).
+  // Immer produces a new `characters` reference on every store update even when
+  // the character IDs and count are identical — using this key prevents the atlas
+  // from being recreated on every action (e.g. enrichNFTCharacters calls).
+  const charSetKey = useMemo(() => {
+    if (!characters || characters.length === 0) return '';
+    return `${characters.length}:${characters[0].id}:${characters[characters.length - 1].id}`;
+  }, [characters]);
+
   // ShaderMaterial — created once, atlas texture bound as uniform
   const material = useMemo(() => {
     return new THREE.ShaderMaterial({
@@ -315,7 +324,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
       atlas.dispose();
       atlasRef.current = null;
     };
-  }, [characters, material]);
+  }, [charSetKey, material]); // charSetKey: stable across Immer ref churn, only changes on real set change
 
   // ── Progressive NFT image loading via unified ImageCache ─────────────────
   useEffect(() => {
@@ -356,7 +365,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
 
     loadImages();
     return () => { cancelled = true; };
-  }, [characters]);
+  }, [charSetKey]); // charSetKey: stable — don't restart batchLoad on Immer ref churn
 
   // Create UV attribute buffer
   useEffect(() => {
@@ -371,7 +380,7 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
     if (mesh) {
       mesh.geometry.setAttribute('aAtlasUV', attr);
     }
-  }, [characters]);
+  }, [charSetKey]); // charSetKey: only recreate UV buffer when character set changes
 
   // Reset instance count to 0 immediately on mount so no stale instances show
   useLayoutEffect(() => {
