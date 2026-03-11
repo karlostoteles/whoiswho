@@ -5,14 +5,14 @@
  * Click flips to show what the opponent has guessed about you (in red).
  * On mobile, shrinks to 80px. Positioned bottom-left, above QuestionPanel.
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { usePhase, useGameMode, useOnlinePlayerNum, useQuestionHistory } from '@/core/store/selectors';
 import { useGameStore } from '@/core/store/gameStore';
 import { GamePhase } from '@/core/store/types';
 import { QUESTIONS_BY_ID } from '@/core/data/questions';
-import { getTraitCategory, getCategoryConfig } from './question/zoneConfig';
+import { renderPortraitCanvas } from '@/rendering/canvas/PortraitRenderer';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
 
 const GAMEPLAY_PHASES = new Set([
@@ -60,10 +60,18 @@ export function SecretCardPanel() {
     return traits;
   }, [history, opponent]);
 
+  const [proceduralUrl, setProceduralUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!myChar || (myChar as any).imageUrl) return;
+    const canvas = renderPortraitCanvas(myChar);
+    setProceduralUrl(canvas.toDataURL());
+  }, [myChar]);
+
   if (!GAMEPLAY_PHASES.has(phase) || !myChar) return null;
 
   const tokenId = (myChar as any).tokenId ?? (secretId?.startsWith('nft_') ? secretId.replace('nft_', '') : undefined);
-  const imageUrl = (myChar as any).imageUrl ?? (tokenId ? `https://v1assets.schizod.io/images/revealed/${tokenId}.png` : undefined);
+  const imageUrl = (myChar as any).imageUrl ?? proceduralUrl ?? (tokenId ? `https://v1assets.schizod.io/images/revealed/${tokenId}.png` : undefined);
 
   const SIZE = isMobile ? 120 : 180;
 

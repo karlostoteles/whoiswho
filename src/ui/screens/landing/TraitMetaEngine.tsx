@@ -58,21 +58,35 @@ export function TraitMetaEngine({ onPlay }: { onPlay: () => void }) {
                 fontSize: 'clamp(16px, 1.5vw, 20px)', 
                 color: 'rgba(255,255,254,0.6)', 
                 maxWidth: 700, 
-                margin: '0 auto' 
+                margin: '0 auto 16px' 
             }}>
                 The first game that turns NFT traits into real economic utility and spins a perpetual volume flywheel.
             </p>
+            <div style={{ 
+                fontFamily: "'Space Grotesk', sans-serif", 
+                fontSize: 12, 
+                fontWeight: 700, 
+                color: 'rgba(255,255,254,0.3)', 
+                letterSpacing: '0.1em',
+                maxWidth: 600,
+                margin: '0 auto'
+            }}>
+                ZK private end to end. Using Dojo, Cairo, Noir and Garaga to make this game terribly possible.
+            </div>
         </motion.div>
       </Section>
 
       {/* 2. Old World vs New World */}
       <Section style={{ background: 'linear-gradient(180deg, #050505 0%, #0A0A0A 100%)' }}>
         <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'stretch',
             gap: 40, 
             width: '100%', 
             maxWidth: 1100,
+            margin: '0 auto',
             position: 'relative'
         }}>
             {/* Old World */}
@@ -160,14 +174,14 @@ export function TraitMetaEngine({ onPlay }: { onPlay: () => void }) {
         </div>
       </Section>
 
-      {/* 3. The Volume Flywheel */}
-      <Section style={{ background: '#050505' }}>
-        <FlywheelDiagram />
-      </Section>
-
       {/* 4. Market Impact & Value Creation */}
       <Section style={{ background: 'linear-gradient(180deg, #050505 0%, #080C08 100%)' }}>
         <ValueCards />
+      </Section>
+
+      {/* 3. The Volume Flywheel */}
+      <Section style={{ background: '#050505' }}>
+        <FlywheelDiagram />
       </Section>
 
       {/* 5. Closing Vision Block */}
@@ -214,6 +228,7 @@ export function TraitMetaEngine({ onPlay }: { onPlay: () => void }) {
                     Play the Beta Now
                 </motion.button>
                 <motion.button 
+                    onClick={() => window.open('https://x.com/carldlfr', '_blank')}
                     whileHover={{ scale: 1.05, background: 'rgba(255,255,255,0.1)' }}
                     whileTap={{ scale: 0.95 }}
                     style={{ 
@@ -221,7 +236,7 @@ export function TraitMetaEngine({ onPlay }: { onPlay: () => void }) {
                         color: '#FFFFFE', fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' 
                     }}
                 >
-                    For Collections & Investors — Let's Talk
+                    For Collections & Partnerships — Let's Talk
                 </motion.button>
             </div>
         </motion.div>
@@ -249,16 +264,16 @@ export function TraitMetaEngine({ onPlay }: { onPlay: () => void }) {
         </motion.div>
 
         <div style={{ textAlign: 'center', maxWidth: 800 }}>
-          <div style={{ 
-            fontFamily: "'Space Grotesk', sans-serif", 
-            fontSize: 12, 
-            fontWeight: 700, 
-            color: 'rgba(255,255,254,0.3)', 
-            letterSpacing: '0.1em',
-            marginBottom: 16
-          }}>
-            ZK private end to end. Using Dojo, Cairo, Noir and Garaga to make this game possible.
-          </div>
+            <div style={{ 
+                fontFamily: "'Space Grotesk', sans-serif", 
+                fontSize: 12, 
+                fontWeight: 700, 
+                color: 'rgba(255,255,254,0.3)', 
+                letterSpacing: '0.1em',
+                marginBottom: 16
+            }}>
+                ZK private end to end. Using Dojo, Cairo, Noir and Garaga to make this game terribly possible.
+            </div>
           <div style={{ 
             fontSize: 11, 
             color: 'rgba(255,255,254,0.15)', 

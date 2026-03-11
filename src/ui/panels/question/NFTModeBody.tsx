@@ -110,53 +110,37 @@ export function NFTModeBody({
 
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' }}>
-      {/* ── Data-driven trait category tabs — horizontally scrollable ── */}
+      {/* ── Sub-header: Top Picks vs Categories ── */}
       <div style={{
-        display: 'flex', gap: 2, padding: '8px 10px 0',
-        background: 'rgba(255,255,255,0.02)', flexShrink: 0,
-        overflowX: 'auto', WebkitOverflowScrolling: 'touch' as never,
-        scrollbarWidth: 'none',
+        display: 'flex', gap: 12, padding: '10px 14px 4px',
+        background: 'rgba(255,255,255,0.01)', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.03)'
       }}>
-        {TRAIT_CATEGORIES_CONFIG.map((cat) => {
-          const stats = categoryStats.get(cat.id);
-          if (!stats || stats.total === 0) return null;
+        <motion.button
+          onClick={() => setActiveZone(null)}
+          style={{
+            padding: '4px 10px', borderRadius: 6, border: 'none',
+            background: !activeZone ? 'rgba(232,164,68,0.1)' : 'transparent',
+            color: !activeZone ? '#E8A444' : 'rgba(255,255,254,0.4)',
+            fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 11,
+            cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', gap: 6
+          }}
+        >
+          ⚡ TOP PICKS
+        </motion.button>
 
-          const isActive = activeZone === cat.id;
-          const allDone = stats.remaining === 0;
-
-          return (
-            <motion.button
-              key={cat.id}
-              onClick={() => setActiveZone(isActive ? null : cat.id)}
-              whileHover={{ background: isActive ? undefined : 'rgba(255,255,255,0.07)' }}
-              style={{
-                padding: '6px 8px 8px', border: 'none',
-                borderRadius: '6px 6px 0 0',
-                background: isActive ? `${cat.color}1A` : 'transparent',
-                borderBottom: isActive ? `2px solid ${cat.color}` : '2px solid transparent',
-                color: allDone ? 'rgba(255,255,254,0.2)' : isActive ? cat.color : 'rgba(255,255,254,0.4)',
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 600, fontSize: 10,
-                cursor: 'pointer', outline: 'none',
-                transition: 'all 0.18s',
-                display: 'flex', alignItems: 'center', gap: 3,
-                whiteSpace: 'nowrap', opacity: allDone ? 0.5 : 1, flexShrink: 0,
-              }}
-            >
-              <span style={{ fontSize: 12 }}>{cat.icon}</span>
-              <span style={{ letterSpacing: '0.03em' }}>{cat.label}</span>
-              <span style={{
-                fontSize: 8,
-                background: allDone ? 'rgba(76,175,80,0.2)' : isActive ? `${cat.color}25` : 'rgba(255,255,255,0.07)',
-                borderRadius: 6, padding: '1px 4px',
-                color: allDone ? '#4CAF50' : isActive ? cat.color : 'rgba(255,255,254,0.25)',
-              }}>
-                {stats.asked > 0 && <span>✓{stats.asked} </span>}
-                {stats.remaining}
-              </span>
-            </motion.button>
-          );
-        })}
+        <motion.button
+          onClick={() => !activeZone && setActiveZone('categories-grid')}
+          style={{
+            padding: '4px 10px', borderRadius: 6, border: 'none',
+            background: activeZone ? 'rgba(255,255,255,0.06)' : 'transparent',
+            color: activeZone ? '#FFFFFE' : 'rgba(255,255,254,0.4)',
+            fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 11,
+            cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', gap: 6
+          }}
+        >
+          📂 CATEGORIES
+        </motion.button>
       </div>
 
       {/* ── Question area ── */}
@@ -165,63 +149,58 @@ export function NFTModeBody({
         WebkitOverflowScrolling: 'touch' as never,
       }}>
         <AnimatePresence mode="wait">
-          {!activeZone ? (
+          {activeZone === 'categories-grid' ? (
             <motion.div
-              key="top-picks"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+              key="categories-grid"
+              initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 13 }}>⚡</span>
-                <span style={{
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontWeight: 700, fontSize: 11, color: '#E8A444', letterSpacing: '0.06em',
-                }}>
-                  TOP PICKS
-                </span>
-                <span style={{
-                  fontSize: 9, color: 'rgba(255,255,254,0.25)',
-                  fontFamily: "'Space Grotesk', sans-serif",
-                }}>
-                  Best questions to narrow it down
-                </span>
-              </div>
+              {TRAIT_CATEGORIES_CONFIG.map((cat) => {
+                const stats = categoryStats.get(cat.id);
+                if (!stats || stats.total === 0) return null;
+                const allDone = stats.remaining === 0;
 
-              {topQuestions.length === 0 ? (
-                <div style={{
-                  textAlign: 'center', fontSize: 12,
-                  color: 'rgba(255,255,254,0.22)', marginTop: 20, fontStyle: 'italic',
-                }}>
-                  No more questions available
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, padding: '2px 0' }}>
-                  {topQuestions.map(({ q, pct }) => (
-                    <NFTQuestionButton
-                      key={q.id} question={q} asked={false}
-                      onClick={() => onAsk(q)} matchPct={pct}
-                      impact={questionImpact[q.id]}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div style={{
-                borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8,
-                fontSize: 9, color: 'rgba(255,255,254,0.15)',
-                fontFamily: "'Space Grotesk', sans-serif",
-              }}>
-                Or pick a trait category above
-              </div>
+                return (
+                  <motion.button
+                    key={cat.id}
+                    onClick={() => setActiveZone(cat.id)}
+                    whileHover={{ scale: 1.02, background: 'rgba(255,255,255,0.06)' }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      padding: '16px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)',
+                      background: 'rgba(255,255,255,0.03)',
+                      color: allDone ? 'rgba(255,255,254,0.3)' : '#FFFFFE',
+                      fontFamily: "'Space Grotesk', sans-serif", cursor: 'pointer', textAlign: 'left',
+                      display: 'flex', flexDirection: 'column', gap: 8, opacity: allDone ? 0.6 : 1
+                    }}
+                  >
+                    <div style={{ fontSize: 20 }}>{cat.icon}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{cat.label}</div>
+                      <div style={{ fontSize: 9, opacity: 0.5 }}>{stats.total} traits • {stats.remaining} left</div>
+                    </div>
+                  </motion.button>
+                );
+              })}
             </motion.div>
-          ) : (
+          ) : activeZone ? (
             <motion.div
               key={activeZone}
               initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.14 }}
               style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <motion.button
+                  onClick={() => setActiveZone('categories-grid')}
+                  style={{ 
+                    background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 6,
+                    padding: '2px 8px', color: 'rgba(255,255,254,0.4)', fontSize: 10, cursor: 'pointer'
+                  }}
+                >
+                  ← Back
+                </motion.button>
                 <span style={{ fontSize: 14 }}>{activeCfg?.icon}</span>
                 <span style={{
                   fontFamily: "'Space Grotesk', sans-serif",
@@ -230,37 +209,34 @@ export function NFTModeBody({
                 }}>
                   {activeCfg?.label}
                 </span>
-                {(categoryStats.get(activeZone)?.asked ?? 0) > 0 && (
-                  <span style={{
-                    fontSize: 9,
-                    background: `${activeCfg?.color}20`,
-                    border: `1px solid ${activeCfg?.color}40`,
-                    borderRadius: 20, padding: '1px 7px',
-                    color: activeCfg?.color,
-                  }}>
-                    {categoryStats.get(activeZone)!.asked} confirmed ✓
-                  </span>
-                )}
               </div>
 
-              {sortedQuestions.length === 0 ? (
-                <div style={{
-                  textAlign: 'center', fontSize: 12,
-                  color: 'rgba(255,255,254,0.22)', marginTop: 16, fontStyle: 'italic',
-                }}>
-                  All {activeCfg?.label.toLowerCase()} questions answered ✓
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, padding: '2px 0' }}>
-                  {sortedQuestions.map((q) => (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, padding: '2px 0' }}>
+                {sortedQuestions.map((q) => (
+                  <NFTQuestionButton
+                    key={q.id} question={q} asked={askedIds.has(q.id)}
+                    onClick={() => onAsk(q)} matchPct={matchPctMap.get(q.id)}
+                    impact={questionImpact[q.id]}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="top-picks"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+            >
+               {/* ... (keep topQuestions logic) ... */}
+               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, padding: '2px 0' }}>
+                  {topQuestions.map(({ q, pct }) => (
                     <NFTQuestionButton
-                      key={q.id} question={q} asked={askedIds.has(q.id)}
-                      onClick={() => onAsk(q)} matchPct={matchPctMap.get(q.id)}
+                      key={q.id} question={q} asked={false}
+                      onClick={() => onAsk(q)} matchPct={pct}
                       impact={questionImpact[q.id]}
                     />
                   ))}
-                </div>
-              )}
+               </div>
             </motion.div>
           )}
         </AnimatePresence>

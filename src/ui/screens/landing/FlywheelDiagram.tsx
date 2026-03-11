@@ -38,7 +38,7 @@ export function FlywheelDiagram() {
         }}>
             {/* Top Node */}
             <FlywheelNode 
-                title="Winner pays 5% of floor price fee" 
+                title="Winner pays 10% of floor price fee" 
                 color="#E8A444" 
                 delay={0.1}
             />
