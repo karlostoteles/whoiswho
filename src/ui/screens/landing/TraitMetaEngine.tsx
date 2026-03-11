@@ -19,7 +19,7 @@ const Section = ({ children, style = {} }: { children: React.ReactNode; style?: 
 
 export function TraitMetaEngine({ onPlay }: { onPlay: () => void }) {
   return (
-    <div style={{ background: '#050505', color: '#FFFFFE', width: '100%', overflowX: 'hidden' }}>
+    <div style={{ background: '#050505', color: '#FFFFFE', width: '100%', overflowX: 'hidden', paddingTop: 60 }}>
       
       {/* 1. Hero-style Section Opener */}
       <Section style={{ minHeight: '80vh', justifyContent: 'center', textAlign: 'center' }}>

@@ -123,7 +123,15 @@ export function MenuScreen() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      style={{ position: 'fixed', inset: 0, pointerEvents: 'auto', zIndex: 20 }}
+      style={{ 
+        position: 'fixed', 
+        inset: 0, 
+        pointerEvents: 'auto', 
+        zIndex: 20,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch'
+      }}
     >
       <AnimatePresence mode="wait">
         {animKey === 'landing' && (
@@ -349,12 +357,11 @@ function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; on
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{
-        position: 'fixed', inset: 0,
+        position: 'absolute', top: 0, left: 0, width: '100%',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center',
         paddingBottom: 'clamp(16px, 5vh, 10vh)',
         background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
-        overflowY: 'auto', overflowX: 'hidden',
       }}
     >
       {/* Warm ambient glow */}
@@ -490,12 +497,11 @@ function ModeSelectView({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{
-        position: 'fixed', inset: 0,
+        position: 'absolute', top: 0, left: 0, width: '100%',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center',
         paddingBottom: 'clamp(16px, 5vh, 10vh)',
         background: 'radial-gradient(ellipse at center, rgba(15,14,23,0.6) 0%, rgba(15,14,23,0.95) 70%)',
-        overflowY: 'auto', overflowX: 'hidden',
       }}
     >
       {/* Warm ambient glow */}
