@@ -1,32 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0a0a17"/>
-      <stop offset="100%" stop-color="#12103a"/>
+    <linearGradient id="cyber-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E8A444"/>
+      <stop offset="100%" stop-color="#D4922A"/>
     </linearGradient>
-    <linearGradient id="ring" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#7C3AED"/>
-      <stop offset="50%" stop-color="#A855F7"/>
-      <stop offset="100%" stop-color="#6D28D9"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0" y1="20" x2="0" y2="44" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#F0C060"/>
-      <stop offset="100%" stop-color="#E8A444"/>
-    </linearGradient>
-    <linearGradient id="pink" x1="0" y1="20" x2="0" y2="44" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#F472B6"/>
-      <stop offset="100%" stop-color="#DB2777"/>
-    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
   </defs>
-  <!-- Background -->
-  <circle cx="32" cy="32" r="32" fill="url(#bg)"/>
-  <!-- Neon ring -->
-  <circle cx="32" cy="32" r="26" fill="none" stroke="url(#ring)" stroke-width="2.5" opacity="0.8"/>
-  <circle cx="32" cy="32" r="26" fill="none" stroke="#A855F7" stroke-width="0.5" opacity="0.4"/>
-  <!-- GN? text -->
-  <text x="14" y="38" font-family="Arial Black, Impact, sans-serif" font-size="20" font-weight="900" fill="url(#gold)">G</text>
-  <text x="28" y="38" font-family="Arial Black, Impact, sans-serif" font-size="20" font-weight="900" fill="url(#pink)">N</text>
-  <text x="43" y="36" font-family="Arial Black, Impact, sans-serif" font-size="18" font-weight="900" fill="#F5F5FA" opacity="0.9">?</text>
-  <!-- guessNFT subtitle -->
-  <text x="32" y="52" font-family="Arial, sans-serif" font-size="6" font-weight="700" fill="#A78BFA" text-anchor="middle" letter-spacing="0.5">guessNFT</text>
+  
+  <!-- Outer Ring -->
+  <circle cx="32" cy="32" r="30" fill="none" stroke="#E8A444" stroke-width="2" opacity="0.2"/>
+  <circle cx="32" cy="32" r="30" fill="none" stroke="url(#cyber-grad)" stroke-width="2" stroke-dasharray="40 10" opacity="0.8"/>
+  
+  <!-- Central Icon (Simplified G?) -->
+  <path d="M40 22 C36 18, 28 18, 24 22 C20 26, 20 38, 24 42 C28 46, 36 46, 40 42 L40 32 L32 32" fill="none" stroke="#E8A444" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" />
+  
+  <!-- The dot of the question mark integrated -->
+  <circle cx="46" cy="46" r="4" fill="#22D3EE" filter="url(#glow)"/>
 </svg>
