@@ -143,7 +143,7 @@ export function MenuScreen() {
           <ModeSelectView
             key="mode-select"
             onLocal={() => setView('free-pick')}
-            onOnline={() => setView('real-pick')}
+            onOnline={() => setView('online')}
             onLeaderboard={() => setView('leaderboard')}
             recoverableGames={recoverableGames}
             onResumeGame={handleResumeGame}
@@ -578,6 +578,7 @@ function ModeSelectView({
         display: 'flex', gap: 'clamp(12px, 3vw, 28px)',
         alignItems: 'stretch', justifyContent: 'center',
         flexWrap: 'wrap', marginTop: 20, padding: '0 16px',
+        marginBottom: '10vh', zIndex: 2
       }}>
         <motion.div
           initial={{ x: -100, opacity: 0, rotate: -5 }}
@@ -595,7 +596,10 @@ function ModeSelectView({
         </motion.div>
       </div>
 
-      <div style={{ flex: '1 1 0', minHeight: 0 }} />
+      {/* Trait Meta Engine - Continuation on scroll */}
+      <TraitMetaEngine onPlay={() => { sfx.click(); onLocal(); }} />
+
+      <div style={{ flex: '0 0 auto', minHeight: 0 }} />
     </motion.div>
   );
 }
