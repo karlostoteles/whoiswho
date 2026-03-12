@@ -36,7 +36,7 @@ export function UIOverlay() {
       position: 'absolute',
       inset: 0,
       pointerEvents: 'none',
-      zIndex: 10,
+      zIndex: 100,
       touchAction: 'manipulation',
     }}>
       <EndGameVignette />
