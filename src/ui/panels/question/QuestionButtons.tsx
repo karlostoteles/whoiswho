@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import type { Question } from '@/core/data/questions';
+import { useIsMobile } from '@/shared/hooks/useMediaQuery';
 
 // ─── Rarity tiers ─────────────────────────────────────────────────────────────
 type RarityTier = 'legendary' | 'rare' | 'uncommon' | 'common';
@@ -66,8 +67,11 @@ export function NFTQuestionButton({
   question, asked, onClick, matchPct, impact,
 }: { question: Question; asked: boolean; onClick: () => void; matchPct?: number; impact?: { yes: number; no: number } }) {
   const tier = matchPct !== undefined ? getRarityTier(matchPct) : 'common';
+  const isMobile = useIsMobile();
   const rs = asked ? RARITY_COLORS.common : RARITY_COLORS[tier];
   const label = stripPrefix(question.text);
+  
+  const SIZE = isMobile ? 90 : 80;
 
   return (
     <motion.button
@@ -75,14 +79,14 @@ export function NFTQuestionButton({
       whileHover={asked ? {} : { scale: 1.04, boxShadow: rs.glow || 'none', y: -2 }}
       whileTap={asked ? {} : { scale: 0.98 }}
       style={{
-        padding: '12px 14px',
+        padding: isMobile ? '14px 10px' : '12px 14px',
         border: `1.5px solid ${asked ? 'rgba(255,255,255,0.05)' : rs.border}`,
         borderRadius: 14,
         background: asked ? 'rgba(255,255,255,0.02)' : rs.bg,
         color: asked ? 'rgba(255,255,254,0.2)' : rs.color,
         fontFamily: "'Space Grotesk', sans-serif",
-        fontSize: 12,
-        fontWeight: 700,
+        fontSize: isMobile ? 13 : 12,
+        fontWeight: 800,
         cursor: asked ? 'default' : 'pointer',
         outline: 'none',
         transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
@@ -91,9 +95,9 @@ export function NFTQuestionButton({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
-        minWidth: 80,
-        minHeight: 80,
-        maxWidth: 120,
+        minWidth: SIZE,
+        minHeight: SIZE,
+        maxWidth: 140,
         flex: '1 1 auto',
         whiteSpace: 'normal',
         textAlign: 'center',
