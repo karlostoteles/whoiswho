@@ -8,8 +8,8 @@ export const RPC_URL = 'https://api.cartridge.gg/x/starknet/mainnet';
 // Starknet Mainnet chain ID
 export const SN_MAIN_CHAIN_ID = '0x534e5f4d41494e';
 
-// Game contract address — deployed when Phase 2 is ready
-// Replace with actual address after deploying the Cairo/Dojo contract (Phase 2)
+// Phase 2 Game Contract (Mainnet)
+// Note: Verification failed with 'class 0x0' on Mainnet; ensure deployment is active.
 export const GAME_CONTRACT = '0x03b713795ebb479acd01fb4043ff2c365f97bd9ef5b54b764f41d2dad3dcf98f';
 
 // Session policies for Cartridge Controller

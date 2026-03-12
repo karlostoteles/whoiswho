@@ -109,13 +109,10 @@ export function CharacterSelectScreen() {
         // TokenId fallback: if charId is "nft_123", it becomes "123"
         const finalTokenId = tokenId || charId.replace('nft_', '');
 
-        const commitmentsStr = localStorage.getItem('whoiswho_commitments') || '{}';
-        const cMap = JSON.parse(commitmentsStr);
-        const myCommitment = cMap[session]?.[player]?.commitment;
+        const myCommitment = getCommitment(player, session)?.commitment;
 
         if (myCommitment) {
           await submitCommitmentOnChain(myCommitment, session);
-
           await depositWagerOnChain(session, finalTokenId);
         }
       }
