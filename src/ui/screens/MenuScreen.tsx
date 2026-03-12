@@ -127,6 +127,7 @@ export function MenuScreen() {
 
   return (
     <motion.div
+      initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{ 
@@ -367,6 +368,7 @@ function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; on
 
   return (
     <motion.div
+      initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{
@@ -406,14 +408,13 @@ function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; on
             background: 'linear-gradient(135deg, #E8A444, #D4922A)',
             border: '1px solid rgba(232,164,68,0.6)',
             borderRadius: 14, padding: '16px 48px',
-            color: '#000000', // Solid black for max contrast on orange
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontSize: 17, fontWeight: 900, cursor: 'pointer', outline: 'none',
-            boxShadow: '0 0 32px rgba(232,164,68,0.4), 0 4px 20px rgba(0,0,0,0.5)',
+            color: '#0f0e17', fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: 17, fontWeight: 800, cursor: 'pointer', outline: 'none',
+            boxShadow: '0 0 28px rgba(232,164,68,0.3), 0 4px 20px rgba(0,0,0,0.4)',
             display: 'flex', alignItems: 'center', gap: 10,
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
@@ -422,12 +423,11 @@ function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; on
 
         <motion.button
           onClick={() => { sfx.click(); onFreePlay(); }}
-          whileHover={{ color: '#FFFFFF', scale: 1.05 }}
+          whileHover={{ color: 'rgba(255,255,254,0.8)', scale: 1.05 }}
           whileTap={{ scale: 0.97 }}
           style={{
             background: 'none', border: 'none', cursor: 'pointer', outline: 'none',
-            color: 'rgba(255,255,254,0.85)', // Increased opacity for better legibility
-            fontFamily: "'Space Grotesk', sans-serif",
+            color: 'rgba(255,255,254,0.6)', fontFamily: "'Space Grotesk', sans-serif",
             fontSize: 18, fontWeight: 700, padding: '12px 24px'
           }}
         >
