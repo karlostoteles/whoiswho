@@ -100,7 +100,7 @@ export function SecretCardPanel() {
             transformStyle: 'preserve-3d',
           }}
           animate={{ rotateY: flipped ? 180 : 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20 }}
         >
           {/* ── FRONT: NFT portrait ── */}
           <div style={{ backfaceVisibility: 'hidden' }}>
