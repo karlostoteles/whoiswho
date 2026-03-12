@@ -58,6 +58,8 @@ export interface GameState {
   gameSessionId: string;
   // Whether both players have valid on-chain (or local) commitments
   commitmentStatus: 'none' | 'partial' | 'both';
+  // On-chain transaction hash for the commitment
+  onChainCommitmentHash: string | null;
   // Online multiplayer metadata (null in free/nft mode)
   onlineGameId: string | null;
   onlineRoomCode: string | null;
@@ -95,4 +97,5 @@ export interface GameActions {
   // Settings toggle
   setSoundEnabled: (enabled: boolean) => void;
   setDangerZoneEnabled: (enabled: boolean) => void;
+  setCommitmentHash: (hash: string) => void;
 }

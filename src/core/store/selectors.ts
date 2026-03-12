@@ -17,6 +17,7 @@ export const useCommitmentStatus = () => useGameStore((s) => s.commitmentStatus)
 export const useOnlineGameId = () => useGameStore((s) => s.onlineGameId);
 export const useOnlineRoomCode = () => useGameStore((s) => s.onlineRoomCode);
 export const useOnlinePlayerNum = () => useGameStore((s) => s.onlinePlayerNum);
+export const useOnChainCommitmentHash = () => useGameStore((s) => s.onChainCommitmentHash);
 
 export const usePlayerState = (player: PlayerId) =>
   useGameStore((s) => s.players[player]);
@@ -51,6 +52,7 @@ const actions = {
   get applyGuessResult() { return useGameStore.getState().applyGuessResult; },
   get goBackToSetupP1() { return useGameStore.getState().goBackToSetupP1; },
   get enrichNFTCharacters() { return useGameStore.getState().enrichNFTCharacters; },
+  get setCommitmentHash() { return useGameStore.getState().setCommitmentHash; },
 };
 
 export const useGameActions = () => actions;

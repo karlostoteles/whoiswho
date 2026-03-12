@@ -5,7 +5,7 @@ import { QUESTIONS } from '@/core/data/questions';
 import { CHARACTERS } from '@/core/data/characters';
 import type { Character } from '@/core/data/characters';
 import { evaluateQuestion } from '@/core/rules/evaluateQuestion';
-import { createCommitment, generateGameSessionId, clearCommitments } from '@/services/starknet/commitReveal';
+import { createCommitment, generateGameSessionId, clearCommitments, submitCommitmentOnChain } from '@/services/starknet/commitReveal';
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
 import { enrichCharacters } from '@/core/data/nftCharacterAdapter';
 
@@ -59,6 +59,7 @@ const initialState: GameState = {
   guessedCharacterId: null,
   gameSessionId: generateGameSessionId(),
   commitmentStatus: 'none',
+  onChainCommitmentHash: null,
   onlineGameId: null,
   onlineRoomCode: null,
   onlinePlayerNum: null,
@@ -97,6 +98,16 @@ export const useGameStore = create<GameState & GameActions>()(
           // Online mode: after selecting, wait for opponent to also commit
           state.commitmentStatus = state.commitmentStatus === 'partial' ? 'both' : 'partial';
           state.phase = GamePhase.ONLINE_WAITING;
+
+          // ASYNC: Trigger on-chain commitment
+          const c = createCommitment(player, characterId, state.gameSessionId);
+          submitCommitmentOnChain(c.commitment, state.gameSessionId)
+            .then(hash => {
+              useGameStore.getState().setCommitmentHash(hash);
+            })
+            .catch(err => {
+              console.error('[gameStore] Blockchain commitment failed:', err);
+            });
           return;
         }
 
@@ -636,6 +647,11 @@ export const useGameStore = create<GameState & GameActions>()(
     setDangerZoneEnabled: (enabled) =>
       set((state) => {
         state.dangerZoneEnabled = enabled;
+      }),
+
+    setCommitmentHash: (hash) =>
+      set((state) => {
+        state.onChainCommitmentHash = hash;
       }),
   }))
 );

@@ -9,11 +9,13 @@
  */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useOnlineRoomCode, useOnlinePlayerNum } from '@/core/store/selectors';
+import { useOnlineRoomCode, useOnlinePlayerNum, useOnChainCommitmentHash } from '@/core/store/selectors';
+import { getExplorerLink } from '@/services/starknet/commitReveal';
 
 export function OnlineWaitingScreen() {
   const roomCode  = useOnlineRoomCode();
   const playerNum = useOnlinePlayerNum();
+  const txHash    = useOnChainCommitmentHash();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -135,6 +137,35 @@ export function OnlineWaitingScreen() {
           </>
         )}
       </div>
+
+      {/* On-chain commitment status */}
+      {txHash && (
+        <motion.a
+          href={getExplorerLink(txHash)}
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.05, background: 'rgba(232,164,68,0.2)' }}
+          style={{
+            background: 'rgba(232,164,68,0.1)',
+            border: '1px solid rgba(232,164,68,0.3)',
+            borderRadius: 12,
+            padding: '6px 14px',
+            fontSize: 11,
+            color: '#E8A444',
+            textDecoration: 'none',
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span>⛓️ Commitment Confirmed</span>
+          <span style={{ opacity: 0.5, fontWeight: 400 }}>{txHash.slice(0, 6)}...{txHash.slice(-4)}</span>
+        </motion.a>
+      )}
 
       {/* Small label below */}
       {isCreator && (

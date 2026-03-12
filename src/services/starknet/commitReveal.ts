@@ -169,6 +169,13 @@ export function generateGameSessionId(): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Generate a blockchain explorer link for a transaction hash.
+ */
+export function getExplorerLink(txHash: string): string {
+  return `https://starkscan.co/tx/${txHash}`;
+}
+
 // ─── Phase 2: On-chain stubs (existing implementation) ───────────────────────────────
 // These use the existing sdk.ts / @cartridge/controller
 
@@ -187,7 +194,9 @@ export async function submitCommitmentOnChain(
     calldata: [gameId, commitment],
   }]);
 
-  return (tx as any).transaction_hash || String(tx);
+  const hash = (tx as any).transaction_hash || String(tx);
+  console.log('[commitReveal] Commitment submitted:', hash);
+  return hash;
 }
 
 /**
