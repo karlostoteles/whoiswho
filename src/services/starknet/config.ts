@@ -9,8 +9,7 @@ export const RPC_URL = 'https://api.cartridge.gg/x/starknet/mainnet';
 export const SN_MAIN_CHAIN_ID = '0x534e5f4d41494e';
 
 // Phase 2 Game Contract (Mainnet)
-// Note: Verification failed with 'class 0x0' on Mainnet; ensure deployment is active.
-export const GAME_CONTRACT = '0x03b713795ebb479acd01fb4043ff2c365f97bd9ef5b54b764f41d2dad3dcf98f';
+export const GAME_CONTRACT = '0x024cd1276a76c25a97fe10bfbd560ed4a4aea9e625963009a59543105fd04a88';
 
 // Session policies for Cartridge Controller
 // Phase 1: empty — read-only operations don't need sessions

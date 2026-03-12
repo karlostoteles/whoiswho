@@ -108,7 +108,7 @@ pub mod GuessNFT {
             let mut game = self.games.read(game_id);
             
             // Compute expected commitment from character_id and salt
-            let expected_commitment = core::pedersen_hash(character_id, salt);
+            let expected_commitment = core::pedersen::pedersen(character_id, salt);
             
             let stored_commitment = if caller == game.player1 {
                 game.p1_commitment

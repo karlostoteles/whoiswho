@@ -19,7 +19,7 @@
  *   so commitments are compatible with what the Cairo contract will verify.
  */
 import { hash } from 'starknet';
-import { getAccount } from './sdk';
+import { getGameContract } from './starkzapService';
 import { GAME_CONTRACT } from './config';
 
 const STORAGE_KEY = 'guessnft_commitments';
@@ -187,14 +187,8 @@ export async function submitCommitmentOnChain(
   commitment: string,
   gameId: string
 ): Promise<string> {
-  const account = getAccount();
-  const tx = await account.execute([{
-    contractAddress: GAME_CONTRACT,
-    entrypoint: 'commit_character',
-    calldata: [gameId, commitment],
-  }]);
-
-  const hash = (tx as any).transaction_hash || String(tx);
+  const contract = getGameContract();
+  const hash = await contract.commitCharacter(gameId, commitment);
   console.log('[commitReveal] Commitment submitted:', hash);
   return hash;
 }
@@ -207,16 +201,8 @@ export async function revealCharacterOnChain(
   salt: string,
   gameId: string
 ): Promise<string> {
-  const account = getAccount();
-  const characterIdFelt = characterIdToFelt(characterId);
-
-  const tx = await account.execute([{
-    contractAddress: GAME_CONTRACT,
-    entrypoint: 'reveal_character',
-    calldata: [gameId, characterIdFelt, salt],
-  }]);
-
-  return (tx as any).transaction_hash || String(tx);
+  const contract = getGameContract();
+  return contract.revealCharacter(gameId, characterId, salt);
 }
 
 /**
@@ -226,29 +212,14 @@ export async function depositWagerOnChain(
   gameId: string,
   tokenId: string
 ): Promise<string> {
-  const account = getAccount();
-
-  const tx = await account.execute([{
-    contractAddress: GAME_CONTRACT,
-    entrypoint: 'deposit_wager',
-    // Uint256 is split into low and high segments (tokenId, 0)
-    calldata: [gameId, tokenId, '0'],
-  }]);
-
-  return (tx as any).transaction_hash || String(tx);
+  const contract = getGameContract();
+  return contract.depositWager(gameId, tokenId);
 }
 
 /**
  * Concede game on-chain (sends both wagers to opponent).
  */
 export async function opponentWonOnChain(gameId: string): Promise<string> {
-  const account = getAccount();
-
-  const tx = await account.execute([{
-    contractAddress: GAME_CONTRACT,
-    entrypoint: 'opponent_won',
-    calldata: [gameId],
-  }]);
-
-  return (tx as any).transaction_hash || String(tx);
+  const contract = getGameContract();
+  return contract.opponentWon(gameId);
 }

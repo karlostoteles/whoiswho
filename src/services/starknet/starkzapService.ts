@@ -131,6 +131,16 @@ export interface GameContractCalls {
     p2_revealed_char: string;
     winner: string;
   }>;
+
+  /**
+   * Deposit wager NFT on-chain.
+   */
+  depositWager: (gameId: string, tokenId: string) => Promise<string>;
+
+  /**
+   * Concede game on-chain (sends both wagers to opponent).
+   */
+  opponentWon: (gameId: string) => Promise<string>;
 }
 
 /**
@@ -205,6 +215,33 @@ export function getGameContract(): GameContractCalls {
         p2_revealed_char: result[5],
         winner: result[8], // After p1_wager (u256 = 2 slots) and p2_wager (u256 = 2 slots)
       };
+    },
+
+    async depositWager(gameId: string, tokenId: string): Promise<string> {
+      const w = getWallet();
+      const tx = await w.execute([
+        {
+          contractAddress: GAME_CONTRACT,
+          entrypoint: 'deposit_wager',
+          // Uint256 is split into low and high segments (tokenId, 0)
+          calldata: [gameId, tokenId, '0'],
+        },
+      ]);
+      await tx.wait();
+      return tx.hash;
+    },
+
+    async opponentWon(gameId: string): Promise<string> {
+      const w = getWallet();
+      const tx = await w.execute([
+        {
+          contractAddress: GAME_CONTRACT,
+          entrypoint: 'opponent_won',
+          calldata: [gameId],
+        },
+      ]);
+      await tx.wait();
+      return tx.hash;
     },
   };
 }

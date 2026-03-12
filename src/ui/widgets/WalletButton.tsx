@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWalletStatus, useWalletUsername, useWalletAddress, useOwnedNFTs } from '@/services/starknet/walletStore';
-import { useWalletConnection } from '@/services/starknet/hooks';
+import { useWalletConnection } from '@/services/starknet';
 import { IPFS_GATEWAYS, resolveUrl } from '@/services/starknet/nftService';
 import type { SchizodioNFT } from '@/services/starknet/types';
 import { sfx } from '@/shared/audio/sfx';

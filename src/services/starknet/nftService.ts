@@ -262,22 +262,28 @@ export async function fetchOwnedTokenIds(ownerAddress: string): Promise<string[]
  * base64-encoded data URIs (on-chain NFTs).
  */
 function parseMetadata(raw: string): any {
-  // data:application/json;base64,...
-  if (raw.startsWith('data:')) {
-    const base64Part = raw.split(',')[1];
-    if (base64Part) {
+  if (!raw) return {};
+  try {
+    // data:application/json;base64,...
+    if (raw.startsWith('data:')) {
+      const base64Part = raw.split(',')[1];
+      if (base64Part) {
+        try {
+          return JSON.parse(atob(base64Part));
+        } catch { /* fall through */ }
+      }
+    }
+    // data:application/json,...  (URI-encoded)
+    if (raw.startsWith('data:') && raw.includes(',')) {
       try {
-        return JSON.parse(atob(base64Part));
+        return JSON.parse(decodeURIComponent(raw.split(',')[1]));
       } catch { /* fall through */ }
     }
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn('[nftService] Failed to parse metadata JSON:', err);
+    return {};
   }
-  // data:application/json,...  (URI-encoded)
-  if (raw.startsWith('data:') && raw.includes(',')) {
-    try {
-      return JSON.parse(decodeURIComponent(raw.split(',')[1]));
-    } catch { /* fall through */ }
-  }
-  return JSON.parse(raw);
 }
 
 /**
@@ -290,9 +296,16 @@ async function fetchDirectMetadata(tokenId: string): Promise<{
   attributes: NFTAttribute[];
 } | null> {
   try {
-    const resp = await fetch(`https://v1assets.schizod.io/json/revealed/${tokenId}.json`);
+    const resp = await fetch(`https://v1assets.schizod.io/json/revealed/${tokenId}.json`, {
+      mode: 'cors'
+    });
     if (!resp.ok) return null;
-    const data = await resp.json();
+    const body = await resp.text();
+    if (body.startsWith('<!DOCTYPE')) {
+      console.warn(`[nftService] Received HTML instead of JSON for #${tokenId} (likely CORS or 404)`);
+      return null;
+    }
+    const data = JSON.parse(body);
     return {
       imageUrl: resolveUrl(data.image || data.image_url || ''),
       name: data.name || `SCHIZODIO #${tokenId}`,

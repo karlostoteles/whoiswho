@@ -7,7 +7,7 @@ import { useGameActions } from '@/core/store/selectors';
 import { MEME_CHARACTERS } from '@/core/data/memeCharacters';
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
 import { useWalletStatus } from '@/services/starknet/walletStore';
-import { useWalletConnection } from '@/services/starknet/hooks';
+import { useWalletConnection } from '@/services/starknet';
 import { WalletButton } from '../widgets/WalletButton';
 import { LeaderboardScreen } from './LeaderboardScreen';
 import { useOwnedNFTs, useWalletAddress, useWalletStore } from '@/services/starknet/walletStore';

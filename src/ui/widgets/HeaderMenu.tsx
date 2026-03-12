@@ -6,7 +6,7 @@ import { GamePhase } from '@/core/store/types';
 import { sfx } from '@/shared/audio/sfx';
 
 import { useWalletStatus, useWalletUsername, useWalletAddress, useOwnedNFTs } from '@/services/starknet/walletStore';
-import { useWalletConnection } from '@/services/starknet/hooks';
+import { useWalletConnection } from '@/services/starknet';
 import { IPFS_GATEWAYS, resolveUrl } from '@/services/starknet/nftService';
 import type { SchizodioNFT } from '@/services/starknet/types';
 
