@@ -9,31 +9,11 @@ class SFXEngine {
   private ctx: AudioContext | null = null;
   private muted = false;
 
-  private clickBuffer: AudioBuffer | null = null;
-  private cardClickBuffer: AudioBuffer | null = null;
-
   constructor() {
-    if (typeof window !== 'undefined') {
-      // Eagerly load the MP3 files so they are ready when clicked.
-      // AudioContext is created in 'suspended' state if no user gesture yet, 
-      // but decoding still works fine.
-      this.loadFiles();
-    }
+    // Purely procedural now. No files to load.
   }
 
-  private async loadFiles() {
-    try {
-      const ctx = this.getCtx();
-      const [clickRes, cardRes] = await Promise.all([
-        fetch('/spinopel-ceramic-tile-411505.mp3').then((r) => r.arrayBuffer()),
-        fetch('/1v1andAIcardsound.mp3').then((r) => r.arrayBuffer()),
-      ]);
-      this.clickBuffer = await ctx.decodeAudioData(clickRes);
-      this.cardClickBuffer = await ctx.decodeAudioData(cardRes);
-    } catch (e) {
-      console.warn('SFXEngine: Failed to load MP3s', e);
-    }
-  }
+
 
   private getCtx(): AudioContext {
     if (!this.ctx) {
@@ -133,17 +113,21 @@ class SFXEngine {
   }
 
   click() {
-    // Lighter, higher-pitched, softer click
-    this.playBuffer(this.clickBuffer, 0.4, 1.35);
+    // Procedural light "ceramic" clack
+    this.playTone({ frequency: 800, type: 'square', duration: 0.04, volume: 0.1, freqEnd: 1200, attack: 0.001, decay: 0.03 });
+    this.playTone({ frequency: 150, type: 'triangle', duration: 0.08, volume: 0.15, freqEnd: 80, attack: 0.005, decay: 0.07, delay: 0.01 });
   }
 
   heavyClick() {
-    // Original heavy/powerful ceramic clack
-    this.playBuffer(this.clickBuffer, 0.6, 1.0);
+    // Procedural heavy "ceramic" clack
+    this.playTone({ frequency: 600, type: 'square', duration: 0.06, volume: 0.15, freqEnd: 1000, attack: 0.001, decay: 0.05 });
+    this.playTone({ frequency: 120, type: 'triangle', duration: 0.12, volume: 0.2, freqEnd: 60, attack: 0.005, decay: 0.1, delay: 0.02 });
   }
 
   cardClick() {
-    this.playBuffer(this.cardClickBuffer, 0.8);
+    // Procedural card handling sound (shuffling/sliding)
+    this.playNoise({ duration: 0.08, volume: 0.08, filter: 1200 });
+    this.playTone({ frequency: 400, type: 'sine', duration: 0.1, volume: 0.2, freqEnd: 300, attack: 0.02, delay: 0.01 });
   }
 
   question() {

@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
+import * as THREE from 'three';
 import { GameScene } from '@/rendering/scene/GameScene';
 import { UIOverlay } from '@/ui/UIOverlay';
 import { ErrorBoundary } from '@/ui/common';
@@ -32,7 +33,7 @@ export default function App() {
       <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, isolation: 'isolate', overflow: 'hidden' }}>
         <ErrorBoundary fallback={canvasFallback}>
           <Canvas
-            shadows
+            shadows={{ type: THREE.PCFShadowMap }}
             gl={{ powerPreference: 'high-performance', antialias: false }}
             dpr={[1, 1.5]}
             camera={{ fov: 45, near: 0.1, far: 100, position: [0, 12, 14] }}

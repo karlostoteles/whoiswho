@@ -78,6 +78,7 @@ export function RiskItButton() {
                         duration: isCritical ? 0.8 : 1.4,
                         repeat: Infinity,
                         ease: 'easeInOut',
+                        type: 'tween', // Spring doesn't support 3+ keyframes
                     } : {
                         type: 'spring', stiffness: 400, damping: 25,
                     }}
