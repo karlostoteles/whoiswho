@@ -30,17 +30,6 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, isolation: 'isolate', overflow: 'hidden' }}>
-        {/* Debug Overlay for Cloud Diagnostics */}
-        <div style={{ 
-          position: 'absolute', top: 10, left: 10, zIndex: 9999, 
-          background: 'rgba(232, 164, 68, 0.9)', color: '#0F0E17', 
-          padding: '6px 12px', fontSize: 11, fontWeight: 800,
-          borderRadius: 8, fontFamily: 'monospace', pointerEvents: 'none',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-        }}>
-          IDX DEBUG | PHASE: {phase}
-        </div>
-
         <ErrorBoundary fallback={canvasFallback}>
           <Canvas
             shadows
