@@ -127,7 +127,6 @@ export function MenuScreen() {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{ 
@@ -368,7 +367,6 @@ function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; on
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{
