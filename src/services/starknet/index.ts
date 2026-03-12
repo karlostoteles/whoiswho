@@ -31,8 +31,8 @@ export {
   connectWallet as connectWalletStarkzap,
   disconnectWallet as disconnectWalletStarkzap,
   getWallet,
-  isWalletConnected,
   getWalletAddress,
   getGameContract,
 } from './starkzapService';
 export type { ConnectedWalletInfo, GameContractCalls } from './starkzapService';
+
