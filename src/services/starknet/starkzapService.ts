@@ -30,8 +30,7 @@ function getSDK(): StarkZap {
   if (!sdk) {
     sdk = new StarkZap({
       network: 'mainnet',
-      // Explicitly providing RPC and chainId avoids auto-detection issues which cause SNIP-9 errors
-      rpcUrl: 'https://api.cartridge.gg/x/starknet/mainnet',
+      // Removing explicit RPC to see if built-in defaults handle version 0.10.x better
     });
   }
   return sdk;
@@ -62,7 +61,8 @@ export async function connectWallet(policies?: Array<{ target: string; method: s
   wallet = await starkzap.connectCartridge({
     // If sessions fail with SNIP-9, we pass undefined to force manual approval mode
     policies: useSessions ? defaultPolicies : undefined,
-    feeMode: 'sponsored',
+    // When no_sessions is active, disable sponsorship to force standard signing (bypass SNIP-9)
+    feeMode: useSessions ? 'sponsored' : 'standard',
   });
 
   // Ensure account is ready (deploy if needed)
