@@ -10,6 +10,9 @@ import { GAME_CONTRACT } from './config';
 
 // Immediate log to catch the contract address on load
 console.log('[DEBUG] StarkNet Config Loaded. GAME_CONTRACT:', GAME_CONTRACT);
+if (typeof window !== 'undefined') {
+  (window as any).GAME_CONTRACT = GAME_CONTRACT;
+}
 
 // Singleton instances
 let sdk: StarkZap | null = null;
@@ -41,6 +44,9 @@ function getSDK(): StarkZap {
 export async function connectWallet(policies?: Array<{ target: string; method: string }>): Promise<ConnectedWalletInfo> {
   const starkzap = getSDK();
 
+  // Check if user wants to bypass sessions as a test
+  const useSessions = !window.location.search.includes('no_sessions');
+
   // Default policies for game contract
   const defaultPolicies = policies || [
     { target: GAME_CONTRACT, method: 'create_game' },
@@ -50,10 +56,12 @@ export async function connectWallet(policies?: Array<{ target: string; method: s
     { target: GAME_CONTRACT, method: 'opponent_won' },
   ];
 
-  console.log('[StarkZap] Connecting with policies for contract:', GAME_CONTRACT);
+  console.log('[StarkZap] Connecting. Use Sessions:', useSessions);
+  console.log('[StarkZap] Policies contract target:', GAME_CONTRACT);
 
   wallet = await starkzap.connectCartridge({
-    policies: defaultPolicies,
+    // If sessions fail with SNIP-9, we pass undefined to force manual approval mode
+    policies: useSessions ? defaultPolicies : undefined,
     feeMode: 'sponsored',
   });
 
