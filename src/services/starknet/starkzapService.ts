@@ -45,6 +45,8 @@ export async function connectWallet(policies?: Array<{ target: string; method: s
 
   // Check if user wants to bypass sessions as a test
   const useSessions = !window.location.search.includes('no_sessions');
+  // New flag: ?user_pays=true to force standard execution (bypass SNIP-9)
+  const forceUserPays = window.location.search.includes('user_pays');
 
   // Default policies for game contract
   const defaultPolicies = policies || [
@@ -55,14 +57,14 @@ export async function connectWallet(policies?: Array<{ target: string; method: s
     { target: GAME_CONTRACT, method: 'opponent_won' },
   ];
 
-  console.log('[StarkZap] Connecting. Use Sessions:', useSessions);
+  console.log('[StarkZap] Connecting. Use Sessions:', useSessions, 'Force User Pays:', forceUserPays);
   console.log('[StarkZap] Policies contract target:', GAME_CONTRACT);
 
   wallet = await starkzap.connectCartridge({
     // If sessions fail with SNIP-9, we pass undefined to force manual approval mode
     policies: useSessions ? defaultPolicies : undefined,
-    // When no_sessions is active, disable sponsorship to force standard signing (bypass SNIP-9)
-    feeMode: useSessions ? 'sponsored' : 'standard',
+    // Fix: "user_pays" is the correct type from StarkZap. "standard" was wrong.
+    feeMode: (useSessions && !forceUserPays) ? 'sponsored' : 'user_pays',
   });
 
   // Ensure account is ready (deploy if needed)
