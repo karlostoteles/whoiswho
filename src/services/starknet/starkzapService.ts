@@ -63,8 +63,9 @@ export async function connectWallet(policies?: Array<{ target: string; method: s
   wallet = await starkzap.connectCartridge({
     // If sessions fail with SNIP-9, we pass undefined to force manual approval mode
     policies: useSessions ? defaultPolicies : undefined,
-    // Fix: "user_pays" is the correct type from StarkZap. "standard" was wrong.
-    feeMode: (useSessions && !forceUserPays) ? 'sponsored' : 'user_pays',
+    // Default to 'user_pays' for maximum compatibility (avoids SNIP-9 / ISRC9 requirement)
+    // Users can still use sponsored by adding ?sponsored=true to the URL
+    feeMode: (useSessions && window.location.search.includes('sponsored')) ? 'sponsored' : 'user_pays',
   });
 
   // Ensure account is ready (deploy if needed)
