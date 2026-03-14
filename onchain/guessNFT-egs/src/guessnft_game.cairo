@@ -1,8 +1,10 @@
 use starknet::{ContractAddress, get_caller_address};
+use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess, StorageMap};
 use game_components_embeddable_game_standard::minigame::interface::{IMINIGAME_ID, IMinigameTokenData};
 use game_components_embeddable_game_standard::minigame::minigame_component::MinigameComponent;
 use game_components_interfaces::minigame::token_data::IMinigameTokenData as ITokenData;
 use openzeppelin_introspection::src5::SRC5Component;
+use openzeppelin_introspection::src5::SRC5Component::InternalTrait as SRC5InternalTrait;
 
 // Game phases for the deduction game
 #[derive(Copy, Drop, Serde, PartialEq, starknet::Store)]
@@ -197,7 +199,7 @@ mod GuessNFTGame {
         registry: ContractAddress,
     ) {
         // Register the minigame interface for EGS discovery
-        self.src5.register_interface(IMINIGAME_ID);
+        SRC5InternalTrait::register_interface(ref self.src5, IMINIGAME_ID);
         
         self.nft_contract.write(nft_contract);
         self.registry.write(registry);
@@ -242,6 +244,14 @@ mod GuessNFTGame {
             let game = self.games.read(token_id);
             game.phase == GamePhase::GameOver
         }
+
+        fn score_batch(self: @ContractState, token_ids: Span<felt252>) -> Span<u64> {
+            array![].span()
+        }
+
+        fn game_over_batch(self: @ContractState, token_ids: Span<felt252>) -> Span<bool> {
+            array![].span()
+        }
     }
     
     // ============ Game Interface Implementation ============
@@ -256,8 +266,9 @@ mod GuessNFTGame {
             let caller = get_caller_address();
             let mut game = self.games.read(token_id);
             
+            let zero_address: ContractAddress = 0.try_into().unwrap();
             assert(game.phase == GamePhase::WaitingForPlayers, 'Not waiting for players');
-            assert(game.player2 == 0_u256.try_into().unwrap(), 'Already has opponent');
+            assert(game.player2 == zero_address, 'Already has opponent');
             assert(caller != game.player1, 'Cannot join own game');
             
             game.player2 = caller;
@@ -292,7 +303,7 @@ mod GuessNFTGame {
                 game.p2_state.character_commitment = commitment;
                 game.phase = GamePhase::InProgress;
             } else {
-                panic('Invalid commit phase or player');
+                assert(false, 'Invalid commit phase or player');
             }
             
             self.games.write(token_id, game);
@@ -315,14 +326,37 @@ mod GuessNFTGame {
             self.minigame.pre_action(token_id);
             
             let caller = get_caller_address();
-            let game = self.games.read(token_id);
+            let mut game = self.games.read(token_id);
             
             // Can only reveal after game is over
             assert(game.phase == GamePhase::GameOver, 'Game not over');
             
             // Verify commitment matches
-            // In Cairo, we'd use: pedersen_hash(character_id, salt) == commitment
-            // For now, we'll trust the reveal (full implementation needs hash verification)
+            let expected_commitment = if caller == game.player1 {
+                game.p1_state.character_commitment
+            } else if caller == game.player2 {
+                game.p2_state.character_commitment
+            } else {
+                assert(false, 'Not a player in this game');
+                0
+            };
+
+            assert(expected_commitment != 0, 'No commitment found');
+            
+            // Verify hash: pedersen(character_id, salt)
+            let actual_hash = core::pedersen::pedersen(character_id, salt);
+            assert(actual_hash == expected_commitment, 'Invalid reveal: hash mismatch');
+
+            // Update state to revealed
+            if caller == game.player1 {
+                game.p1_state.character_id = character_id;
+                game.p1_state.character_revealed = true;
+            } else {
+                game.p2_state.character_id = character_id;
+                game.p2_state.character_revealed = true;
+            }
+
+            self.games.write(token_id, game);
             
             self.emit(Event::CharacterRevealed(CharacterRevealedEvent {
                 token_id,
@@ -565,11 +599,11 @@ mod GuessNFTGame {
             let mut game = self.games.read(token_id);
             
             game.phase = GamePhase::GameOver;
-            game.outcome = if winner == game.player1 {
-                GameOutcome::P1Wins
+            if winner == game.player1 {
+                game.outcome = GameOutcome::P1Wins;
             } else {
-                GameOutcome::P2Wins
-            };
+                game.outcome = GameOutcome::P2Wins;
+            }
             // game.finished_at = starknet::get_block_timestamp();
             
             self.games.write(token_id, game);

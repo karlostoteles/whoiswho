@@ -21,6 +21,7 @@ export enum GamePhase {
   GUESS_WRONG = 'GUESS_WRONG',   // Wrong Risk It — brief reveal, turn ends, game continues
   GUESS_RESULT = 'GUESS_RESULT', // Correct guess — winner declared
   GAME_OVER = 'GAME_OVER',
+  SIMULTANEOUS_ROUND = 'SIMULTANEOUS_ROUND', // Tracked via simultaneousStatus
 }
 
 export type PlayerId = 'player1' | 'player2';
@@ -51,6 +52,8 @@ export interface GameState {
   currentQuestion: QuestionRecord | null;
   /** CPU's question for the current simultaneous round (free mode only). */
   cpuQuestion: QuestionRecord | null;
+  /** Opponent's question for the current simultaneous round (online mode only). */
+  opponentQuestion: QuestionRecord | null;
   questionHistory: QuestionRecord[];
   winner: PlayerId | null;
   guessedCharacterId: string | null;
@@ -71,11 +74,20 @@ export interface GameState {
     lastMoveTimestamp: number | null;
     activePlayer: number | null;
     status: string | null;
+    phase: number | null;
     winner: string | null;
+    p1_state?: any;
+    p2_state?: any;
   };
   // Global client settings
   soundEnabled: boolean;
   dangerZoneEnabled: boolean;
+  // Simultaneous turn synchronization (Online/Free mode)
+  simultaneousStatus: {
+    local: 'picking' | 'asked' | 'guessed' | 'answered' | 'revealed';
+    remote: 'waiting' | 'asked' | 'guessed' | 'answered' | 'revealed';
+  };
+  isOnChainSyncing: boolean;
 }
 
 export interface GameActions {
@@ -107,6 +119,7 @@ export interface GameActions {
   setSoundEnabled: (enabled: boolean) => void;
   setDangerZoneEnabled: (enabled: boolean) => void;
   setCommitmentHash: (hash: string) => void;
+  setIsOnChainSyncing: (syncing: boolean) => void;
   // Sync and on-chain moves
   syncOnChainState: () => Promise<void>;
   submitMoveOnChain: () => Promise<void>;

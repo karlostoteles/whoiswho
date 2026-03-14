@@ -9,6 +9,7 @@ export const useTurnNumber = () => useGameStore((s) => s.turnNumber);
 export const useBoardRotation = () => useGameStore((s) => s.boardRotation);
 export const useCurrentQuestion = () => useGameStore((s) => s.currentQuestion);
 export const useCpuQuestion = () => useGameStore((s) => s.cpuQuestion);
+export const useOpponentQuestion = () => useGameStore((s) => s.opponentQuestion);
 export const useQuestionHistory = () => useGameStore((s) => s.questionHistory);
 export const useWinner = () => useGameStore((s) => s.winner);
 export const useGuessedCharacterId = () => useGameStore((s) => s.guessedCharacterId);
@@ -18,6 +19,8 @@ export const useOnlineGameId = () => useGameStore((s) => s.onlineGameId);
 export const useOnlineRoomCode = () => useGameStore((s) => s.onlineRoomCode);
 export const useOnlinePlayerNum = () => useGameStore((s) => s.onlinePlayerNum);
 export const useOnChainCommitmentHash = () => useGameStore((s) => s.onChainCommitmentHash);
+export const useIsOnChainSyncing = () => useGameStore((s) => s.isOnChainSyncing);
+export const useSimultaneousStatus = () => useGameStore((s) => s.simultaneousStatus);
 
 export const usePlayerState = (player: PlayerId) =>
   useGameStore((s) => s.players[player]);
@@ -53,6 +56,7 @@ const actions = {
   get goBackToSetupP1() { return useGameStore.getState().goBackToSetupP1; },
   get enrichNFTCharacters() { return useGameStore.getState().enrichNFTCharacters; },
   get setCommitmentHash() { return useGameStore.getState().setCommitmentHash; },
+  get setIsOnChainSyncing() { return useGameStore.getState().setIsOnChainSyncing; },
   get syncOnChainState() { return useGameStore.getState().syncOnChainState; },
   get submitMoveOnChain() { return useGameStore.getState().submitMoveOnChain; },
   get claimTimeoutOnChain() { return useGameStore.getState().claimTimeoutOnChain; },

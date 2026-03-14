@@ -2,17 +2,27 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import { useCurrentQuestion, useGameActions, useGameMode } from '@/core/store/selectors';
+import { useCurrentQuestion, useGameActions, useGameMode, useOpponentQuestion, useSimultaneousStatus, usePhase } from '@/core/store/selectors';
+import { GamePhase } from '@/core/store/types';
 
 export function AnswerPanel() {
-  const question = useCurrentQuestion();
+  const currentQuestion = useCurrentQuestion();
+  const opponentQuestion = useOpponentQuestion();
   const mode = useGameMode();
+  const phase = usePhase();
+  const simultStatus = useSimultaneousStatus();
   const { answerQuestion } = useGameActions();
 
-  // In online mode, all answering is automatic via the sync hook in the background.
-  if (mode === 'online') return null;
+  // In online simultaneous mode, we answer the opponent's question.
+  // In local mode, we answer our own question (which we asked the CPU/Opponent).
+  const isSimult = phase === GamePhase.SIMULTANEOUS_ROUND || mode === 'online';
+  const question = isSimult ? opponentQuestion : currentQuestion;
 
-  if (!question) return null;
+  const isVisible = phase === GamePhase.SIMULTANEOUS_ROUND 
+    ? simultStatus.remote === 'asked'
+    : phase === GamePhase.ANSWER_PENDING;
+
+  if (!question || !isVisible) return null;
 
   const content = (
     <motion.div

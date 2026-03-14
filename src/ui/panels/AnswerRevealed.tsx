@@ -2,12 +2,13 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Card } from '../common/Card';
-import { useCurrentQuestion, useCpuQuestion, useGameMode, useGameActions } from '@/core/store/selectors';
+import { useCurrentQuestion, useCpuQuestion, useOpponentQuestion, useGameMode, useGameActions } from '@/core/store/selectors';
 import { sfx } from '@/shared/audio/sfx';
 
 export function AnswerRevealed() {
   const question = useCurrentQuestion();
   const cpuQuestion = useCpuQuestion();
+  const opponentQuestion = useOpponentQuestion();
   const mode = useGameMode();
   const { advancePhase } = useGameActions();
 
@@ -19,6 +20,9 @@ export function AnswerRevealed() {
     } else if (cpuQuestion) {
       if (cpuQuestion.answer) sfx.answerYes();
       else sfx.answerNo();
+    } else if (opponentQuestion) {
+      if (opponentQuestion.answer) sfx.answerYes();
+      else sfx.answerNo();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -28,7 +32,7 @@ export function AnswerRevealed() {
     return () => clearTimeout(timer);
   }, [advancePhase]);
 
-  if (!question && !cpuQuestion) return null;
+  if (!question && !cpuQuestion && !opponentQuestion) return null;
 
   const content = (
     <motion.div
@@ -131,6 +135,59 @@ export function AnswerRevealed() {
               whiteSpace: 'nowrap',
             }}>
               {cpuQuestion.answer ? 'YES' : 'NO'}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Opponent's simultaneous question (online mode only) */}
+        {mode === 'online' && opponentQuestion && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.3 }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 16,
+              padding: '8px 12px',
+              background: 'rgba(232,164,68,0.08)',
+              border: '1px solid rgba(232,164,68,0.18)',
+              borderRadius: 10,
+              textAlign: 'left',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              color: 'rgba(232,164,68,0.7)',
+              whiteSpace: 'nowrap',
+            }}>
+              OPPONENT
+            </div>
+            <div style={{
+              flex: '1 1 120px',
+              fontSize: 12,
+              color: 'rgba(255,255,254,0.55)',
+              minWidth: 0,
+            }}>
+              {opponentQuestion.questionText}
+            </div>
+            <div style={{
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: "'Space Grotesk', sans-serif",
+              padding: '2px 8px',
+              borderRadius: 6,
+              background: opponentQuestion.answer
+                ? 'rgba(76,175,80,0.18)'
+                : 'rgba(224,85,85,0.18)',
+              color: opponentQuestion.answer ? '#4CAF50' : '#E05555',
+              whiteSpace: 'nowrap',
+            }}>
+              {opponentQuestion.answer !== null ? (opponentQuestion.answer ? 'YES' : 'NO') : '...'}
             </div>
           </motion.div>
         )}

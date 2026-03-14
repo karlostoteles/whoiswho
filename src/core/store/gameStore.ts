@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { GamePhase, GameState, GameActions, PlayerId } from './types';
+import { supabase } from '@/services/supabase/client';
 import { QUESTIONS } from '@/core/data/questions';
 import { CHARACTERS } from '@/core/data/characters';
 import type { Character } from '@/core/data/characters';
@@ -55,6 +56,7 @@ const initialState: GameState = {
   },
   currentQuestion: null,
   cpuQuestion: null,
+  opponentQuestion: null,
   questionHistory: [],
   winner: null,
   guessedCharacterId: null,
@@ -69,10 +71,18 @@ const initialState: GameState = {
     lastMoveTimestamp: null,
     activePlayer: null,
     status: null,
+    phase: null,
     winner: null,
+    p1_state: null,
+    p2_state: null,
   },
   soundEnabled: true,
   dangerZoneEnabled: true,
+  simultaneousStatus: {
+    local: 'picking',
+    remote: 'waiting',
+  },
+  isOnChainSyncing: false,
 };
 
 export const useGameStore = create<GameState & GameActions>()(
@@ -103,19 +113,10 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         if (state.mode === 'online') {
-          // Online mode: after selecting, wait for opponent to also commit
-          state.commitmentStatus = state.commitmentStatus === 'partial' ? 'both' : 'partial';
-          state.phase = GamePhase.ONLINE_WAITING;
-
-          // ASYNC: Trigger on-chain commitment
-          const c = createCommitment(player, characterId, state.gameSessionId);
-          submitCommitmentOnChain(c.commitment, state.gameSessionId)
-            .then(hash => {
-              useGameStore.getState().setCommitmentHash(hash);
-            })
-            .catch(err => {
-              console.error('[gameStore] Blockchain commitment failed:', err);
-            });
+          // Online mode: We don't advance phase or trigger chain here anymore.
+          // The UI component (CharacterSelectScreen) will handle the orchestration
+          // or we provide a dedicated action for it.
+          // For now, just store the secret internally.
           return;
         }
 
@@ -344,7 +345,14 @@ export const useGameStore = create<GameState & GameActions>()(
         state.currentQuestion = record;
         state.questionHistory.push(record);
 
-        // Free/nft-free mode: CPU simultaneously picks and answers its own question
+        // For online mode, we don't have the answer yet - wait for sync
+        if (state.mode === 'online') {
+          state.simultaneousStatus.local = 'asked';
+          useGameStore.getState().submitMoveOnChain().catch(console.error);
+          return;
+        }
+
+        // Free/cpu mode: CPU simultaneously picks and answers its own question
         if (state.mode === 'free' || state.mode === 'nft-free') {
           const cpuEliminated = state.players.player2.eliminatedCharacterIds;
           const cpuRemaining = state.characters.filter((c) => !cpuEliminated.includes(c.id));
@@ -379,6 +387,14 @@ export const useGameStore = create<GameState & GameActions>()(
 
     answerQuestion: (answer) =>
       set((state) => {
+        if (state.mode === 'online' || state.phase === GamePhase.SIMULTANEOUS_ROUND) {
+          if (!state.opponentQuestion) return;
+          state.opponentQuestion.answer = answer;
+          state.simultaneousStatus.remote = 'answered';
+          useGameStore.getState().submitMoveOnChain().catch(console.error);
+          return;
+        }
+
         if (!state.currentQuestion) return;
         state.currentQuestion.answer = answer;
         state.phase = GamePhase.ANSWER_REVEALED;
@@ -397,6 +413,17 @@ export const useGameStore = create<GameState & GameActions>()(
 
     finishElimination: () =>
       set((state) => {
+        if (state.mode === 'online') {
+          // In simultaneous online mode, we just finished our local elimination task.
+          // Reset status for next round.
+          state.simultaneousStatus = { local: 'picking', remote: 'waiting' };
+          state.turnNumber += 1;
+          state.currentQuestion = null;
+          state.opponentQuestion = null;
+          state.phase = GamePhase.SIMULTANEOUS_ROUND;
+          return;
+        }
+
         const next = getOpponent(state.activePlayer);
         state.activePlayer = next;
         state.boardRotation = next === 'player1' ? 0 : Math.PI;
@@ -443,7 +470,10 @@ export const useGameStore = create<GameState & GameActions>()(
             state.winner = state.activePlayer;
             state.phase = GamePhase.GUESS_RESULT;
           } else {
-            state.phase = GamePhase.GUESS_WRONG;
+            // Local evaluation showed it's wrong - wait for sync to confirm or resolve?
+            // Actually in online mode, we can trust local evaluation if we have the opponent's secret stored.
+            // But we often DON'T have it until the end. So we should wait for GUESS_RESULT.
+            state.phase = GamePhase.ANSWER_PENDING; // Misusing phase slightly as "Wait for Supabase"
           }
           return;
         }
@@ -518,9 +548,8 @@ export const useGameStore = create<GameState & GameActions>()(
         state.questionHistory = [];
         state.gameSessionId = generateGameSessionId();
         state.commitmentStatus = 'none';
-        state.onlineGameId = null;
-        state.onlineRoomCode = null;
         state.onlinePlayerNum = null;
+        state.opponentQuestion = null;
 
         // Clear saved session on explicit reset/game over
         localStorage.removeItem('guessnft_online_session');
@@ -546,6 +575,7 @@ export const useGameStore = create<GameState & GameActions>()(
               state.mode = 'online';
               state.characters = characters;
               state.onlineGameId = parsed.gameId;
+              state.gameSessionId = '0x' + parsed.gameId.replace(/-/g, '');
               state.onlineRoomCode = parsed.roomCode;
               state.onlinePlayerNum = parsed.playerNum;
               state.phase = GamePhase.ONLINE_WAITING;
@@ -584,7 +614,12 @@ export const useGameStore = create<GameState & GameActions>()(
         state.activePlayer = state.onlinePlayerNum === 2 ? 'player2' : 'player1';
         // Rotation is 0 for P1, PI for P2
         state.boardRotation = state.onlinePlayerNum === 2 ? Math.PI : 0;
-        state.phase = GamePhase.QUESTION_SELECT;
+        
+        state.simultaneousStatus = {
+          local: 'picking',
+          remote: 'waiting',
+        };
+        state.phase = GamePhase.SIMULTANEOUS_ROUND;
       }),
 
     receiveOpponentQuestion: (questionId, answer) =>
@@ -592,8 +627,6 @@ export const useGameStore = create<GameState & GameActions>()(
         const q = QUESTIONS.find((q) => q.id === questionId);
         if (!q) return;
 
-        // Opponent asked a question. In simultaneous play, we record it 
-        // to our history logs but DO NOT interrupt the local player's phase.
         const opponent = state.activePlayer === 'player1' ? 'player2' : 'player1';
 
         const record = {
@@ -605,13 +638,22 @@ export const useGameStore = create<GameState & GameActions>()(
           askedBy: opponent as PlayerId,
           turnNumber: state.turnNumber,
         };
-        // Add to history so "Enemy Knows" card updates, but don't touch currentQuestion or phase
+        
+        state.opponentQuestion = record;
         state.questionHistory.push(record);
+        state.simultaneousStatus.remote = 'asked';
       }),
 
     applyOpponentAnswer: (answer) =>
       set((state) => {
-        // No longer used in decoupled mode, opponent's answer comes immediately
+        if (!state.currentQuestion) return;
+        state.currentQuestion.answer = answer;
+        state.simultaneousStatus.local = 'revealed';
+        
+        // If we also answered their question, move to revealed phase
+        if (state.simultaneousStatus.remote === 'answered') {
+          state.phase = GamePhase.ANSWER_REVEALED;
+        }
       }),
 
     receiveOpponentGuess: (characterId, isCorrect, winnerPlayerNum) =>
@@ -664,18 +706,26 @@ export const useGameStore = create<GameState & GameActions>()(
         state.onChainCommitmentHash = hash;
       }),
 
+    setIsOnChainSyncing: (syncing) =>
+      set((state) => {
+        state.isOnChainSyncing = syncing;
+      }),
+
     syncOnChainState: async () => {
-      const { onlineGameId } = useGameStore.getState();
-      if (!onlineGameId) return;
+      const { gameSessionId } = useGameStore.getState();
+      if (!gameSessionId) return;
       try {
         const contract = getGameContract();
-        const game = await contract.getGame(onlineGameId);
+        const game = await contract.getGame(gameSessionId);
         set((state) => {
           state.onChainState = {
             lastMoveTimestamp: game.lastMoveTimestamp,
             activePlayer: game.activePlayer,
             status: game.status,
+            phase: game.phase,
             winner: game.winner,
+            p1_state: game.p1_state,
+            p2_state: game.p2_state,
           };
         });
       } catch (err) {
@@ -684,11 +734,23 @@ export const useGameStore = create<GameState & GameActions>()(
     },
 
     submitMoveOnChain: async () => {
-      const { onlineGameId } = useGameStore.getState();
-      if (!onlineGameId) return;
+      const { gameSessionId, phase, currentQuestion, guessedCharacterId } = useGameStore.getState();
+      if (!gameSessionId) return;
       try {
         const contract = getGameContract();
-        await contract.submitMove(onlineGameId);
+        
+        if (phase === GamePhase.SIMULTANEOUS_ROUND && currentQuestion) {
+          console.log('[gameStore] On-chain: Ask Question', currentQuestion.questionId);
+          await contract.askQuestion(gameSessionId, currentQuestion.questionId);
+        } else if (phase === GamePhase.ANSWER_PENDING && currentQuestion) {
+          // In this case, 'currentQuestion' is the one we are answering
+          // We need the answer from local state or pass it in.
+          // For now, let's assume wait for sync.
+        } else if (guessedCharacterId) {
+          console.log('[gameStore] On-chain: Make Guess', guessedCharacterId);
+          await contract.makeGuess(gameSessionId, guessedCharacterId);
+        }
+
         await useGameStore.getState().syncOnChainState();
       } catch (err) {
         console.error('[gameStore] Failed to submit move on-chain:', err);
@@ -697,11 +759,11 @@ export const useGameStore = create<GameState & GameActions>()(
     },
 
     claimTimeoutOnChain: async () => {
-      const { onlineGameId } = useGameStore.getState();
-      if (!onlineGameId) return;
+      const { gameSessionId } = useGameStore.getState();
+      if (!gameSessionId) return;
       try {
         const contract = getGameContract();
-        await contract.claimTimeoutWin(onlineGameId);
+        await contract.claimTimeoutWin(gameSessionId);
         await useGameStore.getState().syncOnChainState();
       } catch (err) {
         console.error('[gameStore] Failed to claim timeout:', err);
@@ -710,11 +772,11 @@ export const useGameStore = create<GameState & GameActions>()(
     },
 
     cancelGameOnChain: async () => {
-      const { onlineGameId } = useGameStore.getState();
-      if (!onlineGameId) return;
+      const { gameSessionId } = useGameStore.getState();
+      if (!gameSessionId) return;
       try {
         const contract = getGameContract();
-        await contract.cancelGame(onlineGameId);
+        await contract.cancelGame(gameSessionId);
         await useGameStore.getState().syncOnChainState();
       } catch (err) {
         console.error('[gameStore] Failed to cancel game:', err);

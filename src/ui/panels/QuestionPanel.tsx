@@ -16,8 +16,9 @@ import { QUESTIONS, type Question } from '@/core/data/questions';
 import {
   useGameActions, useQuestionHistory, useActivePlayer,
   usePhase, useGameCharacters, usePlayerState, useGameMode, useOnlinePlayerNum,
-  useEliminatedIds,
+  useEliminatedIds, useSimultaneousStatus
 } from '@/core/store/selectors';
+import { GamePhase } from '@/core/store/types';
 import { sfx } from '@/shared/audio/sfx';
 import { WaitingPill, RiskItPill, AskPill } from './question/Pills';
 import { RarityInfoButton } from './question/QuestionButtons';
@@ -40,14 +41,18 @@ export function QuestionPanel() {
   const playerState = usePlayerState(activePlayer);
   const onlinePlayerNum = useOnlinePlayerNum();
   const isMobile = useIsMobile();
+  const simultStatus = useSimultaneousStatus();
+  const phase = usePhase();
 
   const isNFTMode = mode === 'nft' || mode === 'online' || mode === 'nft-free';
 
-  // In online mode check if it's actually my turn
-  const isMyTurn = mode !== 'online' || (
-    (activePlayer === 'player1' && onlinePlayerNum === 1) ||
-    (activePlayer === 'player2' && onlinePlayerNum === 2)
-  );
+  // In online mode, we use the simultaneous sub-status.
+  // Otherwise default to true (standard local turns handled by store logic).
+  const isMyTurn = phase === GamePhase.SIMULTANEOUS_ROUND 
+    ? simultStatus.local === 'picking'
+    : true;
+  
+  const isWaiting = phase === GamePhase.SIMULTANEOUS_ROUND && simultStatus.local === 'asked';
 
   const askedIds = useMemo(
     () => new Set(
@@ -111,7 +116,7 @@ export function QuestionPanel() {
       <AnimatePresence mode="wait">
 
         {/* Waiting for opponent (online simultaneous mode) */}
-        {!isMyTurn && <WaitingPill key="waiting" />}
+        {isWaiting && <WaitingPill key="waiting" />}
 
         {/* Minimised — two floating pills */}
         {isMyTurn && minimised && (

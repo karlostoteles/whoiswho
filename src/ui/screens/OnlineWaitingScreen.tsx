@@ -103,8 +103,25 @@ export function OnlineWaitingScreen() {
           fontWeight: 600,
           color: 'rgba(255,255,254,0.55)',
           whiteSpace: 'nowrap',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12
         }}>
-          {isCreator ? 'Waiting for opponent' : `You're P${playerNum} · Waiting…`}
+          <span>{isCreator ? 'Waiting for opponent' : `You're P${playerNum} · Waiting…`}</span>
+          
+          <motion.button
+            onClick={() => useGameStore.getState().syncSupabaseState()}
+            whileHover={{ scale: 1.1, color: '#E8A444' }}
+            whileTap={{ scale: 0.9 }}
+            style={{
+              background: 'none', border: 'none', padding: 0, 
+              cursor: 'pointer', color: 'rgba(255,255,254,0.3)',
+              fontSize: 14, display: 'flex'
+            }}
+            title="Force refresh status"
+          >
+            🔄
+          </motion.button>
         </div>
 
         {/* Room code (creator only) */}

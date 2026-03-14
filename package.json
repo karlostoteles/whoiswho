@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "build:atlas": "node scripts/build-schizodio-atlas.mjs"
+    "build:atlas": "node scripts/build-schizodio-atlas.mjs",
+    "test": "vitest"
   },
   "dependencies": {
     "@react-spring/three": "^10.0.3",
@@ -29,14 +30,20 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",
     "@vitejs/plugin-basic-ssl": "^1.1.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^28.1.0",
     "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "vite": "^5.4.11",
-    "vite-plugin-mkcert": "^1.17.10"
+    "vite-plugin-mkcert": "^1.17.10",
+    "vitest": "^4.1.0"
   }
 }

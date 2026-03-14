@@ -9,6 +9,9 @@ import { nftToCharacter } from '@/core/data/nftCharacterAdapter';
 import { useGameStore } from '@/core/store/gameStore';
 import { commitAndWagerOnChain, getCommitment } from '@/services/starknet/commitReveal';
 import { getGameContract } from '@/services/starknet/starkzapService';
+import { submitCommitment } from '@/services/supabase/gameService';
+import { useWalletStore } from '@/services/starknet/walletStore';
+import { useIsOnChainSyncing } from '@/core/store/selectors';
 
 // Deterministic accent colour from character id
 function idToColor(id: string): string {
@@ -24,7 +27,16 @@ export function CharacterSelectScreen() {
   const phase = usePhase();
   const mode = useGameMode();
   const onlinePlayerNum = useOnlinePlayerNum();
-  const { selectSecretCharacter, resetGame, goBackToSetupP1, cancelGameOnChain } = useGameActions();
+  const isOnChainSyncing = useIsOnChainSyncing();
+  const { 
+    selectSecretCharacter, 
+    resetGame, 
+    goBackToSetupP1, 
+    cancelGameOnChain,
+    setIsOnChainSyncing,
+    setCommitmentHash,
+    advancePhase
+  } = useGameActions();
   const [lockingIn, setLockingIn] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
@@ -113,11 +125,13 @@ export function CharacterSelectScreen() {
 
         const myCommitment = getCommitment(player, session)?.commitment;
 
-        if (myCommitment) {
+            if (myCommitment) {
           try {
-            // Check if already committed on-chain to avoid "Already committed" error
+            console.log('[CharacterSelect] STEP 1: Fetching game state from contract...', session);
             const contract = getGameContract();
             const gameState = await contract.getGame(session);
+            console.log('[CharacterSelect] STEP 2: Game state received:', gameState);
+            
             const alreadyCommitted = player === 'player1' ? (gameState.p1Commitment !== '0' && gameState.p1Commitment !== '0x0') : (gameState.p2Commitment !== '0' && gameState.p2Commitment !== '0x0');
 
             const subMode = useGameStore.getState().onlineSubMode;
@@ -125,21 +139,58 @@ export function CharacterSelectScreen() {
             const tokenIdToWager = isBetting ? finalTokenId : undefined;
 
             if (!alreadyCommitted || (isBetting && !gameState.p1Wager && player === 'player1') || (isBetting && !gameState.p2Wager && player === 'player2')) {
-              console.log('[CharacterSelect] Executing multicall (Commit + Wager if betting...)');
-              await commitAndWagerOnChain(session, alreadyCommitted ? '0' : myCommitment, tokenIdToWager);
+              console.log('[CharacterSelect] STEP 3: Executing multicall (Commit + Wager if betting...)');
+              setIsOnChainSyncing(true);
+              const hash = await commitAndWagerOnChain(session, alreadyCommitted ? '0' : myCommitment, tokenIdToWager);
+              setCommitmentHash(hash);
+              console.log('[CharacterSelect] STEP 4: Transaction submitted:', hash);
             } else {
-              console.log('[CharacterSelect] Already committed and/or wagered, skipping.');
+              console.log('[CharacterSelect] STEP 3: Already committed and/or wagered, skipping.');
             }
+
+            // In the fully on-chain model, we don't notify Supabase.
+            // The sync hook will pick up the transition to the Setup/InProgress phases 
+            // by polling getGame on the contract.
+            console.log('[CharacterSelect] STEP 5: Advancing phase locally to WAITING...');
+            
+            useGameStore.setState(s => {
+              s.phase = GamePhase.ONLINE_WAITING;
+            });
+
           } catch (err: any) {
             if (err.message === 'YOUR_ACCOUNT_UPGRADE_REQUIRED') {
               if (confirm('Your account is too old for gasless play. Do you want to continue by paying gas for this transaction?')) {
                 // Re-run the selection flow but forcing user pays
-                window.location.search += (window.location.search ? '&' : '?') + 'user_pays=true';
+                const url = new URL(window.location.href);
+                url.searchParams.set('user_pays', 'true');
+                window.location.href = url.toString();
                 return;
               }
             }
             throw err;
+          } finally {
+            setIsOnChainSyncing(false);
           }
+        }
+      } else {
+        // Non-online or non-NFT mode: just advance phase normally
+        if (player === 'player1') {
+          if (mode === 'free' || mode === 'nft-free') {
+            useGameStore.setState(s => {
+              s.commitmentStatus = 'both';
+              s.phase = GamePhase.HANDOFF_START;
+            });
+          } else {
+            useGameStore.setState(s => {
+              s.commitmentStatus = 'partial';
+              s.phase = GamePhase.HANDOFF_P1_TO_P2;
+            });
+          }
+        } else {
+          useGameStore.setState(s => {
+            s.commitmentStatus = 'both';
+            s.phase = GamePhase.HANDOFF_START;
+          });
         }
       }
 
@@ -383,6 +434,48 @@ export function CharacterSelectScreen() {
             </div>
           )}
         </div>
+        
+        {/* Blockchain Syncing Overlay */}
+        <AnimatePresence>
+          {isOnChainSyncing && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(15,14,23,0.85)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                zIndex: 30, gap: 20,
+              }}
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                style={{
+                  width: 48, height: 48,
+                  border: '4px solid rgba(232,164,68,0.15)',
+                  borderTopColor: '#E8A444',
+                  borderRadius: '50%',
+                }}
+              />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ 
+                  fontFamily: "'Space Grotesk', sans-serif", 
+                  fontWeight: 800, color: '#E8A444', 
+                  fontSize: 18, marginBottom: 4 
+                }}>
+                  Blockchain Confirmation
+                </div>
+                <div style={{ color: 'rgba(255,255,254,0.45)', fontSize: 13 }}>
+                  Finalizing commitment on Starknet...
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
     </motion.div>
   );

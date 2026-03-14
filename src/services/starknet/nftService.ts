@@ -297,9 +297,14 @@ async function fetchDirectMetadata(tokenId: string): Promise<{
   attributes: NFTAttribute[];
 } | null> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
     const resp = await fetch(`https://v1assets.schizod.io/json/revealed/${tokenId}.json`, {
-      mode: 'cors'
+      mode: 'cors',
+      signal: controller.signal
     });
+    clearTimeout(timeout);
     if (!resp.ok) return null;
     const body = await resp.text();
     if (body.startsWith('<!DOCTYPE')) {

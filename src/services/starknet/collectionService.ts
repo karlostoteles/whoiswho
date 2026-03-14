@@ -22,7 +22,10 @@ export async function generateAllCollectionCharacters(): Promise<Character[]> {
   const { characters, question_schema } = schizodioData;
   const chars: Character[] = [];
 
-  for (const raw of characters) {
+  // Ensure characters are sorted by ID for consistent board mapping between players
+  const sortedRaw = [...characters].sort((a, b) => (a.id || 0) - (b.id || 0));
+
+  for (const raw of sortedRaw) {
     const seed = hashString(String(raw.id));
 
     // 1. Parse real NFT traits from bitmap

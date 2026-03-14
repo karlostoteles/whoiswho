@@ -27,18 +27,18 @@ pub mod GuessNFT {
 
     #[derive(Copy, Drop, Serde, starknet::Store)]
     pub struct Game {
-        player1: ContractAddress,
-        player2: ContractAddress,
-        p1_commitment: felt252,
-        p2_commitment: felt252,
-        p1_revealed_char: felt252,
-        p2_revealed_char: felt252,
-        p1_wager: u256,
-        p2_wager: u256,
-        winner: ContractAddress,
-        last_move_timestamp: u64,
-        active_player: u8, // 1 or 2
-        status: felt252, // 'waiting', 'ready', 'in_progress', 'finished'
+        pub player1: ContractAddress,
+        pub player2: ContractAddress,
+        pub p1_commitment: felt252,
+        pub p2_commitment: felt252,
+        pub p1_revealed_char: felt252,
+        pub p2_revealed_char: felt252,
+        pub p1_wager: u256,
+        pub p2_wager: u256,
+        pub winner: ContractAddress,
+        pub last_move_timestamp: u64,
+        pub active_player: u8, // 1 or 2
+        pub status: felt252, // 'waiting', 'ready', 'in_progress', 'finished'
     }
 
     #[storage]

@@ -32,18 +32,26 @@ export async function createGame(
 export async function joinGame(
   roomCode: string,
   playerAddress: string
-): Promise<{ game: SupabaseGame; playerNum: 2 }> {
+): Promise<{ game: SupabaseGame; playerNum: 1 | 2 }> {
   const { data: existing, error: findError } = await supabase
     .from('games')
     .select()
     .eq('room_code', roomCode.toUpperCase().trim())
-    .eq('status', 'waiting')
     .single();
 
-  if (findError || !existing) throw new Error('Game not found or already started');
+  if (findError || !existing) throw new Error('Game not found');
 
+  // If already in the game, just return current state
   if (existing.player1_address === playerAddress) {
-    throw new Error('You created this game — share the code with a friend!');
+    return { game: existing as SupabaseGame, playerNum: 1 };
+  }
+  if (existing.player2_address === playerAddress) {
+    return { game: existing as SupabaseGame, playerNum: 2 };
+  }
+
+  // Only allow joining if it's waiting
+  if (existing.status !== 'waiting' || existing.player2_address) {
+    throw new Error('Game already full or started');
   }
 
   const { data, error } = await supabase
@@ -258,6 +266,7 @@ export async function cleanupOldGames(): Promise<number> {
   // Cleanup events first
   await supabase.from('game_events').delete().in('game_id', ids);
   
+
   // Cleanup games
   const { error, count } = await supabase
     .from('games')

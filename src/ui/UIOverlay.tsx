@@ -71,9 +71,13 @@ export function UIOverlay() {
             <PhaseTransition key={`transition-${phase}`} />
           )}
 
-        {phase === GamePhase.QUESTION_SELECT && <QuestionPanel key="question" />}
+        {(phase === GamePhase.QUESTION_SELECT || phase === GamePhase.SIMULTANEOUS_ROUND) && (
+          <QuestionPanel key="question" />
+        )}
 
-        {phase === GamePhase.ANSWER_PENDING && <AnswerPanel key="answer" />}
+        {(phase === GamePhase.ANSWER_PENDING || phase === GamePhase.SIMULTANEOUS_ROUND) && (
+          <AnswerPanel key="answer" />
+        )}
 
         {phase === GamePhase.ANSWER_REVEALED && <AnswerRevealed key="revealed" />}
 

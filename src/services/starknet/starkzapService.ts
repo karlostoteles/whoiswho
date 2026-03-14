@@ -315,11 +315,12 @@ export interface GameContractCalls {
   joinGame: (gameId: string) => Promise<string>;
   commitCharacter: (gameId: string, commitment: string) => Promise<string>;
   revealCharacter: (gameId: string, characterId: string, salt: string) => Promise<string>;
-  submitMove: (gameId: string) => Promise<string>;
+  askQuestion: (gameId: string, questionId: string) => Promise<string>;
+  answerQuestion: (gameId: string, questionId: string, answer: boolean) => Promise<string>;
+  makeGuess: (gameId: string, characterId: string) => Promise<string>;
   claimTimeoutWin: (gameId: string) => Promise<string>;
   cancelGame: (gameId: string) => Promise<string>;
   depositWager: (gameId: string, tokenId: string) => Promise<string>;
-  opponentWon: (gameId: string) => Promise<string>;
   getGame: (gameId: string) => Promise<any>;
   commitAndWagerMulticall: (gameId: string, commitment: string, tokenId?: string) => Promise<string>;
 }
@@ -370,8 +371,12 @@ export function getGameContract(): GameContractCalls {
     } catch (err: any) {
       removeToast(toastId);
       const isSnip9Error = err.message?.includes('SNIP-9') || err.message?.includes('ISRC9');
+      const isFeeError = err.message?.toLowerCase().includes('fee') || 
+                        err.message?.toLowerCase().includes('gas') ||
+                        err.message?.toLowerCase().includes('sponsorship') ||
+                        err.message?.toLowerCase().includes('fund');
       
-      if (isSnip9Error) {
+      if (isSnip9Error || isFeeError) {
         throw new Error('YOUR_ACCOUNT_UPGRADE_REQUIRED');
       }
 
@@ -445,19 +450,49 @@ export function getGameContract(): GameContractCalls {
       }, 'Reveal Character');
     },
 
-    async submitMove(gameId: string): Promise<string> {
+    async askQuestion(gameId: string, questionId: string): Promise<string> {
       return await wrapExecute(async (target) => {
         const w = getWallet();
         const tx = await w.execute([
           {
             contractAddress: target,
-            entrypoint: 'submit_move',
-            calldata: [gameId],
+            entrypoint: 'ask_question',
+            calldata: [gameId, questionId],
           },
         ]);
         await tx.wait();
         return tx.hash;
-      }, 'Submit Move');
+      }, 'Ask Question');
+    },
+
+    async answerQuestion(gameId: string, questionId: string, answer: boolean): Promise<string> {
+      return await wrapExecute(async (target) => {
+        const w = getWallet();
+        const tx = await w.execute([
+          {
+            contractAddress: target,
+            entrypoint: 'answer_question',
+            calldata: [gameId, questionId, answer ? '1' : '0'],
+          },
+        ]);
+        await tx.wait();
+        return tx.hash;
+      }, 'Answer Question');
+    },
+
+    async makeGuess(gameId: string, characterId: string): Promise<string> {
+      return await wrapExecute(async (target) => {
+        const w = getWallet();
+        const tx = await w.execute([
+          {
+            contractAddress: target,
+            entrypoint: 'make_guess',
+            calldata: [gameId, characterId],
+          },
+        ]);
+        await tx.wait();
+        return tx.hash;
+      }, 'Make Guess');
     },
 
     async claimTimeoutWin(gameId: string): Promise<string> {
@@ -493,27 +528,71 @@ export function getGameContract(): GameContractCalls {
     async getGame(gameId: string) {
       const target = getTargetContract();
       const w = getWallet();
-      const result = await w.callContract({
-        contractAddress: target,
-        entrypoint: 'get_game',
-        calldata: [gameId],
-      });
+      console.log(`[StarkZap] getGame calling entrypoint 'get_game' on ${target} with calldata:`, [gameId]);
+      try {
+        const result = await w.callContract({
+          contractAddress: target,
+          entrypoint: 'get_game',
+          calldata: [gameId],
+        });
+        console.log('[StarkZap] getGame result:', result);
 
-      // Parse the response - Game struct fields (14 felts total)
-      return {
-        player1: result[0],
-        player2: result[1],
-        p1Commitment: result[2],
-        p2Commitment: result[3],
-        p1RevealedChar: result[4],
-        p2RevealedChar: result[5],
-        p1Wager: result[6], 
-        p2Wager: result[8],
-        winner: result[10],
-        lastMoveTimestamp: result[11] ? Number(BigInt(result[11])) : 0,
-        activePlayer: result[12] ? Number(BigInt(result[12])) : 1,
-        status: result[13],
-      };
+        /* 
+          EGS GameSession struct layout (mapped from Cairo):
+          token_id (0)
+          player1 (1)
+          player2 (2)
+          current_turn (3)
+          phase (4)  - 0:Waiting, 1:SetupP1, 2:SetupP2, 3:InProgress, 4:GameOver
+          outcome (5)
+          total_questions (6)
+          p1_state: { commitment, revealed, id, asked, wrong } (7-11)
+          p2_state: { commitment, revealed, id, asked, wrong } (12-16)
+          created_at (17)
+          finished_at (18)
+        */
+        const phaseValue = Number(BigInt(result[4] || 0));
+        const statusMap: Record<number, string> = {
+          0: 'WAITING',
+          1: 'SETUP',
+          2: 'SETUP',
+          3: 'IN_PROGRESS',
+          4: 'COMPLETED'
+        };
+
+        return {
+          player1: result[1],
+          player2: result[2],
+          p1Commitment: result[7],
+          p2Commitment: result[12],
+          p1RevealedChar: result[9],
+          p2RevealedChar: result[14],
+          p1Wager: result[10] ? '1' : '0', // Proxy using asked count or similar if needed, but for now just basic mapping
+          p2Wager: result[15] ? '1' : '0',
+          winner: result[5] === '1' ? result[1] : (result[5] === '2' ? result[2] : '0x0'),
+          lastMoveTimestamp: result[17] ? Number(BigInt(result[17])) : 0,
+          activePlayer: Number(BigInt(result[3] || 1)),
+          status: statusMap[phaseValue] || 'WAITING',
+          phase: phaseValue,
+          p1_state: {
+            commitment: result[7],
+            revealed: result[8] === '0x1',
+            character_id: result[9],
+            questions_asked: Number(BigInt(result[10] || 0)),
+            wrong_guesses: Number(BigInt(result[11] || 0)),
+          },
+          p2_state: {
+            commitment: result[12],
+            revealed: result[13] === '0x1',
+            character_id: result[14],
+            questions_asked: Number(BigInt(result[15] || 0)),
+            wrong_guesses: Number(BigInt(result[16] || 0)),
+          }
+        };
+      } catch (err: any) {
+        console.error('[StarkZap] getGame failed to fetch/call:', err);
+        throw err;
+      }
     },
 
     async depositWager(gameId: string, tokenId: string): Promise<string> {
@@ -531,20 +610,6 @@ export function getGameContract(): GameContractCalls {
       }, 'Wager NFT');
     },
 
-    async opponentWon(gameId: string): Promise<string> {
-      return await wrapExecute(async (target) => {
-        const w = getWallet();
-        const tx = await w.execute([
-          {
-            contractAddress: target,
-            entrypoint: 'opponent_won',
-            calldata: [gameId],
-          },
-        ]);
-        await tx.wait();
-        return tx.hash;
-      }, 'Confirm Win');
-    },
 
     async commitAndWagerMulticall(gameId: string, commitment: string, tokenId?: string): Promise<string> {
       return await wrapExecute(async (target) => {
