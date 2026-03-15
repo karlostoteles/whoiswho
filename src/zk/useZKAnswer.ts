@@ -64,8 +64,8 @@ export function terminateProver(): void {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const GAME_CREATED_SELECTOR =
-  '0x1eb99ed24a15baaccc5c9a5458e3fc04f9cc107dbd431ef6e70b4158a253e8f';
+// World contract address for the guessnft deployment (2026-03-15)
+const WORLD_ADDR = '0x06c320e0058a34ee61ca91e1731388f4554d77ecfbd3a7d6a651c6f5e5f73b53';
 
 function getExecAccount(playerNum?: 1 | 2) {
   const account = getStarknetAccount(playerNum);
@@ -75,20 +75,47 @@ function getExecAccount(playerNum?: 1 | 2) {
   return account;
 }
 
+/**
+ * Extract game_id from a create_game receipt.
+ *
+ * Dojo 1.8 emits EventEmitted from the World contract:
+ *   keys = [EventEmitted_selector, event_tag_selector, ...#[key] fields]
+ *   data = [...non-key fields]
+ * For GameCreated: game_id is the only #[key], so it's at keys[2].
+ */
 function extractGameIdFromReceipt(receipt: any): string {
   const events: any[] = receipt?.events ?? [];
-  for (const ev of events) {
-    if (!Array.isArray(ev.keys)) continue;
-    const selectorIdx = ev.keys.findIndex(
-      (k: string) => String(k).toLowerCase() === GAME_CREATED_SELECTOR,
-    );
-    if (selectorIdx < 0) continue;
-    if (Array.isArray(ev.data) && ev.data.length >= 2) {
-      const candidate = toBigInt(ev.data[1]);
-      return toFeltHex(candidate);
+  console.log('[createGame] receipt events:', JSON.stringify(
+    events.map((e: any) => ({ from: e.from_address, keys: e.keys, data: e.data })),
+    null, 2,
+  ));
+
+  const worldLower = WORLD_ADDR.toLowerCase();
+
+  // Strategy 1: Dojo EventEmitted from World — keys[2] = game_id (#[key] field)
+  const worldEvents = events.filter((e: any) =>
+    e.from_address?.toLowerCase() === worldLower,
+  );
+  for (const we of worldEvents) {
+    if (Array.isArray(we.keys) && we.keys.length >= 3 && we.keys[2] !== '0x0') {
+      console.log('[createGame] game_id via keys[2]:', we.keys[2]);
+      return we.keys[2];
     }
   }
-  throw new Error('Unable to extract game_id from create_game transaction receipt');
+
+  // Strategy 2: Some Dojo versions put entity key in data[2] (num_keys=1 at data[1])
+  for (const we of worldEvents) {
+    if (Array.isArray(we.data) && we.data.length >= 3 && we.data[1] === '0x1') {
+      console.log('[createGame] game_id via data[2]:', we.data[2]);
+      return we.data[2];
+    }
+  }
+
+  throw new Error(
+    `Unable to extract game_id from receipt. Events: ${JSON.stringify(
+      events.map((e: any) => ({ from: e.from_address, keys: e.keys })),
+    )}`,
+  );
 }
 
 // ─── Contract calls ───────────────────────────────────────────────────────────
