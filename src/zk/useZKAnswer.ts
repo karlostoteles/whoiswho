@@ -90,12 +90,13 @@ function extractGameIdFromReceipt(receipt: any): string {
     null, 2,
   ));
 
-  const worldLower = WORLD_ADDR.toLowerCase();
+  // Compare as BigInt to handle leading-zero padding differences (0x06c3... vs 0x6c3...)
+  const worldBigInt = BigInt(WORLD_ADDR);
 
   // Strategy 1: Dojo EventEmitted from World — keys[2] = game_id (#[key] field)
-  const worldEvents = events.filter((e: any) =>
-    e.from_address?.toLowerCase() === worldLower,
-  );
+  const worldEvents = events.filter((e: any) => {
+    try { return BigInt(e.from_address) === worldBigInt; } catch { return false; }
+  });
   for (const we of worldEvents) {
     if (Array.isArray(we.keys) && we.keys.length >= 3 && we.keys[2] !== '0x0') {
       console.log('[createGame] game_id via keys[2]:', we.keys[2]);

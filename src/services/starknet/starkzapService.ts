@@ -477,10 +477,10 @@ export function getGameContract(): GameContractCalls {
         // Strategy 2: Dojo World StoreSetRecord / StoreUpdateRecord events.
         // from_address = World contract. The entity key (game_id) appears
         // in the event keys or data depending on the Dojo version.
-        const worldAddr = '0x06c320e0058a34ee61ca91e1731388f4554d77ecfbd3a7d6a651c6f5e5f73b53';
-        const worldEvents = events.filter((e: any) =>
-          e.from_address?.toLowerCase() === worldAddr.toLowerCase()
-        );
+        const worldBigInt = BigInt('0x06c320e0058a34ee61ca91e1731388f4554d77ecfbd3a7d6a651c6f5e5f73b53');
+        const worldEvents = events.filter((e: any) => {
+          try { return BigInt(e.from_address) === worldBigInt; } catch { return false; }
+        });
 
         // In newer Dojo: keys = [selector, model_hash, ...entity_keys]
         for (const we of worldEvents) {
