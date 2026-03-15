@@ -441,20 +441,15 @@ export function getGameContract(): GameContractCalls {
   };
 
   return {
-    async createGame(traitsRoot: string, questionSetId = 0): Promise<string> {
+    async createGame(_traitsRoot?: string, _questionSetId = 0): Promise<string> {
       return await wrapExecute(async (target) => {
         const w = getWallet();
-
-        // traits_root is u256 in Cairo
-        const rootVal = BigInt(traitsRoot);
-        const low = rootVal & ((1n << 128n) - 1n);
-        const high = rootVal >> 128n;
 
         const tx = await w.execute([
           {
             contractAddress: target,
             entrypoint: 'create_game',
-            calldata: ['0x' + low.toString(16), '0x' + high.toString(16), questionSetId.toString()],
+            calldata: [],
           },
         ]);
         const receipt: any = await tx.wait();
@@ -482,7 +477,7 @@ export function getGameContract(): GameContractCalls {
         // Strategy 2: Dojo World StoreSetRecord / StoreUpdateRecord events.
         // from_address = World contract. The entity key (game_id) appears
         // in the event keys or data depending on the Dojo version.
-        const worldAddr = '0x052ea305f2bd6fe7340fe08ef9664cd72596024bf0bb6d44761bc0e6731cc428';
+        const worldAddr = '0x06c320e0058a34ee61ca91e1731388f4554d77ecfbd3a7d6a651c6f5e5f73b53';
         const worldEvents = events.filter((e: any) =>
           e.from_address?.toLowerCase() === worldAddr.toLowerCase()
         );
@@ -529,20 +524,15 @@ export function getGameContract(): GameContractCalls {
       }, 'Join Game');
     },
 
-    async commitCharacter(game_id: string, commitment: string, zkCommitment?: string): Promise<string> {
+    async commitCharacter(game_id: string, commitment: string, _zkCommitment?: string): Promise<string> {
       return await wrapExecute(async (target) => {
         const w = getWallet();
-        
-        // zk_commitment is u256 (2 felts)
-        const zkc = BigInt(zkCommitment || '0');
-        const low = zkc & ((1n << 128n) - 1n);
-        const high = zkc >> 128n;
 
         const tx = await w.execute([
           {
             contractAddress: target,
             entrypoint: 'commit_character',
-            calldata: [game_id, commitment, '0x' + low.toString(16), '0x' + high.toString(16)],
+            calldata: [game_id, commitment],
           },
         ]);
         await tx.wait();

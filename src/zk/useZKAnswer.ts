@@ -95,12 +95,11 @@ function extractGameIdFromReceipt(receipt: any): string {
 
 export async function createGameOnChain(playerNum?: 1 | 2): Promise<string> {
   const account = getExecAccount(playerNum);
-  const [rootLow, rootHigh] = splitU256(TRAITS_ROOT);
 
   const tx = await account.execute([{
     contractAddress: GAME_CONTRACT,
     entrypoint: 'create_game',
-    calldata: [rootLow, rootHigh, '0'],
+    calldata: [],
   }]);
   const receipt = await waitForTx(tx.transaction_hash);
   return extractGameIdFromReceipt(receipt);
@@ -119,15 +118,14 @@ export async function joinGameOnChain(gameId: string, playerNum?: 1 | 2): Promis
 export async function commitCharacterOnChain(
   gameId: string,
   commitmentHash: string,
-  zkCommitment: string,
+  _zkCommitment?: string,
   playerNum?: 1 | 2,
 ): Promise<void> {
   const account = getExecAccount(playerNum);
-  const [zkLow, zkHigh] = splitU256(zkCommitment);
   const tx = await account.execute([{
     contractAddress: GAME_CONTRACT,
     entrypoint: 'commit_character',
-    calldata: [toFeltHex(gameId), toFeltHex(commitmentHash), zkLow, zkHigh],
+    calldata: [toFeltHex(gameId), toFeltHex(commitmentHash)],
   }]);
   await waitForTx(tx.transaction_hash);
 }
