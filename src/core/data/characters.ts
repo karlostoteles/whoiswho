@@ -5,6 +5,9 @@ export interface Character {
   name: string;
   traits: CharacterTraits;
   imageUrl?: string;
+  /** Raw trait bitmap from schizodio.json — array of u128 hex chunks.
+   *  Used by ZK question matchFn for direct bit-level trait checks. */
+  bitmap?: string[];
 }
 
 // 24 characters with balanced trait distribution

@@ -20,6 +20,8 @@ export interface Question {
    * Takes priority over the default traitKey === traitValue equality check.
    */
   matchFn?: (char: Character) => boolean;
+  /** ZK bit index / question_id */
+  questionIdNum?: number;
 }
 
 // ─── Helper accessors ─────────────────────────────────────────────────────────
@@ -329,9 +331,44 @@ export const NFT_QUESTIONS: Question[] = [
   },
 ];
 
+// ─── Fine-grained ZK questions (Schizodio collection) ─────────────────────────
+import { SCHIZODIO_QUESTIONS } from '@/zk/schizodioQuestions';
+
+/**
+ * Check if a specific bit is set in a trait bitmap (array of u128 hex chunks).
+ * This is the ground-truth for trait evaluation — immune to last-write-wins
+ * issues in the derived nft_* fields.
+ */
+function hasBitmapBit(bitmap: string[] | undefined, bitIdx: number): boolean {
+  if (!bitmap) return false;
+  const chunkIdx = Math.floor(bitIdx / 128);
+  const bitOffset = bitIdx % 128;
+  const chunk = bitmap[chunkIdx];
+  if (!chunk) return false;
+  try {
+    return (BigInt(chunk) & (1n << BigInt(bitOffset))) !== 0n;
+  } catch { return false; }
+}
+
+export const ZK_QUESTIONS: Question[] = SCHIZODIO_QUESTIONS.map(sq => ({
+  id: `zkq_${sq.id}`,
+  text: sq.text,
+  category: sq.category === 'background' ? 'other' : (sq.category as any),
+  traitKey: `nft_${sq.category}`,
+  traitValue: sq.trait,
+  questionIdNum: sq.id,
+  zone: (['hair', 'headwear'].includes(sq.category) ? 'hair' :
+         ['eyes', 'eyewear', 'mouth', 'mask', 'eyebrows'].includes(sq.category) ? 'face' :
+         ['body', 'clothing'].includes(sq.category) ? 'body' : 'gear') as QuestionZone,
+  // Check the bitmap bit directly — sq.id IS the bit index.
+  // This is immune to the last-write-wins bug in derived nft_* fields
+  // where multiple bits per category would cause only the last to be stored.
+  matchFn: (c: Character) => hasBitmapBit(c.bitmap, sq.id),
+}));
+
 // ─── Unified export ───────────────────────────────────────────────────────────
 /** All questions — used by game store, online sync, and evaluator. */
-export const QUESTIONS = [...FREE_QUESTIONS, ...NFT_QUESTIONS];
+export const QUESTIONS = [...FREE_QUESTIONS, ...NFT_QUESTIONS, ...ZK_QUESTIONS];
 
 /** Fast O(1) lookup by question ID (matchFn intact — never serialized). */
 export const QUESTIONS_BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));

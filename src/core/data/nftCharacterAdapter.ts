@@ -139,12 +139,30 @@ export function buildTraitsFromBitmap(
       traits.nft_has_sidekick = true;
     }
     else if (lowerName.startsWith('background_')) traits.nft_background = lowerName.replace('background_', '');
-    else if (lowerName.startsWith('mask_')) traits.nft_has_mask = true;
-    else if (lowerName.startsWith('weapons_')) traits.nft_has_weapons = true;
-    else if (lowerName.startsWith('eyewear_')) traits.nft_has_eyewear = true;
-    else if (lowerName.startsWith('headwear_')) traits.nft_has_headwear = true;
-    else if (lowerName.startsWith('accessories_')) traits.nft_has_accessories = true;
-    else if (lowerName.startsWith('overlays_')) traits.nft_has_overlay = true;
+    else if (lowerName.startsWith('mask_')) {
+      traits.nft_mask = lowerName.replace('mask_', '');
+      traits.nft_has_mask = true;
+    }
+    else if (lowerName.startsWith('weapons_')) {
+      traits.nft_weapons = lowerName.replace('weapons_', '');
+      traits.nft_has_weapons = true;
+    }
+    else if (lowerName.startsWith('eyewear_')) {
+      traits.nft_eyewear = lowerName.replace('eyewear_', '');
+      traits.nft_has_eyewear = true;
+    }
+    else if (lowerName.startsWith('headwear_')) {
+      traits.nft_headwear = lowerName.replace('headwear_', '');
+      traits.nft_has_headwear = true;
+    }
+    else if (lowerName.startsWith('accessories_')) {
+      traits.nft_accessories = lowerName.replace('accessories_', '');
+      traits.nft_has_accessories = true;
+    }
+    else if (lowerName.startsWith('overlays_')) {
+      traits.nft_overlays = lowerName.replace('overlays_', '');
+      traits.nft_has_overlay = true;
+    }
   }
 
   return traits;
@@ -210,6 +228,14 @@ function buildNftTraits(attrs: NFTAttribute[]): Partial<CharacterTraits> {
     nft_clothing: raw.clothing ? raw.clothing.toLowerCase() : undefined,
     nft_sidekick: raw.sidekick ? raw.sidekick.toLowerCase() : undefined,
     nft_background: raw.background ? raw.background.toLowerCase() : undefined,
+
+    // Specific value strings for boolean-category traits (for fine-grained ZK questions)
+    nft_mask: raw.mask && !isAbsent(raw.mask) ? raw.mask.toLowerCase() : undefined,
+    nft_weapons: raw.weapons && !isAbsent(raw.weapons) ? raw.weapons.toLowerCase() : undefined,
+    nft_eyewear: raw.eyewear && !isAbsent(raw.eyewear) ? raw.eyewear.toLowerCase() : undefined,
+    nft_headwear: raw.headwear && !isAbsent(raw.headwear) ? raw.headwear.toLowerCase() : undefined,
+    nft_accessories: raw.accessories && !isAbsent(raw.accessories) ? raw.accessories.toLowerCase() : undefined,
+    nft_overlays: raw.overlays && !isAbsent(raw.overlays) ? raw.overlays.toLowerCase() : undefined,
 
     // Boolean traits — true only when a real (non-"No X") value exists
     nft_has_mask: !isAbsent(raw.mask),

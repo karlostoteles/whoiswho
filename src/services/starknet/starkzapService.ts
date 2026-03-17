@@ -11,7 +11,8 @@ import { Account, RpcProvider, type Call } from 'starknet';
 import { GAME_CONTRACT_NORMAL, GAME_CONTRACT_SCHIZO, SESSION_POLICIES, RPC_URL } from './config';
 import { useGameStore } from '@/core/store/gameStore';
 import { useToastStore } from '@/core/store/toastStore';
-import { registerAccountGetter } from '../../zk/zkSdk';
+import { registerAccountGetter } from '@/zk/zkSdk';
+import { TORII_URL, WORLD_ADDRESS } from '@/zk/toriiClient';
 
 // Expose for user debugging as requested
 (window as any).GAME_CONTRACT = GAME_CONTRACT_NORMAL;
@@ -356,10 +357,12 @@ export function getWalletAddress(): string | null {
 // ============================================================
 
 export interface GameContractCalls {
-  createGame: (traitsRoot: string, questionSetId?: number) => Promise<string>;
+  // ── Active (used today) ──
+  createGame: (traitsRoot?: string, questionSetId?: number) => Promise<string>;
   joinGame: (gameId: string) => Promise<string>;
   commitCharacter: (gameId: string, commitment: string, zkCommitment?: string) => Promise<string>;
   revealCharacter: (gameId: string, characterId: string, salt: string) => Promise<string>;
+  // ── Phase 2 (stubs, will be activated when contract methods go live) ──
   askQuestion: (gameId: string, questionId: string) => Promise<string>;
   answerQuestion: (gameId: string, questionId: string, answer: boolean) => Promise<string>;
   answerQuestionWithProof: (gameId: string, proof: string[]) => Promise<string>;
@@ -369,12 +372,7 @@ export interface GameContractCalls {
   opponentWon: (gameId: string) => Promise<string>;
   depositWager: (gameId: string, tokenId: string) => Promise<string>;
   getGame: (gameId: string) => Promise<any>;
-  commitAndWagerMulticall: (
-    gameId: string, 
-    commitment: string, 
-    zkCommitment?: string, 
-    tokenId?: string
-  ) => Promise<string>;
+  commitAndWagerMulticall: (gameId: string, commitment: string, zkCommitment?: string) => Promise<string>;
 }
 
 /**
@@ -455,56 +453,67 @@ export function getGameContract(): GameContractCalls {
         const receipt: any = await tx.wait();
 
         // ── Extract game_id from receipt events ──────────────────────────
-        // Dojo World emits events when models are written. The game_id is
-        // an entity key in one of these events. We try multiple strategies
-        // because the event format varies across Dojo versions.
         const events: any[] = receipt?.events ?? [];
         console.log('[createGame] Receipt events:', JSON.stringify(events.map((e: any) => ({
           from: e.from_address, keys: e.keys, data: e.data,
         })), null, 2));
 
-        // Strategy 1: Look for events from the game contract (custom events).
-        // keys[0] = event selector, keys[1+] = #[key] fields (game_id).
-        const contractEvent = events.find((e: any) =>
-          e.from_address?.toLowerCase() === target.toLowerCase() &&
-          e.keys?.length >= 2
-        );
-        if (contractEvent?.keys?.[1]) {
-          console.log('[createGame] game_id from contract event:', contractEvent.keys[1]);
-          return contractEvent.keys[1];
-        }
+        const worldBigInt = BigInt(WORLD_ADDRESS);
 
-        // Strategy 2: Dojo World StoreSetRecord / StoreUpdateRecord events.
-        // from_address = World contract. The entity key (game_id) appears
-        // in the event keys or data depending on the Dojo version.
-        const worldBigInt = BigInt('0x06c320e0058a34ee61ca91e1731388f4554d77ecfbd3a7d6a651c6f5e5f73b53');
+        // Strategy 1: Dojo 1.8 World StoreSetRecord events.
+        // All Dojo events come from the WORLD contract, not the game_actions contract.
+        // Layout: data = [key_count, ...keys, val_count, ...vals]
+        // For Game model (1 key = game_id): data[0] = 1, data[1] = game_id
         const worldEvents = events.filter((e: any) => {
           try { return BigInt(e.from_address) === worldBigInt; } catch { return false; }
         });
 
-        // In newer Dojo: keys = [selector, model_hash, ...entity_keys]
         for (const we of worldEvents) {
-          if (we.keys?.length >= 3) {
-            // keys[2] is likely the first entity key (game_id)
-            console.log('[createGame] game_id from World event keys[2]:', we.keys[2]);
-            return we.keys[2];
+          if (we.data?.length >= 2) {
+            // Normalize: data[0] could be '0x1', '1', or numeric
+            const keyCount = Number(we.data[0]);
+            if (keyCount === 1 && we.data[1] && BigInt(we.data[1]) !== 0n) {
+              console.log('[createGame] game_id from World event data[1]:', we.data[1]);
+              return we.data[1];
+            }
           }
         }
 
-        // Strategy 3: Fallback — look in World event data for a felt that
-        // isn't the caller address or zero. data[0] = table hash, data[1]
-        // = num_keys, data[2] = first key (game_id) in some Dojo versions.
-        for (const we of worldEvents) {
-          if (we.data?.length >= 3 && we.data[1] === '0x1') {
-            // data[1] = 1 key, data[2] = that key value
-            console.log('[createGame] game_id from World event data[2]:', we.data[2]);
-            return we.data[2];
+        // Strategy 2: Fallback — query Torii directly for the latest game by this player.
+        // This is 100% reliable as long as Torii has indexed the tx.
+        const { useWalletStore } = await import('@/services/starknet/walletStore');
+        const playerAddr = useWalletStore.getState().address || w.address;
+        if (playerAddr) {
+          console.log('[createGame] Falling back to Torii query for player:', playerAddr);
+          // Pad address to 66 chars for Torii query
+          const paddedAddr = '0x' + playerAddr.replace('0x', '').padStart(64, '0');
+
+          // Wait briefly for Torii to index (it's usually fast)
+          await new Promise(r => setTimeout(r, 2000));
+
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              const q = encodeURIComponent(
+                `SELECT game_id FROM [guessnft-Game] WHERE player1='${paddedAddr}' ORDER BY created_at DESC LIMIT 1`
+              );
+              const res = await fetch(`${TORII_URL}/sql?q=${q}`);
+              if (res.ok) {
+                const rows: any[] = await res.json();
+                if (rows.length > 0 && rows[0].game_id) {
+                  console.log('[createGame] game_id from Torii query:', rows[0].game_id);
+                  return rows[0].game_id;
+                }
+              }
+            } catch (e) {
+              console.warn('[createGame] Torii query attempt', attempt, 'failed:', e);
+            }
+            // Wait before retry
+            if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
           }
         }
 
-        // Last resort: return tx hash (WRONG for game_id, but at least
-        // the flow continues and the logs above will reveal the correct format)
-        console.warn('[createGame] Could not extract game_id from events — using tx hash as fallback');
+        // Last resort: this is WRONG but logs will show the issue
+        console.error('[createGame] FAILED to extract game_id — all strategies exhausted. Using tx hash as fallback (THIS WILL BREAK join_game)');
         return tx.hash;
       }, 'Create Game');
     },
@@ -570,21 +579,20 @@ export function getGameContract(): GameContractCalls {
       }, 'Ask Question');
     },
 
-    async answerQuestion(gameId: string, questionId: string, answer: boolean): Promise<string> {
-      console.warn('[StarkZap] answer_question (non-ZK) not supported in ZK engine. Required use of answerQuestionWithProof.');
-      return '0x-mock-answer-hash';
+    // ── Phase 2 stubs (not yet active) ──────────────────────────────────────
+
+    async answerQuestion(_gameId: string, _questionId: string, _answer: boolean): Promise<string> {
+      throw new Error('Phase 2: answer_question not yet active. Gameplay uses Supabase.');
     },
 
     async answerQuestionWithProof(gameId: string, proof: string[]): Promise<string> {
       return await wrapExecute(async (target) => {
         const w = getWallet();
-        const tx = await w.execute([
-          {
-            contractAddress: target,
-            entrypoint: 'answer_question_with_proof',
-            calldata: [gameId, proof.length.toString(), ...proof],
-          },
-        ]);
+        const tx = await w.execute([{
+          contractAddress: target,
+          entrypoint: 'answer_question_with_proof',
+          calldata: [gameId, proof.length.toString(), ...proof],
+        }]);
         await tx.wait();
         return tx.hash;
       }, 'Submit ZK Proof');
@@ -593,13 +601,11 @@ export function getGameContract(): GameContractCalls {
     async makeGuess(gameId: string, characterId: string): Promise<string> {
       return await wrapExecute(async (target) => {
         const w = getWallet();
-        const tx = await w.execute([
-          {
-            contractAddress: target,
-            entrypoint: 'make_guess',
-            calldata: [gameId, characterId],
-          },
-        ]);
+        const tx = await w.execute([{
+          contractAddress: target,
+          entrypoint: 'make_guess',
+          calldata: [gameId, characterId],
+        }]);
         await tx.wait();
         return tx.hash;
       }, 'Make Guess');
@@ -608,122 +614,38 @@ export function getGameContract(): GameContractCalls {
     async claimTimeoutWin(gameId: string): Promise<string> {
       return await wrapExecute(async (target) => {
         const w = getWallet();
-        const tx = await w.execute([
-          {
-            contractAddress: target,
-            entrypoint: 'claim_timeout',
-            calldata: [gameId],
-          },
-        ]);
+        const tx = await w.execute([{
+          contractAddress: target,
+          entrypoint: 'claim_timeout',
+          calldata: [gameId],
+        }]);
         await tx.wait();
         return tx.hash;
       }, 'Claim Timeout Win');
     },
 
-    async cancelGame(gameId: string): Promise<string> {
-      console.warn('[StarkZap] cancel_game not supported in ZK engine. Returning mock hash.');
-      return '0x-mock-cancel-hash';
+    async cancelGame(_gameId: string): Promise<string> {
+      throw new Error('Phase 2: cancel_game not yet active.');
     },
 
-    async opponentWon(gameId: string): Promise<string> {
-      console.warn('[StarkZap] opponent_won not supported in ZK engine.');
-      return '0x-mock-won-hash';
+    async opponentWon(_gameId: string): Promise<string> {
+      throw new Error('Phase 2: opponent_won not yet active.');
     },
 
-    async getGame(gameId: string) {
-      console.log('[StarkZap] getGame called for ZK engine:', gameId);
-      if (!gameId || gameId === '0x0') {
-        return {
-          player1: '0x0', player2: '0x0', phase: 0, current_turn: 0, winner: '0x0',
-          p1Commitment: '0x0', p2Commitment: '0x0', p1Wager: false, p2Wager: false
-        };
-      }
-
-      try {
-        const { getToriiClient, WORLD_ADDRESS } = await import('../../zk/toriiClient');
-        const client = await getToriiClient();
-
-        // 1. Fetch Game Model
-        const gameResult = await client.getEntities({
-          world_addresses: [WORLD_ADDRESS],
-          pagination: { limit: 1, cursor: undefined, direction: 'Forward', order_by: [] },
-          clause: {
-            Keys: {
-              keys: [gameId],
-              pattern_matching: 'FixedLen',
-              models: ['guessnft-Game'],
-            },
-          },
-          no_hashed_keys: false,
-          models: ['guessnft-Game'],
-          historical: false,
-        });
-
-        const gameItems: any[] = (gameResult as any).items ?? Object.values(gameResult);
-        const gameModel = gameItems[0]?.models?.['guessnft-Game'];
-
-        // 2. Fetch Commitments
-        const fetchCommitment = async (playerAddr: string) => {
-          if (!playerAddr || playerAddr === '0x0') return '0x0';
-          const res = await client.getEntities({
-            world_addresses: [WORLD_ADDRESS],
-            pagination: { limit: 1, cursor: undefined, direction: 'Forward', order_by: [] },
-            clause: {
-              Keys: {
-                keys: [gameId, playerAddr],
-                pattern_matching: 'FixedLen',
-                models: ['guessnft-Commitment'],
-              },
-            },
-            no_hashed_keys: false,
-            models: ['guessnft-Commitment'],
-            historical: false,
-          });
-          const items: any[] = (res as any).items ?? Object.values(res);
-          return items[0]?.models?.['guessnft-Commitment']?.hash?.value || '0x0';
-        };
-
-        const p1 = gameModel?.player1?.value || '0x0';
-        const p2 = gameModel?.player2?.value || '0x0';
-        const p1Commitment = await fetchCommitment(p1);
-        const p2Commitment = await fetchCommitment(p2);
-
-        return {
-          player1: p1,
-          player2: p2,
-          phase: Number(gameModel?.phase?.value || 0),
-          current_turn: Number(gameModel?.current_turn?.value || 0),
-          winner: gameModel?.winner?.value || '0x0',
-          p1Commitment,
-          p2Commitment,
-          p1Wager: false,
-          p2Wager: false,
-        };
-      } catch (err) {
-        console.warn('[StarkZap] getGame Torii query failed, using empty fallback:', err);
-        return {
-          player1: '0x0', player2: '0x0', phase: 0, current_turn: 0, winner: '0x0',
-          p1Commitment: '0x0', p2Commitment: '0x0', p1Wager: false, p2Wager: false
-        };
-      }
+    async getGame(_gameId: string) {
+      // Game state is read via Torii SQL in useOnlineGameSync, not here.
+      throw new Error('Use Torii SQL endpoint instead.');
     },
 
-    async depositWager(gameId: string, tokenId: string): Promise<string> {
-      console.warn('[StarkZap] deposit_wager not supported in ZK engine.');
-      return '0x-mock-wager-hash';
+    async depositWager(_gameId: string, _tokenId: string): Promise<string> {
+      throw new Error('Phase 2: deposit_wager not yet active.');
     },
-
 
     async commitAndWagerMulticall(
-      gameId: string, 
-      commitment: string, 
-      zkCommitment?: string, 
-      tokenId?: string
+      gameId: string,
+      commitment: string,
+      zkCommitment?: string,
     ): Promise<string> {
-      // wager multicall involves deposit_wager which is not in ZK engine
-      if (tokenId) {
-        console.warn('[StarkZap] deposit_wager not supported in ZK engine. Falling back to simple commit.');
-      }
       return this.commitCharacter(gameId, commitment, zkCommitment);
     },
   };

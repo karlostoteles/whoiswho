@@ -160,6 +160,9 @@ void main() {
 
 // X-axis unit vector (pre-allocated for quaternion rotation)
 const X_AXIS = new THREE.Vector3(1, 0, 0);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+// Pre-allocated quaternion for P2 counter-rotation (180° on Y to cancel board rotation)
+const P2_Y_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 // Atlas image cache stored on `window` so it survives Vite HMR module reloads.
 // Module-level variables reset on every hot-update; window properties do not.
@@ -520,6 +523,9 @@ function MinimalGrid({ tileW: _tileW }: { tileW: number }) {
 
       // Compose instance matrix: position + rotation + scale
       quatBuf.current.setFromAxisAngle(X_AXIS, st.flipAngle);
+      // P2: counter-rotate each tile 180° on Y so it faces the camera
+      // (board group rotates Math.PI on Y for P2, flipping tile normals)
+      if (onlinePlayerNum === 2) quatBuf.current.premultiply(P2_Y_FLIP);
       posBuf.current.set(st.x, 0, st.z);
       sclBuf.current.set(layout.tileW * st.scale, layout.tileH * st.scale, 0.002);
 
@@ -748,17 +754,21 @@ function IndividualGrid({ textures, tileW }: CharacterGridProps) {
               }
             }}
           >
-            <CharacterTile
-              characterId={char.id}
-              characterName={char.name}
-              texture={texture}
-              tileW={layout.tileW}
-              tileH={layout.tileH}
-              pivotRef={(el) => {
-                if (el) pivotRefs.current.set(char.id, el);
-                else pivotRefs.current.delete(char.id);
-              }}
-            />
+            {/* P2: counter-rotate tile 180° on Y so it faces the camera
+                (board group rotates Math.PI on Y for P2, flipping tile normals) */}
+            <group rotation={[0, onlinePlayerNum === 2 ? Math.PI : 0, 0]}>
+              <CharacterTile
+                characterId={char.id}
+                characterName={char.name}
+                texture={texture}
+                tileW={layout.tileW}
+                tileH={layout.tileH}
+                pivotRef={(el) => {
+                  if (el) pivotRefs.current.set(char.id, el);
+                  else pivotRefs.current.delete(char.id);
+                }}
+              />
+            </group>
           </group>
         );
       })}

@@ -19,17 +19,17 @@
     "controller-react": {
       "source": "cartridge-gg/docs",
       "sourceType": "github",
-      "computedHash": "1d536c34873d8364e72466e6d70e5452446d07cadd1c67cf677653d942a7b108"
+      "computedHash": "dfd836fe0d36fabd9b6693f1fc798f8e1666a8f53ca099e42fc024a44bca4a57"
     },
     "controller-sessions": {
       "source": "cartridge-gg/docs",
       "sourceType": "github",
-      "computedHash": "da0803bcffbbac3aca9354b6acdd48349563f9dd637a2dadd794e77bb2d25159"
+      "computedHash": "6d3131e6a01f3a278998ec6a15e834dd90c213e02721941ab173b4314ff72dd4"
     },
     "controller-setup": {
       "source": "cartridge-gg/docs",
       "sourceType": "github",
-      "computedHash": "276fd5cc76941e1a74496b9e225f367ac5b9744359443eb1ec5d4e5e03f7db2f"
+      "computedHash": "9cfcd4be5838aad69c932ce073ad8baa2d11cd04b54ea160f5e43383de8b6f21"
     },
     "controller-signers": {
       "source": "cartridge-gg/docs",
@@ -49,7 +49,7 @@
     "dojo-client": {
       "source": "dojoengine/book",
       "sourceType": "github",
-      "computedHash": "8817136cbc9a3900b9aa5a3b3d6f769e3b4c259712ce1e732e4fe8b15c577afc"
+      "computedHash": "e1e0aca472a2c766d263608dd134090aea6a20c142f580eb8fb58c6f4ce641f0"
     },
     "dojo-config": {
       "source": "dojoengine/book",
@@ -59,7 +59,7 @@
     "dojo-deploy": {
       "source": "dojoengine/book",
       "sourceType": "github",
-      "computedHash": "ced14f702df1e411a64dec177243788be0b05c5845ee94d7ac1bbd1fbc67b897"
+      "computedHash": "64a4914ca51508231eb8d54392b8bdec36c1be07b464757c342ef4af01698409"
     },
     "dojo-indexer": {
       "source": "dojoengine/book",

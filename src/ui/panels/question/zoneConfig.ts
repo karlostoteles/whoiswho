@@ -10,7 +10,7 @@
  * (e.g. "nft_hair" → "Hair", "nft_has_weapons" → "Weapons").
  */
 
-import { NFT_QUESTIONS } from '@/core/data/questions';
+import { QUESTIONS } from '@/core/data/questions';
 
 export type TraitCategory = string;
 
@@ -78,7 +78,8 @@ export interface TraitCategoryConfig {
 function buildCategories(): TraitCategoryConfig[] {
   // Group questions by traitKey
   const keyMap = new Map<string, Set<string>>();
-  for (const q of NFT_QUESTIONS) {
+  for (const q of QUESTIONS) {
+    if (!q.id.startsWith('nq_') && !q.id.startsWith('zkq_')) continue;
     const cat = traitKeyToCategory(q.traitKey);
     if (!keyMap.has(cat)) keyMap.set(cat, new Set());
     keyMap.get(cat)!.add(q.traitKey);

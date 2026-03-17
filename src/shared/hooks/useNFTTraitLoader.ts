@@ -34,9 +34,12 @@ export function useNFTTraitLoader(): void {
   const p2SecretId = useGameStore((s) => s.players.player2.secretCharacterId);
   const secretKey  = [p1SecretId ?? '', p2SecretId ?? ''].join(',');
 
-  // nft / online: load real traits for wallet-owned tokens
+  // nft mode only: load real traits for wallet-owned tokens.
+  // NEVER enrich in online mode — both clients must use identical bitmap-derived
+  // traits, otherwise evaluateQuestion returns different results on each side
+  // and the opponent's secret gets wrongly eliminated from the board.
   useEffect(() => {
-    if (mode !== 'nft' && mode !== 'online') return;
+    if (mode !== 'nft') return;
     if (!tokenKey) return;
 
     const tokenIds = tokenKey.split(',');

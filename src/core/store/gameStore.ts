@@ -10,9 +10,70 @@ import { createCommitment, generateGameSessionId, clearCommitments, submitCommit
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
 import { enrichCharacters } from '@/core/data/nftCharacterAdapter';
 import { getGameContract } from '@/services/starknet/starkzapService';
+import { getCachedCollectionData } from '@/zk/collectionData';
+import { evaluateBit } from '@/zk/evaluateBit';
+import { SCHIZODIO_QUESTIONS } from '@/zk/schizodioQuestions';
 
 function getOpponent(player: PlayerId): PlayerId {
   return player === 'player1' ? 'player2' : 'player1';
+}
+
+// ─── Online game progress persistence ────────────────────────────────────────
+// Saves elimination state + turn number to localStorage so refresh recovery works.
+const PROGRESS_KEY = 'guessnft_game_progress';
+
+interface GameProgress {
+  onlineGameId: string;
+  turnNumber: number;
+  p1Eliminated: string[];
+  p2Eliminated: string[];
+  questionHistory: Array<{
+    questionId: string;
+    questionText: string;
+    traitKey: string;
+    traitValue: string | boolean;
+    answer: boolean | null;
+    askedBy: PlayerId;
+    turnNumber: number;
+  }>;
+}
+
+function saveGameProgress(state: GameState) {
+  if (state.mode !== 'online' || !state.onlineGameId) return;
+  const progress: GameProgress = {
+    onlineGameId: state.onlineGameId,
+    turnNumber: state.turnNumber,
+    p1Eliminated: [...state.players.player1.eliminatedCharacterIds],
+    p2Eliminated: [...state.players.player2.eliminatedCharacterIds],
+    questionHistory: state.questionHistory.map(q => ({
+      questionId: q.questionId,
+      questionText: q.questionText,
+      traitKey: q.traitKey,
+      traitValue: q.traitValue,
+      answer: q.answer,
+      askedBy: q.askedBy,
+      turnNumber: q.turnNumber,
+    })),
+  };
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+  } catch { /* quota exceeded — non-fatal */ }
+}
+
+function loadGameProgress(onlineGameId: string): GameProgress | null {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return null;
+    const progress: GameProgress = JSON.parse(raw);
+    if (progress.onlineGameId !== onlineGameId) return null;
+    return progress;
+  } catch {
+    return null;
+  }
+}
+
+function clearGameProgress() {
+  localStorage.removeItem(PROGRESS_KEY);
 }
 
 /**
@@ -41,6 +102,63 @@ function pickBestQuestionForCPU(
     if (score < bestScore) { bestScore = score; best = q; }
   }
   return best;
+}
+
+/**
+ * Get the bitmap for an NFT character from the runtime-cached schizodio.json.
+ */
+export function getNftBitmap(characterId: string): [string, string, string, string] | null {
+  if (!characterId.startsWith('nft_')) return null;
+  const tokenId = parseInt(characterId.replace('nft_', ''), 10);
+  if (isNaN(tokenId) || tokenId < 1 || tokenId > 999) return null;
+  const dataset = getCachedCollectionData();
+  if (!dataset) return null;
+  const char = dataset.characters[tokenId - 1];
+  if (!char) return null;
+  return char.bitmap as [string, string, string, string];
+}
+
+/**
+ * ZK-aware question lookup by numeric ID.
+ */
+export function findSchizodioQuestion(questionId: number) {
+  return SCHIZODIO_QUESTIONS.find((q) => q.id === questionId) ?? null;
+}
+
+/**
+ * Evaluate answer via bitmap for a given character and question.
+ */
+export function evaluateQuestionByBitmap(
+  characterId: string,
+  questionId: number,
+): boolean {
+  const bitmap = getNftBitmap(characterId);
+  if (!bitmap) return false;
+  return evaluateBit(bitmap, questionId);
+}
+
+/**
+ * Auto-eliminate characters based on the answered question.
+ */
+export function computeAutoEliminations(
+  characters: Character[],
+  alreadyEliminated: string[],
+  questionId: number,
+  answer: boolean,
+): string[] {
+  const toEliminate: string[] = [];
+  const elimSet = new Set(alreadyEliminated);
+  for (const char of characters) {
+    if (elimSet.has(char.id)) continue;
+    const bitmap = getNftBitmap(char.id);
+    if (!bitmap) continue;
+    const matchesQuestion = evaluateBit(bitmap, questionId);
+    const shouldEliminate = answer ? !matchesQuestion : matchesQuestion;
+    if (shouldEliminate) {
+      toEliminate.push(char.id);
+    }
+  }
+  return toEliminate;
 }
 
 const initialState: GameState = {
@@ -83,6 +201,10 @@ const initialState: GameState = {
     remote: 'waiting',
   },
   isOnChainSyncing: false,
+  // ZK Extensions
+  starknetGameId: null,
+  proofError: null,
+  processedTurnIds: new Set(),
 };
 
 export const useGameStore = create<GameState & GameActions>()(
@@ -188,14 +310,15 @@ export const useGameStore = create<GameState & GameActions>()(
             state.phase = GamePhase.ANSWER_PENDING;
             break;
           case GamePhase.ANSWER_REVEALED: {
-            // Apply P1's elimination based on their question
+            // Apply local player's elimination based on their question + opponent's answer
             const q = state.currentQuestion;
             if (q) {
               const eliminated = state.players[state.activePlayer].eliminatedCharacterIds;
               const fullQuestion = QUESTIONS.find((qn) => qn.id === q.questionId);
               if (fullQuestion) {
+                const elimSet = new Set(eliminated);
                 for (const char of state.characters) {
-                  if (eliminated.includes(char.id)) continue;
+                  if (elimSet.has(char.id)) continue;
                   const matchesQuestion = evaluateQuestion(fullQuestion, char);
                   const shouldEliminate = q.answer ? !matchesQuestion : matchesQuestion;
                   if (shouldEliminate) {
@@ -204,14 +327,20 @@ export const useGameStore = create<GameState & GameActions>()(
                 }
               }
             }
+
+            // Online mode: opponent's eliminations are already computed in
+            // receiveOpponentQuestion() when the question+answer arrives.
+            // No need to re-compute here.
+
             // In free/nft-free mode: simultaneously apply CPU's elimination
             if ((state.mode === 'free' || state.mode === 'nft-free') && state.cpuQuestion) {
               const cpuQ = state.cpuQuestion;
               const cpuEliminated = state.players.player2.eliminatedCharacterIds;
               const fullCpuQ = QUESTIONS.find((qn) => qn.id === cpuQ.questionId);
               if (fullCpuQ) {
+                const cpuElimSet = new Set(cpuEliminated);
                 for (const char of state.characters) {
-                  if (cpuEliminated.includes(char.id)) continue;
+                  if (cpuElimSet.has(char.id)) continue;
                   const matchesQuestion = evaluateQuestion(fullCpuQ, char);
                   const shouldEliminate = cpuQ.answer ? !matchesQuestion : matchesQuestion;
                   if (shouldEliminate) {
@@ -221,8 +350,10 @@ export const useGameStore = create<GameState & GameActions>()(
               }
 
               // CPU auto-win: if down to 1 remaining, auto-guess
+              // Reuse cpuElimSet from above (or build fresh if needed)
+              const cpuElimSetAuto = new Set(cpuEliminated);
               const cpuRemaining = state.characters.filter(
-                (c) => !cpuEliminated.includes(c.id)
+                (c) => !cpuElimSetAuto.has(c.id)
               );
               if (cpuRemaining.length === 1) {
                 state.guessedCharacterId = cpuRemaining[0].id;
@@ -238,11 +369,20 @@ export const useGameStore = create<GameState & GameActions>()(
               }
             }
             state.phase = GamePhase.AUTO_ELIMINATING;
+            // Persist progress after eliminations are computed
+            saveGameProgress(state);
             break;
           }
           case GamePhase.AUTO_ELIMINATING: {
-            if (state.mode === 'free' || state.mode === 'nft-free' || state.mode === 'online') {
-              // Simultaneous mode: P1 (or local online player) always stays active, no player switching
+            if (state.mode === 'online') {
+              // Online simultaneous: reset for next round, skip TURN_TRANSITION
+              state.turnNumber += 1;
+              state.currentQuestion = null;
+              state.opponentQuestion = null;
+              state.simultaneousStatus = { local: 'picking', remote: 'waiting' };
+              state.phase = GamePhase.SIMULTANEOUS_ROUND;
+            } else if (state.mode === 'free' || state.mode === 'nft-free') {
+              // Free/CPU simultaneous mode
               state.turnNumber += 1;
               state.currentQuestion = null;
               state.cpuQuestion = null;
@@ -271,7 +411,8 @@ export const useGameStore = create<GameState & GameActions>()(
               if (state.mode === 'free' || state.mode === 'nft-free') {
                 // Opponent (CPU) gets a free question because player risked it and failed!
                 const cpuEliminated = state.players.player2.eliminatedCharacterIds;
-                const cpuRemaining = state.characters.filter((c) => !cpuEliminated.includes(c.id));
+                const cpuElimSetGW = new Set(cpuEliminated);
+                const cpuRemaining = state.characters.filter((c) => !cpuElimSetGW.has(c.id));
                 const cpuAskedIds = new Set(
                   state.questionHistory
                     .filter((r) => r.askedBy === 'player2')
@@ -302,7 +443,10 @@ export const useGameStore = create<GameState & GameActions>()(
                   state.phase = GamePhase.TURN_TRANSITION;
                 }
               } else {
-                state.phase = GamePhase.TURN_TRANSITION;
+                // Online mode: wrong guess → back to simultaneous round, not TURN_TRANSITION
+                state.opponentQuestion = null;
+                state.simultaneousStatus = { local: 'picking', remote: 'waiting' };
+                state.phase = GamePhase.SIMULTANEOUS_ROUND;
               }
             } else {
               const next = getOpponent(state.activePlayer);
@@ -345,17 +489,17 @@ export const useGameStore = create<GameState & GameActions>()(
         state.currentQuestion = record;
         state.questionHistory.push(record);
 
-        // For online mode, we don't have the answer yet - wait for sync
+        // For online mode, we don't have the answer yet - wait for Supabase sync
         if (state.mode === 'online') {
           state.simultaneousStatus.local = 'asked';
-          useGameStore.getState().submitMoveOnChain().catch(console.error);
           return;
         }
 
         // Free/cpu mode: CPU simultaneously picks and answers its own question
         if (state.mode === 'free' || state.mode === 'nft-free') {
           const cpuEliminated = state.players.player2.eliminatedCharacterIds;
-          const cpuRemaining = state.characters.filter((c) => !cpuEliminated.includes(c.id));
+          const cpuElimSetAsk = new Set(cpuEliminated);
+          const cpuRemaining = state.characters.filter((c) => !cpuElimSetAsk.has(c.id));
           const cpuAskedIds = new Set(
             state.questionHistory
               .filter((r) => r.askedBy === 'player2')
@@ -391,7 +535,10 @@ export const useGameStore = create<GameState & GameActions>()(
           if (!state.opponentQuestion) return;
           state.opponentQuestion.answer = answer;
           state.simultaneousStatus.remote = 'answered';
-          useGameStore.getState().submitMoveOnChain().catch(console.error);
+          // If my own answer already arrived, both sides are done — advance
+          if (state.simultaneousStatus.local === 'revealed') {
+            state.phase = GamePhase.ANSWER_REVEALED;
+          }
           return;
         }
 
@@ -439,6 +586,12 @@ export const useGameStore = create<GameState & GameActions>()(
 
     cancelGuess: () =>
       set((state) => {
+        if (state.mode === 'online') {
+          // Online simultaneous: always go back to SIMULTANEOUS_ROUND, never QUESTION_SELECT
+          state.guessedCharacterId = null;
+          state.phase = GamePhase.SIMULTANEOUS_ROUND;
+          return;
+        }
         if (state.currentQuestion && state.mode !== 'free' && state.mode !== 'nft-free') {
           // Non-free modes: cancelling after asking ends the turn
           const next = getOpponent(state.activePlayer);
@@ -486,7 +639,8 @@ export const useGameStore = create<GameState & GameActions>()(
         if (state.mode === 'free' || state.mode === 'nft-free') {
           // Check if CPU simultaneously wants to risk it this round
           const cpuEliminated = state.players.player2.eliminatedCharacterIds;
-          const cpuRemaining = state.characters.filter((c) => !cpuEliminated.includes(c.id));
+          const cpuElimSetGuess = new Set(cpuEliminated);
+          const cpuRemaining = state.characters.filter((c) => !cpuElimSetGuess.has(c.id));
           let cpuRiskTarget: string | null = null;
           if (cpuRemaining.length === 1) {
             cpuRiskTarget = cpuRemaining[0].id;
@@ -551,8 +705,9 @@ export const useGameStore = create<GameState & GameActions>()(
         state.onlinePlayerNum = null;
         state.opponentQuestion = null;
 
-        // Clear saved session on explicit reset/game over
+        // Clear saved session + progress on explicit reset/game over
         localStorage.removeItem('guessnft_online_session');
+        clearGameProgress();
       }),
 
     // ─── Online-specific actions ───────────────────────────────────────────────
@@ -575,9 +730,44 @@ export const useGameStore = create<GameState & GameActions>()(
               state.mode = 'online';
               state.characters = characters;
               state.onlineGameId = parsed.gameId;
-              state.gameSessionId = '0x' + parsed.gameId.replace(/-/g, '');
+              // Sanitize: old sessions may have stored the raw UUID as starknetGameId.
+              // Always ensure it's a 0x hex string.
+              const rawId: string = parsed.starknetGameId || '';
+              state.starknetGameId = rawId.startsWith('0x')
+                ? rawId
+                : rawId
+                ? '0x' + rawId.replace(/-/g, '')
+                : '0x' + parsed.gameId.replace(/-/g, '');
+              state.gameSessionId = state.starknetGameId ?? state.gameSessionId;
               state.onlineRoomCode = parsed.roomCode;
               state.onlinePlayerNum = parsed.playerNum;
+
+              // Restore secret character from localStorage commitment
+              const myKey: 'player1' | 'player2' = parsed.playerNum === 2 ? 'player2' : 'player1';
+              try {
+                const commitments = JSON.parse(localStorage.getItem('guessnft_commitments') || '[]');
+                const myCommitment = commitments.find(
+                  (c: any) => c.playerId === myKey && c.gameSessionId === state.gameSessionId
+                );
+                if (myCommitment?.characterId) {
+                  state.players[myKey].secretCharacterId = myCommitment.characterId;
+                  console.log('[recovery] Restored secret character:', myCommitment.characterId);
+                }
+              } catch { /* commitment not found — non-fatal */ }
+
+              // Restore game progress (eliminations, turn, question history)
+              const progress = loadGameProgress(parsed.gameId);
+              if (progress) {
+                state.turnNumber = progress.turnNumber;
+                state.players.player1.eliminatedCharacterIds = progress.p1Eliminated;
+                state.players.player2.eliminatedCharacterIds = progress.p2Eliminated;
+                state.questionHistory = progress.questionHistory;
+                console.log('[recovery] Restored progress: turn', progress.turnNumber,
+                  'p1 elim:', progress.p1Eliminated.length,
+                  'p2 elim:', progress.p2Eliminated.length,
+                  'questions:', progress.questionHistory.length);
+              }
+
               state.phase = GamePhase.ONLINE_WAITING;
             } else {
               localStorage.removeItem('guessnft_online_session');
@@ -588,16 +778,21 @@ export const useGameStore = create<GameState & GameActions>()(
         }
       }),
 
-    setOnlineGame: (gameId, roomCode, playerNum, playerAddress, subMode) =>
+    setOnlineGame: (gameId, roomCode, playerNum, playerAddress, subMode, starknetGameId) =>
       set((state) => {
         state.onlineGameId = gameId;
+        state.starknetGameId = starknetGameId || ('0x' + gameId.replace(/-/g, ''));
         state.onlineRoomCode = roomCode;
         state.onlinePlayerNum = playerNum;
         state.onlineSubMode = subMode;
+        // Canonical session key for commitment storage — must match what
+        // createCommitment() and getCommitment() use.
+        state.gameSessionId = state.starknetGameId;
 
         // Save session so we can recover on refresh
         localStorage.setItem('guessnft_online_session', JSON.stringify({
           gameId,
+          starknetGameId: state.starknetGameId,
           roomCode,
           playerNum,
           playerAddress,
@@ -608,13 +803,20 @@ export const useGameStore = create<GameState & GameActions>()(
 
     advanceToGameStart: () =>
       set((state) => {
+        // Guard: only advance from waiting phases (prevents double-fire from Torii + Supabase)
+        if (
+          state.phase !== GamePhase.ONLINE_WAITING &&
+          state.phase !== GamePhase.SETUP_P1 &&
+          state.phase !== GamePhase.SETUP_P2
+        ) return;
+
         // Called by sync hook when both players have committed — start the game
         state.commitmentStatus = 'both';
         // Simultaneous mode: active player is always the local user
         state.activePlayer = state.onlinePlayerNum === 2 ? 'player2' : 'player1';
         // Rotation is 0 for P1, PI for P2
         state.boardRotation = state.onlinePlayerNum === 2 ? Math.PI : 0;
-        
+
         state.simultaneousStatus = {
           local: 'picking',
           remote: 'waiting',
@@ -622,34 +824,104 @@ export const useGameStore = create<GameState & GameActions>()(
         state.phase = GamePhase.SIMULTANEOUS_ROUND;
       }),
 
-    receiveOpponentQuestion: (questionId, answer) =>
+    receiveOpponentQuestion: (questionIdOrNum, answer) =>
       set((state) => {
-        const q = QUESTIONS.find((q) => q.id === questionId);
-        if (!q) return;
+        // Resolve the question record from either a numeric bit-index or a string question id
+        let qRecord: { id: string; text: string; traitKey: string; traitValue: string } | undefined;
+        if (typeof questionIdOrNum === 'number') {
+          const sq = findSchizodioQuestion(questionIdOrNum);
+          if (!sq) return;
+          qRecord = {
+            id: `zkq_${sq.id}`,
+            text: sq.text,
+            traitKey: `nft_${sq.category}`,
+            traitValue: sq.trait, // use the real trait value, not the broken text.split()
+          };
+        } else {
+          const found = QUESTIONS.find((qn) => qn.id === questionIdOrNum);
+          if (!found) return;
+          qRecord = {
+            id: found.id,
+            text: found.text,
+            traitKey: found.traitKey,
+            traitValue: String(found.traitValue),
+          };
+        }
 
         const opponent = state.activePlayer === 'player1' ? 'player2' : 'player1';
 
         const record = {
-          questionId,
-          questionText: q.text,
-          traitKey: q.traitKey,
-          traitValue: q.traitValue,
+          questionId: qRecord.id,
+          questionText: qRecord.text,
+          traitKey: qRecord.traitKey,
+          traitValue: qRecord.traitValue,
           answer,
           askedBy: opponent as PlayerId,
           turnNumber: state.turnNumber,
         };
-        
+
         state.opponentQuestion = record;
         state.questionHistory.push(record);
-        state.simultaneousStatus.remote = 'asked';
+
+        // Compute opponent's eliminations immediately so OpponentCounter updates in real-time.
+        // We know the opponent's question and our answer (what they'll use to eliminate).
+        if (state.mode === 'online' && answer !== undefined && answer !== null) {
+          const opponentKey = opponent as PlayerId;
+          const opponentEliminated = state.players[opponentKey].eliminatedCharacterIds;
+          const fullOppQ = QUESTIONS.find((qn) => qn.id === qRecord.id);
+          if (fullOppQ) {
+            const oppElimSet = new Set(opponentEliminated);
+            for (const char of state.characters) {
+              if (oppElimSet.has(char.id)) continue;
+              const matchesQuestion = evaluateQuestion(fullOppQ, char);
+              const shouldEliminate = answer ? !matchesQuestion : matchesQuestion;
+              if (shouldEliminate) {
+                opponentEliminated.push(char.id);
+              }
+            }
+          }
+        }
+
+        // In online simultaneous mode: the answer was already auto-computed and sent —
+        // no manual YES/NO needed. Mark remote as answered immediately and advance if ready.
+        state.simultaneousStatus.remote = 'answered';
+        if (state.mode === 'online' && state.simultaneousStatus.local === 'revealed') {
+          state.phase = GamePhase.ANSWER_REVEALED;
+        }
+        // Persist after opponent question processing (includes their eliminations)
+        saveGameProgress(state);
       }),
 
     applyOpponentAnswer: (answer) =>
       set((state) => {
-        if (!state.currentQuestion) return;
-        state.currentQuestion.answer = answer;
+        if (state.currentQuestion) {
+          state.currentQuestion.answer = answer;
+
+          // Also update the corresponding questionHistory entry — it was pushed with
+          // a stale answer: false in askQuestion() because we didn't know the real
+          // answer yet. Immer snapshots freeze previous state, so the history copy
+          // is a separate object from currentQuestion.
+          const historyEntry = state.questionHistory.find(
+            (r) => r.questionId === state.currentQuestion!.questionId &&
+                   r.turnNumber === state.currentQuestion!.turnNumber &&
+                   r.askedBy === state.activePlayer
+          );
+          if (historyEntry) {
+            historyEntry.answer = answer;
+          }
+        } else {
+          // Fallback: currentQuestion was cleared by a phase transition before the
+          // answer arrived. Find the most recent unanswered question in history.
+          const lastMyQ = [...state.questionHistory]
+            .reverse()
+            .find((r) => r.askedBy === state.activePlayer && r.answer === false);
+          if (lastMyQ) {
+            lastMyQ.answer = answer;
+          }
+        }
+
         state.simultaneousStatus.local = 'revealed';
-        
+
         // If we also answered their question, move to revealed phase
         if (state.simultaneousStatus.remote === 'answered') {
           state.phase = GamePhase.ANSWER_REVEALED;
@@ -663,6 +935,7 @@ export const useGameStore = create<GameState & GameActions>()(
           // If opponent guessed right, game over.
           state.winner = winnerPlayerNum === 1 ? 'player1' : 'player2';
           state.phase = GamePhase.GUESS_RESULT;
+          saveGameProgress(state);
         } else {
           // Opponent guessed wrong — ignore. It doesn't affect our local simultaneous turn.
         }
@@ -711,6 +984,40 @@ export const useGameStore = create<GameState & GameActions>()(
         state.isOnChainSyncing = syncing;
       }),
 
+    // ZK Actions
+    setZkPhase: (phase: GamePhase) =>
+      set((state) => {
+        state.phase = phase;
+      }),
+
+    setVerifiedAnswer: (answer: boolean) =>
+      set((state) => {
+        if (state.currentQuestion) {
+          state.currentQuestion.answer = answer;
+        }
+        state.phase = GamePhase.ANSWER_REVEALED;
+      }),
+
+    setActivePlayer: (player: PlayerId) =>
+      set((state) => {
+        state.activePlayer = player;
+      }),
+
+    setWinner: (player: PlayerId | null) =>
+      set((state) => {
+        state.winner = player;
+      }),
+
+    setProofError: (message: string) =>
+      set((state) => {
+        state.proofError = message;
+      }),
+
+    clearProofError: () =>
+      set((state) => {
+        state.proofError = null;
+      }),
+
     syncOnChainState: async () => {
       const { gameSessionId } = useGameStore.getState();
       if (!gameSessionId) return;
@@ -734,21 +1041,31 @@ export const useGameStore = create<GameState & GameActions>()(
     },
 
     submitMoveOnChain: async () => {
-      const { gameSessionId, phase, currentQuestion, guessedCharacterId } = useGameStore.getState();
-      if (!gameSessionId) return;
+      const { onlineGameId, phase, currentQuestion, guessedCharacterId } = useGameStore.getState();
+      const gameId = onlineGameId; 
+      if (!gameId) return;
       try {
         const contract = getGameContract();
         
-        if (phase === GamePhase.SIMULTANEOUS_ROUND && currentQuestion) {
-          console.log('[gameStore] On-chain: Ask Question', currentQuestion.questionId);
-          await contract.askQuestion(gameSessionId, currentQuestion.questionId);
-        } else if (phase === GamePhase.ANSWER_PENDING && currentQuestion) {
-          // In this case, 'currentQuestion' is the one we are answering
-          // We need the answer from local state or pass it in.
-          // For now, let's assume wait for sync.
+        if (phase === GamePhase.QUESTION_SELECT && currentQuestion) {
+          // Strip 'zkq_' prefix for ZK questions, or 'nq_' for NFT questions
+          let qId = currentQuestion.questionId;
+          if (qId.startsWith('zkq_')) qId = qId.slice(4);
+          else if (qId.startsWith('nq_')) {
+            // Manual mapping or fallback (these should ideally be handled via ZK indices)
+            // For now, if we allow nq_ in online mode, we need a mapping.
+            // But we filtered them in UI, so zkq_ is more likely.
+          }
+
+          console.log('[gameStore] On-chain: Ask Question', qId);
+          await contract.askQuestion(gameId, qId);
         } else if (guessedCharacterId) {
-          console.log('[gameStore] On-chain: Make Guess', guessedCharacterId);
-          await contract.makeGuess(gameSessionId, guessedCharacterId);
+          // Strip 'nft_' prefix for character guesses
+          let charId = guessedCharacterId;
+          if (charId.startsWith('nft_')) charId = charId.slice(4);
+
+          console.log('[gameStore] On-chain: Make Guess', charId);
+          await contract.makeGuess(gameId, charId);
         }
 
         await useGameStore.getState().syncOnChainState();
@@ -783,5 +1100,6 @@ export const useGameStore = create<GameState & GameActions>()(
         throw err;
       }
     },
+
   }))
 );

@@ -23,6 +23,12 @@ export interface CharacterTraits {
   nft_clothing?: string;
   nft_sidekick?: string;
   nft_background?: string;
+  nft_mask?: string;
+  nft_weapons?: string;
+  nft_eyewear?: string;
+  nft_headwear?: string;
+  nft_accessories?: string;
+  nft_overlays?: string;
   nft_has_mask?: boolean;
   nft_has_weapons?: boolean;
   nft_has_eyewear?: boolean;

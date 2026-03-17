@@ -18,7 +18,7 @@ export const TILE = {
 
 export const CAMERA = {
   player1: { position: [0, 7, 11] as const, lookAt: [0, 1.5, 0] as const },
-  player2: { position: [0, 7, 11] as const, lookAt: [0, 1.5, 0] as const },
+  player2: { position: [0, 5.5, 11] as const, lookAt: [0, 0.5, 0] as const },
   overview: { position: [0, 12, 14] as const, lookAt: [0, 1, 0] as const },
 } as const;
 

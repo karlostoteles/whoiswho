@@ -18,6 +18,7 @@ export function OpponentCounter() {
 
     const isVisible =
         phase === GamePhase.QUESTION_SELECT ||
+        phase === GamePhase.SIMULTANEOUS_ROUND ||
         phase === GamePhase.ANSWER_PENDING ||
         phase === GamePhase.ANSWER_REVEALED ||
         phase === GamePhase.AUTO_ELIMINATING ||

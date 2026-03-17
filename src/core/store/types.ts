@@ -22,6 +22,10 @@ export enum GamePhase {
   GUESS_RESULT = 'GUESS_RESULT', // Correct guess — winner declared
   GAME_OVER = 'GAME_OVER',
   SIMULTANEOUS_ROUND = 'SIMULTANEOUS_ROUND', // Tracked via simultaneousStatus
+  PROVING = 'PROVING',             // Web Worker generating ZK proof
+  SUBMITTING = 'SUBMITTING',       // Submitting proof tx to Starknet
+  VERIFIED = 'VERIFIED',           // On-chain verification confirmed
+  REVEAL_WAITING = 'REVEAL_WAITING', // Waiting for both players to reveal characters
 }
 
 export type PlayerId = 'player1' | 'player2';
@@ -88,6 +92,10 @@ export interface GameState {
     remote: 'waiting' | 'asked' | 'guessed' | 'answered' | 'revealed';
   };
   isOnChainSyncing: boolean;
+  // ZK Extensions
+  starknetGameId: string | null;
+  proofError: string | null;
+  processedTurnIds: Set<number>;
 }
 
 export interface GameActions {
@@ -106,10 +114,10 @@ export interface GameActions {
   resetGame: () => void;
   goBackToSetupP1: () => void;
   // Online-specific actions (called by useOnlineGameSync hook)
-  setOnlineGame: (gameId: string, roomCode: string, playerNum: 1 | 2, playerAddress: string, subMode: 'normal' | 'betting') => void;
+  setOnlineGame: (gameId: string, roomCode: string, playerNum: 1 | 2, playerAddress: string, subMode: 'normal' | 'betting', starknetGameId?: string) => void;
   recoverOnlineGame: (characters: Character[], currentAddress?: string) => void;
   advanceToGameStart: () => void;
-  receiveOpponentQuestion: (questionId: string, answer: boolean) => void;
+  receiveOpponentQuestion: (questionIdOrNum: string | number, answer: boolean | null) => void;
   applyOpponentAnswer: (answer: boolean) => void;
   receiveOpponentGuess: (characterId: string, isCorrect: boolean, winnerPlayerNum: 1 | 2 | null) => void;
   applyGuessResult: (isCorrect: boolean, winner: PlayerId | null) => void;
@@ -125,4 +133,11 @@ export interface GameActions {
   submitMoveOnChain: () => Promise<void>;
   claimTimeoutOnChain: () => Promise<void>;
   cancelGameOnChain: () => Promise<void>;
+  // ZK Actions
+  setZkPhase: (phase: GamePhase) => void;
+  setVerifiedAnswer: (answer: boolean) => void;
+  setProofError: (message: string) => void;
+  clearProofError: () => void;
+  setActivePlayer: (player: PlayerId) => void;
+  setWinner: (player: PlayerId | null) => void;
 }

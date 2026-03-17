@@ -7,7 +7,7 @@ import { GamePhase, PlayerId } from '@/core/store/types';
 import { useOwnedNFTs, useWalletStore } from '@/services/starknet/walletStore';
 import { nftToCharacter } from '@/core/data/nftCharacterAdapter';
 import { useGameStore } from '@/core/store/gameStore';
-import { ensureZKCommitment } from '@/services/starknet/commitReveal';
+// Pedersen commitment stored by selectSecretCharacter; on-chain commit by useOnlineGameSync
 import { useWalletConnection } from '@/services/starknet';
 import { useIsOnChainSyncing } from '@/core/store/selectors';
 
@@ -122,30 +122,10 @@ export function CharacterSelectScreen() {
 
       const session = useGameStore.getState().gameSessionId;
 
-      // Online mode: compute ZK commitment locally and wait.
-      // useOnlineGameSync.triggerCommitment() is the canonical on-chain executor —
-      // it fires when the contract moves to COMMIT_PHASE, so we don't submit here.
+      // Online/NFT mode: Pedersen commitment is already stored by selectSecretCharacter().
+      // Go to ONLINE_WAITING. On-chain commit is handled by useOnlineGameSync
+      // when Torii detects the contract is in COMMIT_PHASE.
       if (isNFTMode && mode !== 'nft-free') {
-        const address = useWalletStore.getState().address;
-        if (!address) throw new Error('Wallet not connected');
-
-        // Compute Poseidon2 ZK commitment and persist it to localStorage.
-        // The sync hook reads it from there when submitting commit_character on-chain.
-        // Defensively normalise starknetGameId: old localStorage sessions may contain
-        // raw Supabase UUIDs (with dashes) which BigInt() cannot parse.
-        const rawId = useGameStore.getState().starknetGameId || '';
-        const safeGameId = rawId.startsWith('0x')
-          ? rawId
-          : rawId
-          ? '0x' + rawId.replace(/-/g, '')
-          : '0';
-        await ensureZKCommitment(
-          player,
-          session,
-          BigInt(safeGameId),
-          BigInt(address)
-        );
-
         useGameStore.setState(s => { s.phase = GamePhase.ONLINE_WAITING; });
       } else {
         // Non-online or non-NFT mode: just advance phase normally

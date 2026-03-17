@@ -9,7 +9,8 @@
 
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { NFT_QUESTIONS, type Question } from '@/core/data/questions';
+import { QUESTIONS, type Question } from '@/core/data/questions';
+import { useGameStore } from '@/core/store/gameStore';
 import type { Character } from '@/core/data/characters';
 import { evaluateQuestion } from '@/core/rules/evaluateQuestion';
 import { NFTQuestionButton } from './QuestionButtons';
@@ -33,16 +34,27 @@ export function NFTModeBody({
 }: NFTModeBodyProps) {
 
   // Info-gain filtered question IDs
+  const mode = useGameStore((s) => s.mode);
+  const relevantQuestions = useMemo(() => {
+    // In online mode, we MUST use ZK questions (zkq_) for circuit compatibility.
+    // In other NFT modes, we can show both for variety/UI consistency.
+    if (mode === 'online') {
+      return QUESTIONS.filter(q => q.id.startsWith('zkq_'));
+    }
+    return QUESTIONS.filter(q => q.id.startsWith('nq_') || q.id.startsWith('zkq_'));
+  }, [mode]);
+
+  // Info-gain filtered question IDs
   const usefulIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const q of NFT_QUESTIONS) {
+    for (const q of relevantQuestions) {
       if (askedIds.has(q.id)) { ids.add(q.id); continue; }
       const yesCount = remaining.filter((c) => evaluateQuestion(q, c)).length;
       if (yesCount > 0 && yesCount < remaining.length) ids.add(q.id);
     }
-    if (ids.size === askedIds.size) NFT_QUESTIONS.forEach((q) => ids.add(q.id));
+    if (ids.size === askedIds.size) relevantQuestions.forEach((q) => ids.add(q.id));
     return ids;
-  }, [remaining, askedIds]);
+  }, [remaining, askedIds, relevantQuestions]);
 
   // Group questions by data-driven category
   const categoryQuestions = useMemo(() => {
@@ -50,7 +62,7 @@ export function NFTModeBody({
     for (const cat of TRAIT_CATEGORIES_CONFIG) {
       map.set(cat.id, []);
     }
-    for (const q of NFT_QUESTIONS) {
+    for (const q of relevantQuestions) {
       const catId = getTraitCategory(q.traitKey);
       if (catId && usefulIds.has(q.id)) {
         if (!map.has(catId)) map.set(catId, []);
@@ -78,7 +90,7 @@ export function NFTModeBody({
 
   const matchPctMap = useMemo(() => {
     const map = new Map<string, number>();
-    for (const q of NFT_QUESTIONS) {
+    for (const q of relevantQuestions) {
       if (askedIds.has(q.id) || !usefulIds.has(q.id)) continue;
       const yesCount = remaining.filter((c) => evaluateQuestion(q, c)).length;
       map.set(q.id, remaining.length > 0 ? Math.round((yesCount / remaining.length) * 100) : 0);
@@ -95,7 +107,7 @@ export function NFTModeBody({
   }, [activeQuestions, matchPctMap, askedIds]);
 
   const topQuestions = useMemo(() => {
-    return NFT_QUESTIONS
+    return relevantQuestions
       .filter((q) => usefulIds.has(q.id) && !askedIds.has(q.id))
       .map((q) => {
         const yesCount = remaining.filter((c) => evaluateQuestion(q, c)).length;

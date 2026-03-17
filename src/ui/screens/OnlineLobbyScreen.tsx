@@ -16,7 +16,7 @@ import { isSupabaseConfigured } from '@/services/supabase/client';
 import { useGameActions } from '@/core/store/selectors';
 import { generateAllCollectionCharacters } from '@/services/starknet/collectionService';
 import { useGameStore } from '@/core/store/gameStore';
-import { createGameOnChain, joinGameOnChain } from '@/zk/useZKAnswer';
+import { getGameContract } from '@/services/starknet/starkzapService';
 import { WalletConnectOverlay } from '../widgets/WalletConnectOverlay';
 
 interface Props {
@@ -200,7 +200,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
       // 1. Create game on-chain using Gian's ZK engine (correct event extraction)
       let gameIdFelt: string;
       try {
-        gameIdFelt = await createGameOnChain();
+        gameIdFelt = await getGameContract().createGame();
       } catch (chainErr: any) {
         if (chainErr.message === 'YOUR_ACCOUNT_UPGRADE_REQUIRED') {
           if (confirm('Your account is too old for gasless play. Continue by paying gas yourself?')) {
@@ -218,7 +218,6 @@ export function OnlineLobbyScreen({ onBack }: Props) {
       // (starknetGameId). gameSessionId is set to the felt so localStorage commitments
       // are keyed by the on-chain game ID.
       setOnlineGame(game.id, game.room_code, playerNum, walletAddress, subMode, gameIdFelt);
-      useGameStore.setState({ gameSessionId: gameIdFelt });
 
       setGameMode('online', characters);
       startSetup();
@@ -245,12 +244,11 @@ export function OnlineLobbyScreen({ onBack }: Props) {
 
       // Join on-chain — this transitions the contract from WAITING_FOR_PLAYER2 → COMMIT_PHASE.
       // Torii will detect COMMIT_PHASE and trigger commitment for both players.
-      await joinGameOnChain(gameIdFelt);
+      await getGameContract().joinGame(gameIdFelt);
 
       const subMode = (game as any).is_betting ? 'betting' : 'normal';
 
       setOnlineGame(game.id, game.room_code, playerNum, walletAddress, subMode, gameIdFelt);
-      useGameStore.setState({ gameSessionId: gameIdFelt });
 
       setGameMode('online', characters);
       startSetup();

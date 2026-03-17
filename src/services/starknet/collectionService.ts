@@ -19,8 +19,11 @@ let _cached: Character[] | null = null;
 export async function generateAllCollectionCharacters(): Promise<Character[]> {
   if (_cached) return _cached;
 
-  const { characters, question_schema } = schizodioData;
+  const { characters, question_schema, traits_root: root } = schizodioData;
   const chars: Character[] = [];
+  
+  // Re-export traits_root for convenience
+  (generateAllCollectionCharacters as any).traits_root = root;
 
   // Ensure characters are sorted by ID for consistent board mapping between players
   const sortedRaw = [...characters].sort((a, b) => (a.id || 0) - (b.id || 0));
@@ -39,6 +42,7 @@ export async function generateAllCollectionCharacters(): Promise<Character[]> {
       name: raw.name || `Schizodio #${raw.id}`,
       imageUrl: resolveUrl(raw.image_url),
       traits,
+      bitmap: raw.bitmap,
     });
   }
 

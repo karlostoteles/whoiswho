@@ -110,7 +110,7 @@ export function OnlineWaitingScreen() {
           <span>{isCreator ? 'Waiting for opponent' : `You're P${playerNum} · Waiting…`}</span>
           
           <motion.button
-            onClick={() => useGameStore.getState().syncSupabaseState()}
+            onClick={() => useGameStore.getState().syncOnChainState()}
             whileHover={{ scale: 1.1, color: '#E8A444' }}
             whileTap={{ scale: 0.9 }}
             style={{

@@ -38,6 +38,8 @@ export interface SchizodioQuestion {
   id: number;
   text: string;
   category: SchizodioCategory;
+  /** Snake_case trait name (e.g. 'backwoods_blunt'). Used as traitValue in ZK_QUESTIONS. */
+  trait: string;
 }
 
 // ─── Text generation helper ────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ function makeText(category: SchizodioCategory, traitSnake: string): string {
 }
 
 function q(id: number, category: SchizodioCategory, traitSnake: string): SchizodioQuestion {
-  return { id, category, text: makeText(category, traitSnake) };
+  return { id, category, text: makeText(category, traitSnake), trait: traitSnake };
 }
 
 // ─── All 418 questions ────────────────────────────────────────────────────────

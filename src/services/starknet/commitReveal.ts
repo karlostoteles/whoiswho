@@ -20,6 +20,7 @@
  */
 import { hash } from 'starknet';
 import { getGameContract } from './starkzapService';
+import { computeZKCommitment, characterIdToCircuitId } from '@/zk/zkCommitment';
 
 const STORAGE_KEY = 'guessnft_commitments';
 
@@ -28,6 +29,7 @@ export interface Commitment {
   characterId: string;
   salt: string;        // hex string, 32 bytes
   commitment: string;  // hex Pedersen hash
+  zkCommitment?: string; // hex Poseidon2 hash for ZK proofs
   gameSessionId: string;
 }
 
@@ -52,7 +54,7 @@ function generateSalt(): string {
  * Convert a string character ID to a felt252-compatible value.
  * We hash the string to get a numeric felt.
  */
-function characterIdToFelt(characterId: string): string {
+export function characterIdToFelt(characterId: string): string {
   // Encode string as bytes, then take modulo of the Starknet field prime
   let val = BigInt(0);
   for (let i = 0; i < characterId.length; i++) {
@@ -143,6 +145,51 @@ export function verifyReveal(
 }
 
 /**
+ * Ensure a ZK commitment exists for a player.
+ * If missing, computes it and updates localStorage.
+ */
+export async function ensureZKCommitment(
+  playerId: 'player1' | 'player2',
+  gameSessionId: string,
+  gameId: bigint,
+  playerAddress: bigint
+): Promise<{ commitment: string; zkCommitment: string }> {
+  const c = getCommitment(playerId, gameSessionId);
+  if (!c) throw new Error(`Commitment not found for session ${gameSessionId}`);
+
+  if (c.zkCommitment) {
+    return { commitment: c.commitment, zkCommitment: c.zkCommitment };
+  }
+
+  const numericId = characterIdToCircuitId(c.characterId);
+  const zkHash = await computeZKCommitment(
+    gameId,
+    playerAddress,
+    numericId,
+    BigInt(c.salt)
+  );
+  
+  const zkCommitment = '0x' + zkHash.toString(16);
+  
+  // Update local storage
+  const all = loadAll();
+  const index = all.findIndex(x => x.playerId === playerId && x.gameSessionId === gameSessionId);
+  if (index >= 0) {
+    all[index].zkCommitment = zkCommitment;
+    saveAll(all);
+  }
+
+  return { commitment: c.commitment, zkCommitment };
+}
+
+/**
+ * Convert character ID to numeric felt for Noir circuit.
+ */
+export function characterIdToFeltCircuit(characterId: string): string {
+  return characterIdToCircuitId(characterId).toString(10);
+}
+
+/**
  * Retrieve the stored commitment for a player (includes salt for reveal).
  */
 export function getCommitment(
@@ -184,10 +231,11 @@ export function getExplorerLink(txHash: string): string {
  */
 export async function submitCommitmentOnChain(
   commitment: string,
-  gameId: string
+  gameId: string,
+  zkCommitment?: string
 ): Promise<string> {
   const contract = getGameContract();
-  const hash = await contract.commitCharacter(gameId, commitment);
+  const hash = await contract.commitCharacter(gameId, commitment, zkCommitment);
   console.log('[commitReveal] Commitment submitted:', hash);
   return hash;
 }
@@ -221,10 +269,11 @@ export async function depositWagerOnChain(
 export async function commitAndWagerOnChain(
   gameId: string,
   commitment: string,
+  zkCommitment?: string,
   tokenId?: string
 ): Promise<string> {
   const contract = getGameContract();
-  return contract.commitAndWagerMulticall(gameId, commitment, tokenId);
+  return contract.commitAndWagerMulticall(gameId, commitment, zkCommitment);
 }
 
 /**

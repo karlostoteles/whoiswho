@@ -24,6 +24,7 @@ export interface SupabaseGame {
   winner_player_num: number | null;
   turn_number: number;
   characters: any[] | null;
+  onchain_id: string | null;
   created_at: string;
   updated_at: string;
 }

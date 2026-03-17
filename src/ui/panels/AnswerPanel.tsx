@@ -20,9 +20,10 @@ export function AnswerPanel() {
 
   const isVisible = phase === GamePhase.SIMULTANEOUS_ROUND 
     ? simultStatus.remote === 'asked'
-    : phase === GamePhase.ANSWER_PENDING;
+    : [GamePhase.ANSWER_PENDING, GamePhase.PROVING, GamePhase.SUBMITTING, GamePhase.VERIFIED].includes(phase);
 
-  if (!question || !isVisible) return null;
+  const displayQuestion = question || opponentQuestion;
+  if (!isVisible || !displayQuestion) return null;
 
   const content = (
     <motion.div
@@ -68,39 +69,57 @@ export function AnswerPanel() {
             color: '#FFFFFE',
           }}
         >
-          {question.questionText}
+          {displayQuestion.questionText}
         </motion.div>
 
-        <div style={{
-          display: 'flex',
-          gap: 12,
-          justifyContent: 'center',
-        }}>
-          <Button
-            variant="yes"
-            size="lg"
-            onClick={() => answerQuestion(true)}
-            style={{ minWidth: 100, flex: 1, maxWidth: 150 }}
-          >
-            YES
-          </Button>
-          <Button
-            variant="no"
-            size="lg"
-            onClick={() => answerQuestion(false)}
-            style={{ minWidth: 100, flex: 1, maxWidth: 150 }}
-          >
-            NO
-          </Button>
-        </div>
+        {phase === GamePhase.PROVING || phase === GamePhase.SUBMITTING ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+              style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#E8A444' }}
+            />
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', color: '#E8A444', textTransform: 'uppercase' }}>
+              {phase === GamePhase.PROVING ? 'Generating ZK Proof...' : 'Submitting to Chain...'}
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,254,0.3)', maxWidth: 240 }}>
+              {phase === GamePhase.PROVING 
+                ? 'Validating traits against commitment. This remains private to your device.' 
+                : 'Waiting for blockchain confirmation...'}
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex',
+            gap: 12,
+            justifyContent: 'center',
+          }}>
+            <Button
+              variant="yes"
+              size="lg"
+              onClick={() => answerQuestion(true)}
+              style={{ minWidth: 100, flex: 1, maxWidth: 150 }}
+            >
+              YES
+            </Button>
+            <Button
+              variant="no"
+              size="lg"
+              onClick={() => answerQuestion(false)}
+              style={{ minWidth: 100, flex: 1, maxWidth: 150 }}
+            >
+              NO
+            </Button>
+          </div>
+        )}
 
-        {question.answer !== null && (
+        {displayQuestion.answer !== null && (
           <div style={{
             marginTop: 14,
             fontSize: 11,
             color: 'rgba(255,255,254,0.25)',
           }}>
-            Correct answer: {question.answer ? 'Yes' : 'No'}
+            Correct answer: {displayQuestion.answer ? 'Yes' : 'No'}
           </div>
         )}
       </Card>

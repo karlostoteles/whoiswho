@@ -11,11 +11,15 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@aztec/bb.js": "^4.0.4",
+    "@dojoengine/torii-client": "^1.8.2",
+    "@noir-lang/noir_js": "^1.0.0-beta.19",
     "@react-spring/three": "^10.0.3",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@supabase/supabase-js": "^2.98.0",
     "framer-motion": "^12.34.3",
+    "garaga": "^1.0.1",
     "get-starknet": "^3.3.3",
     "i18next": "^25.8.14",
     "i18next-browser-languagedetector": "^8.2.1",
@@ -44,6 +48,8 @@
     "typescript": "^5.9.3",
     "vite": "^5.4.11",
     "vite-plugin-mkcert": "^1.17.10",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0",
     "vitest": "^4.1.0"
   }
 }

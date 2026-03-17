@@ -10,13 +10,15 @@ function generateRoomCode(): string {
 
 export async function createGame(
   playerAddress: string,
-  characters: Character[]
+  characters: Character[],
+  gameId?: string
 ): Promise<{ game: SupabaseGame; playerNum: 1 }> {
   const room_code = generateRoomCode();
 
   const { data, error } = await supabase
     .from('games')
     .insert({
+      onchain_id: gameId || null,
       room_code,
       status: 'waiting',
       player1_address: playerAddress,

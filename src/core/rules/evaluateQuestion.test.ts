@@ -16,9 +16,8 @@ describe('evaluateQuestion', () => {
       has_glasses: false,
       has_hat: false,
       has_beard: false,
-      has_earrings: true,
     } as any,
-  };
+  } as any;
 
   it('evaluates boolean traits correctly', () => {
     const qHasEarrings: Question = {
@@ -66,7 +65,7 @@ describe('evaluateQuestion', () => {
       text: 'Is their name Luna?',
       traitKey: 'name',
       traitValue: 'Luna',
-      category: 'personal',
+      category: 'other',
       matchFn: (char) => char.name === 'Luna',
     };
 
@@ -77,7 +76,7 @@ describe('evaluateQuestion', () => {
       text: 'Is their name Max?',
       traitKey: 'name',
       traitValue: 'Max',
-      category: 'personal',
+      category: 'other',
       matchFn: (char) => char.name === 'Max',
     };
     expect(evaluateQuestion(qCustomFalse, sampleCharacter)).toBe(false);
