@@ -433,6 +433,36 @@ function LandingView({ onFreePlay, onLeaderboard }: { onFreePlay: () => void; on
         >
           Try free mode →
         </motion.button>
+
+        {/* ZK Private Mode — opens Gianfranco's fully on-chain version in new tab */}
+        <motion.a
+          href="https://guessnft-zk.netlify.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => sfx.click()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.6 }}
+          whileHover={{ scale: 1.05, boxShadow: '0 0 32px rgba(124,58,237,0.4)' }}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(167,139,250,0.15))',
+            border: '1px solid rgba(167,139,250,0.35)',
+            borderRadius: 12, padding: '12px 28px',
+            color: '#A78BFA', fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: 14, fontWeight: 700, cursor: 'pointer', outline: 'none',
+            textDecoration: 'none',
+            display: 'flex', alignItems: 'center', gap: 8,
+            boxShadow: '0 0 16px rgba(124,58,237,0.15)',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          Full ZK Private Mode
+          <span style={{ opacity: 0.5, fontSize: 11 }}>↗</span>
+        </motion.a>
       </motion.div>
 
       {/* Trait Meta Engine - Continuation on scroll */}
