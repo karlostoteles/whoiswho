@@ -2,11 +2,10 @@ import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../common/Card';
 import { useCharacterPreviews } from '@/shared/hooks/useCharacterPreviews';
-import { usePhase, useGameActions, useGameCharacters, useGameMode, useOnlinePlayerNum } from '@/core/store/selectors';
+import { usePhase, useGameActions, useGameCharacters, useGameMode, useOnlinePlayerNum, useGameSessionId } from '@/core/store/selectors';
 import { GamePhase, PlayerId } from '@/core/store/types';
 import { useOwnedNFTs } from '@/services/starknet/walletStore';
 import { nftToCharacter } from '@/core/data/nftCharacterAdapter';
-import { useGameStore } from '@/core/store/gameStore';
 import { getCommitment, submitCommitmentOnChain } from '@/services/starknet/commitReveal';
 
 // Deterministic accent colour from character id
@@ -24,14 +23,13 @@ export function CharacterSelectScreen() {
   const mode = useGameMode();
   const onlinePlayerNum = useOnlinePlayerNum();
   const { selectSecretCharacter, resetGame, goBackToSetupP1 } = useGameActions();
+  const gameSessionId = useGameSessionId();
   const [lockingIn, setLockingIn] = useState<string | null>(null);
 
   // All game characters (full 999-stub board for nft/online, meme chars for free)
   const allCharacters = useGameCharacters();
   // Owned NFTs from wallet — these have real imageUrls
   const ownedNFTs = useOwnedNFTs();
-  const bypassActive = useMemo(() => localStorage.getItem('whoiswho_bypass') === '1', []);
-
   const isNFTMode = mode === 'online' || mode === 'nft' || mode === 'nft-free';
 
   // The player this screen is selecting for
@@ -52,26 +50,8 @@ export function CharacterSelectScreen() {
       // Use owned NFTs with real imageUrls — IDs match the board stubs
       return ownedNFTs.map(nft => nftToCharacter(nft));
     }
-    return null; // bypass case handled separately
+    return null;
   }, [isNFTMode, ownedNFTs]);
-
-  // Bypass + no NFTs: auto-assign a random character (not applicable in nft-free — full collection is shown)
-  const isBypassNoNFT = isNFTMode && bypassActive && ownedNFTs.length === 0 && mode !== 'nft-free';
-  const [bypassAssigned, setBypassAssigned] = useState<{ id: string; name: string } | null>(null);
-
-  useEffect(() => {
-    if (!isBypassNoNFT || bypassAssigned) return;
-    // Pick a random character from all 999 that isn't already taken
-    const gameState = useGameStore.getState();
-    const takenIds = new Set([
-      gameState.players.player1.secretCharacterId,
-      gameState.players.player2.secretCharacterId,
-    ].filter(Boolean) as string[]);
-    const pool = allCharacters.filter(c => !takenIds.has(c.id));
-    if (pool.length === 0) return;
-    const random = pool[Math.floor(Math.random() * pool.length)];
-    setBypassAssigned({ id: random.id, name: random.name });
-  }, [isBypassNoNFT, bypassAssigned, allCharacters]);
 
   // For free mode: use allCharacters (meme chars) with canvas previews
   const freeModeChars = !isNFTMode ? allCharacters : null;
@@ -102,7 +82,7 @@ export function CharacterSelectScreen() {
       // Update local storage commitment first so it's ready.
       selectSecretCharacter(player, charId);
 
-      const session = useGameStore.getState().gameSessionId;
+      const session = gameSessionId;
 
       // Submit commitment on-chain (no wager for MVP)
       if (isNFTMode && mode !== 'nft-free') {
@@ -123,78 +103,7 @@ export function CharacterSelectScreen() {
     }
   };
 
-  // ── Bypass / no-NFT auto-pick screen ──────────────────────────────────────
-  if (isBypassNoNFT) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          pointerEvents: 'auto', zIndex: 20, padding: 24,
-        }}
-      >
-        <Card style={{ width: 'min(380px, 100%)', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🎲</div>
-          <div style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontWeight: 800, fontSize: 20, color: '#E8A444', marginBottom: 8,
-          }}>
-            Access Code Player
-          </div>
-          <div style={{
-            fontSize: 13, color: 'rgba(255,255,254,0.45)', lineHeight: 1.6, marginBottom: 24,
-          }}>
-            You don't own any SCHIZODIOs, so a random one from the collection will be assigned as your secret character.
-          </div>
-          {bypassAssigned ? (
-            <>
-              <div style={{
-                background: 'rgba(232,164,68,0.1)',
-                border: '2px solid rgba(232,164,68,0.3)',
-                borderRadius: 12,
-                padding: '16px 24px',
-                marginBottom: 24,
-              }}>
-                <div style={{ fontSize: 12, color: 'rgba(232,164,68,0.6)', marginBottom: 4, letterSpacing: '0.08em' }}>YOUR SCHIZODIO</div>
-                <div style={{
-                  fontFamily: "'Space Grotesk', monospace",
-                  fontSize: 28, fontWeight: 800, color: '#E8A444', letterSpacing: '0.05em',
-                }}>
-                  {bypassAssigned.name}
-                </div>
-              </div>
-              <motion.button
-                onClick={() => handleSelect(bypassAssigned.id)}
-                disabled={!!lockingIn}
-                whileHover={!lockingIn ? { scale: 1.04, filter: 'brightness(1.1)' } : {}}
-                whileTap={{ scale: 0.97 }}
-                style={{
-                  background: 'linear-gradient(135deg, #E8A444, #C47B1A)',
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '14px 32px',
-                  color: '#0F0E17',
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontWeight: 700, fontSize: 15, cursor: 'pointer',
-                  width: '100%',
-                }}
-              >
-                {lockingIn ? 'Locking on-chain...' : `Lock In ${bypassAssigned.name} →`}
-              </motion.button>
-            </>
-          ) : (
-            <div style={{ color: 'rgba(255,255,254,0.3)', fontSize: 14 }}>Assigning…</div>
-          )}
-        </Card>
-      </motion.div>
-    );
-  }
-
-  // ── Normal picker (owned NFTs for nft/online, meme chars for free) ─────────
+  // ── Character picker (owned NFTs for nft/online, meme chars for free) ─────
   return (
     <motion.div
       initial={{ opacity: 0 }}
