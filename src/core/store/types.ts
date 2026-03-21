@@ -98,6 +98,8 @@ export interface GameActions {
   receiveOpponentGuess: (characterId: string, isCorrect: boolean, winnerPlayerNum: 1 | 2 | null) => void;
   receiveOpponentElimination: (eliminatedIds: string[]) => void;
   applyGuessResult: (isCorrect: boolean, winner: PlayerId | null) => void;
+  /** Sync turn state from Supabase games table — called by useOnlineGameSync on every game row update. */
+  syncOnlineTurn: (activePlayerNum: 1 | 2, turnNumber: number) => void;
   /** Enrich stub NFT characters with real trait attributes from fetchTraitsBatch(). */
   enrichNFTCharacters: (traitMap: Map<string, NFTAttribute[]>) => void;
   // Settings toggle

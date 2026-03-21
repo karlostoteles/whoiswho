@@ -677,6 +677,36 @@ export const useGameStore = create<GameState & GameActions>()(
         }
       }),
 
+    syncOnlineTurn: (activePlayerNum, turnNumber) =>
+      set((state) => {
+        if (state.mode !== 'online') return;
+        // Only advance turn if we're not already past this turn number
+        if (turnNumber <= state.turnNumber) return;
+
+        const nextPlayer: PlayerId = activePlayerNum === 1 ? 'player1' : 'player2';
+        const myPlayerKey: PlayerId = state.onlinePlayerNum === 1 ? 'player1' : 'player2';
+
+        state.turnNumber = turnNumber;
+        state.activePlayer = nextPlayer;
+        state.boardRotation = nextPlayer === 'player1' ? 0 : Math.PI;
+
+        // Clear current question so the question select screen is unblocked
+        state.currentQuestion = null;
+        state.guessedCharacterId = null;
+
+        // Only transition to QUESTION_SELECT if we're currently stuck waiting
+        const waitingPhases = [
+          GamePhase.AUTO_ELIMINATING,
+          GamePhase.TURN_TRANSITION,
+          GamePhase.ANSWER_REVEALED,
+          GamePhase.ANSWER_PENDING,
+          GamePhase.GUESS_WRONG,
+        ];
+        if (waitingPhases.includes(state.phase)) {
+          state.phase = GamePhase.QUESTION_SELECT;
+        }
+      }),
+
     goBackToSetupP1: () =>
       set((state) => {
         if (state.phase === GamePhase.SETUP_P2) {

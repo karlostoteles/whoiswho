@@ -14,7 +14,7 @@ import { GamePhase } from '@/core/store/types';
 import type { PlayerId, QuestionRecord } from '@/core/store/types';
 
 /** Seconds without opponent presence before showing disconnect warning. */
-const DISCONNECT_TIMEOUT_S = 45;
+const DISCONNECT_TIMEOUT_S = 60;
 import { evaluateQuestion } from '@/core/rules/evaluateQuestion';
 import { QUESTIONS } from '@/core/data/questions';
 import {
@@ -114,10 +114,11 @@ export function useOnlineGameSync(): { opponentDisconnected: boolean } {
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const presenceState = presenceChannel.presenceState();
-        // Check if opponent is present
-        const allPresences = Object.values(presenceState).flat() as unknown as { player_num: number }[];
+        // Check if opponent is present — cast to Number() because Supabase
+        // Presence can serialise player_num as a string over the wire.
+        const allPresences = Object.values(presenceState).flat() as unknown as { player_num: number | string }[];
         const opponentPresent = allPresences.some(
-          (p) => p.player_num !== onlinePlayerNum
+          (p) => Number(p.player_num) !== Number(onlinePlayerNum)
         );
         if (opponentPresent) {
           opponentLastSeen = Date.now();
@@ -431,6 +432,21 @@ export function useOnlineGameSync(): { opponentDisconnected: boolean } {
     const state = useGameStore.getState();
     if (game.status === 'in_progress' && state.phase === GamePhase.ONLINE_WAITING) {
       state.advanceToGameStart();
+    }
+    // Sync turn state from the authoritative DB row.
+    // This is the key fix for stuck turns: the non-active player receives the
+    // turn update via Supabase Realtime and syncs their local state here.
+    if (
+      game.active_player_num &&
+      game.turn_number &&
+      state.phase !== GamePhase.ONLINE_WAITING &&
+      state.phase !== GamePhase.MENU &&
+      state.phase !== GamePhase.GAME_OVER
+    ) {
+      state.syncOnlineTurn(
+        Number(game.active_player_num) as 1 | 2,
+        Number(game.turn_number),
+      );
     }
   }
 
