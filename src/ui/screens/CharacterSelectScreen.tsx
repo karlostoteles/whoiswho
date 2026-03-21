@@ -25,6 +25,7 @@ export function CharacterSelectScreen() {
   const { selectSecretCharacter, resetGame, goBackToSetupP1 } = useGameActions();
   const gameSessionId = useGameSessionId();
   const [lockingIn, setLockingIn] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // All game characters (full 999-stub board for nft/online, meme chars for free)
   const allCharacters = useGameCharacters();
@@ -89,6 +90,8 @@ export function CharacterSelectScreen() {
         const stored = getCommitment(player, session);
         if (stored) {
           await submitCommitmentOnChain(stored.commitment, session);
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 2000);
         }
       }
 
@@ -241,6 +244,53 @@ export function CharacterSelectScreen() {
             </div>
           )}
         </div>
+
+        {/* Success toast after on-chain commit */}
+        <AnimatePresence>
+          {showSuccess && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: -10 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                zIndex: 30,
+              }}
+            >
+              <div style={{
+                background: 'rgba(15,14,23,0.95)',
+                border: '2px solid rgba(76,175,80,0.6)',
+                borderRadius: 16,
+                padding: '20px 32px',
+                textAlign: 'center',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.6), 0 0 20px rgba(76,175,80,0.2)',
+              }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>&#x2713;</div>
+                <div style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: '#4CAF50',
+                }}>
+                  Character Locked &amp; Committed!
+                </div>
+                <div style={{
+                  fontSize: 12,
+                  color: 'rgba(255,255,254,0.4)',
+                  marginTop: 4,
+                }}>
+                  On-chain commitment submitted
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
     </motion.div>
   );

@@ -224,11 +224,19 @@ export const useGameStore = create<GameState & GameActions>()(
             break;
           }
           case GamePhase.AUTO_ELIMINATING: {
-            if (state.mode === 'free' || state.mode === 'nft-free' || state.mode === 'online') {
-              // Simultaneous mode: P1 (or local online player) always stays active, no player switching
+            if (state.mode === 'free' || state.mode === 'nft-free') {
+              // Simultaneous mode: P1 always stays active, no player switching
               state.turnNumber += 1;
               state.currentQuestion = null;
               state.cpuQuestion = null;
+              state.phase = GamePhase.TURN_TRANSITION;
+            } else if (state.mode === 'online') {
+              // Online strict turn-based: swap active player after each Q&A cycle
+              const next = getOpponent(state.activePlayer);
+              state.activePlayer = next;
+              state.boardRotation = next === 'player1' ? 0 : Math.PI;
+              state.turnNumber += 1;
+              state.currentQuestion = null;
               state.phase = GamePhase.TURN_TRANSITION;
             } else {
               const next = getOpponent(state.activePlayer);
@@ -244,14 +252,26 @@ export const useGameStore = create<GameState & GameActions>()(
             state.phase = GamePhase.QUESTION_SELECT;
             break;
           case GamePhase.GUESS_WRONG: {
-            if (state.mode === 'free' || state.mode === 'nft-free' || state.mode === 'online') {
+            if (state.mode === 'online') {
+              // Online strict turn-based: swap active player after wrong guess
+              const next = getOpponent(state.activePlayer);
+              state.activePlayer = next;
+              state.boardRotation = next === 'player1' ? 0 : Math.PI;
+              state.turnNumber += 1;
+              state.currentQuestion = null;
+              state.guessedCharacterId = null;
+              state.phase = GamePhase.TURN_TRANSITION;
+              break;
+            }
+
+            if (state.mode === 'free' || state.mode === 'nft-free') {
               // Simultaneous mode: local player stays active, no player switching
               state.turnNumber += 1;
               state.currentQuestion = null;
               state.cpuQuestion = null;
               state.guessedCharacterId = null;
 
-              if (state.mode === 'free' || state.mode === 'nft-free') {
+              {
                 // Opponent (CPU) gets a free question because player risked it and failed!
                 const cpuEliminated = state.players.player2.eliminatedCharacterIds;
                 const cpuElimSet = new Set(cpuEliminated);
@@ -285,8 +305,6 @@ export const useGameStore = create<GameState & GameActions>()(
                 } else {
                   state.phase = GamePhase.TURN_TRANSITION;
                 }
-              } else {
-                state.phase = GamePhase.TURN_TRANSITION;
               }
             } else {
               const next = getOpponent(state.activePlayer);
@@ -636,7 +654,10 @@ export const useGameStore = create<GameState & GameActions>()(
     receiveOpponentElimination: (eliminatedIds) =>
       set((state) => {
         // Opponent broadcasts their eliminatedIds — merge into their player slot
-        const opponent: PlayerId = state.activePlayer === 'player1' ? 'player2' : 'player1';
+        // In online mode, opponent is derived from onlinePlayerNum, not activePlayer
+        const opponent: PlayerId = state.onlinePlayerNum
+          ? (state.onlinePlayerNum === 1 ? 'player2' : 'player1')
+          : (state.activePlayer === 'player1' ? 'player2' : 'player1');
         const current = state.players[opponent].eliminatedCharacterIds;
         const currentSet = new Set(current);
         for (const id of eliminatedIds) {
