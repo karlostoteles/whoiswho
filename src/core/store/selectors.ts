@@ -52,6 +52,7 @@ const actions = {
   get receiveOpponentGuess() { return useGameStore.getState().receiveOpponentGuess; },
   get applyGuessResult() { return useGameStore.getState().applyGuessResult; },
   get goBackToSetupP1() { return useGameStore.getState().goBackToSetupP1; },
+  get goToOnlineWaiting() { return useGameStore.getState().goToOnlineWaiting; },
   get enrichNFTCharacters() { return useGameStore.getState().enrichNFTCharacters; },
   get setSoundEnabled() { return useGameStore.getState().setSoundEnabled; },
   get setDangerZoneEnabled() { return useGameStore.getState().setDangerZoneEnabled; },

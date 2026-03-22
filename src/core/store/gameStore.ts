@@ -85,6 +85,13 @@ export const useGameStore = create<GameState & GameActions>()(
         state.phase = GamePhase.SETUP_P1;
       }),
 
+    // Advance to ONLINE_WAITING after on-chain commit succeeds (called from CharacterSelectScreen)
+    goToOnlineWaiting: () =>
+      set((state) => {
+        state.commitmentStatus = 'partial';
+        state.phase = GamePhase.ONLINE_WAITING;
+      }),
+
     selectSecretCharacter: (player, characterId) =>
       set((state) => {
         state.players[player].secretCharacterId = characterId;
@@ -94,11 +101,8 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         if (state.mode === 'online') {
-          // Online mode: after selecting, wait for opponent to also commit.
-          // Always set to 'partial' — the DB trigger transitions to 'in_progress'
-          // (and advanceToGameStart sets 'both') when the opponent also commits.
-          state.commitmentStatus = 'partial';
-          state.phase = GamePhase.ONLINE_WAITING;
+          // Online mode: DON'T transition yet. CharacterSelectScreen handles
+          // the on-chain commit, waits for confirmation, then calls goToOnlineWaiting().
           return;
         }
 
@@ -133,8 +137,8 @@ export const useGameStore = create<GameState & GameActions>()(
         }
 
         if (state.mode === 'online') {
-          state.commitmentStatus = 'partial';
-          state.phase = GamePhase.ONLINE_WAITING;
+          // Online mode: DON'T transition yet. CharacterSelectScreen handles
+          // the on-chain commit, waits for confirmation, then calls goToOnlineWaiting().
           return;
         }
 
@@ -477,18 +481,18 @@ export const useGameStore = create<GameState & GameActions>()(
         state.guessedCharacterId = characterId;
 
         if (state.mode === 'online') {
-          // In true simultaneous online mode, we instantly check against opponent's locally-known secret.
-          // Note: The sync hook already verifies Game Over conditions. 
+          // Online: one guess per game. Wrong guess = you lose.
           const opponent = state.activePlayer === 'player1' ? 'player2' : 'player1';
           const opponentSecretId = state.players[opponent].secretCharacterId;
           const isCorrect = characterId === opponentSecretId;
 
           if (isCorrect) {
             state.winner = state.activePlayer;
-            state.phase = GamePhase.GUESS_RESULT;
           } else {
-            state.phase = GamePhase.GUESS_WRONG;
+            // Wrong guess → guesser loses, opponent wins
+            state.winner = opponent;
           }
+          state.phase = GamePhase.GUESS_RESULT;
           return;
         }
 
@@ -680,13 +684,16 @@ export const useGameStore = create<GameState & GameActions>()(
 
     receiveOpponentGuess: (characterId, isCorrect, winnerPlayerNum) =>
       set((state) => {
+        // Online: one guess per game. Right or wrong, game ends.
+        state.guessedCharacterId = characterId;
         if (isCorrect && winnerPlayerNum !== null) {
-          // If opponent guessed right, game over. Set guessedCharacterId for ResultScreen.
-          state.guessedCharacterId = characterId;
           state.winner = winnerPlayerNum === 1 ? 'player1' : 'player2';
-          state.phase = GamePhase.GUESS_RESULT;
+        } else {
+          // Opponent guessed wrong → I win
+          const myPlayerKey: PlayerId = state.onlinePlayerNum === 1 ? 'player1' : 'player2';
+          state.winner = myPlayerKey;
         }
-        // Opponent guessed wrong — don't set guessedCharacterId (would corrupt local state).
+        state.phase = GamePhase.GUESS_RESULT;
       }),
 
     receiveOpponentElimination: (eliminatedIds) =>

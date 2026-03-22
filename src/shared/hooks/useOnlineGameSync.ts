@@ -29,7 +29,7 @@ import {
 } from '@/services/supabase/gameService';
 import type { SupabaseGame, SupabaseGameEvent } from '@/services/supabase/types';
 import { supabase } from '@/services/supabase/client';
-import { getCommitment, submitCommitmentOnChain } from '@/services/starknet/commitReveal';
+import { getCommitment } from '@/services/starknet/commitReveal';
 
 export function useOnlineGameSync(): Record<string, never> {
   const phase = useGameStore((s) => s.phase);
@@ -116,7 +116,7 @@ export function useOnlineGameSync(): Record<string, never> {
     };
   }, [mode, onlineGameId, onlinePlayerNum]);
 
-  // ─── Push commitment to Supabase ─────────────────────────────────────────
+  // ─── Push commitment to Supabase (on-chain commit already done in CharacterSelectScreen) ──
   useEffect(() => {
     if (mode !== 'online' || !onlineGameId || !onlinePlayerNum) return;
     if (phase !== GamePhase.ONLINE_WAITING) return;
@@ -130,11 +130,6 @@ export function useOnlineGameSync(): Record<string, never> {
     submitCommitment(gameId, onlinePlayerNum, commitment.commitment, myAddress(), 1)
       .then(() => checkAndAdvanceIfReady(gameId))
       .catch(console.error);
-
-    // Fire on-chain commit non-blocking (doesn't block game flow)
-    submitCommitmentOnChain(commitment.commitment, gameId)
-      .then((txHash) => console.log('[commitReveal] On-chain commit tx:', txHash))
-      .catch((err) => console.warn('[commitReveal] On-chain commit failed (non-blocking):', err.message));
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, mode, onlineGameId, onlinePlayerNum]);
@@ -314,29 +309,24 @@ export function useOnlineGameSync(): Record<string, never> {
   // ─── Send GUESS_MADE when I make a guess ────────────────────────────────
   useEffect(() => {
     if (mode !== 'online' || !onlineGameId || !onlinePlayerNum) return;
-    // Guess sets phase to GUESS_WRONG or GUESS_RESULT, not ANSWER_PENDING
-    if (phase !== GamePhase.GUESS_WRONG && phase !== GamePhase.GUESS_RESULT) return;
+    // Online: every guess ends the game (GUESS_RESULT only, no GUESS_WRONG)
+    if (phase !== GamePhase.GUESS_RESULT) return;
     if (!guessedCharacterId) return;
     if (sentGuessRef.current === guessedCharacterId) return;
 
     sentGuessRef.current = guessedCharacterId;
-    myGuessTimestampRef.current = Date.now();
 
     const idemKey = `g_${onlineGameId}_${onlinePlayerNum}_${guessedCharacterId}_t${turnNumber}`;
     sendEvent(
       onlineGameId, 'GUESS_MADE', onlinePlayerNum, myAddress(), turnNumber,
-      { character_id: guessedCharacterId, timestamp: myGuessTimestampRef.current }, idemKey
+      { character_id: guessedCharacterId }, idemKey
     ).catch(console.error);
 
-    // Also write phase to DB for guess outcomes
+    // Game always ends on a guess — write result to DB
     const state = useGameStore.getState();
-    if (phase === GamePhase.GUESS_RESULT) {
-      const winnerPlayerNum: 1 | 2 = state.winner === 'player1' ? 1 : 2;
-      finishGame(onlineGameId, winnerPlayerNum).catch(console.error);
-      updateGameState(onlineGameId, { current_phase: 'GUESS_RESULT' }).catch(console.error);
-    } else {
-      updateGameState(onlineGameId, { current_phase: 'GUESS_WRONG' }).catch(console.error);
-    }
+    const winnerPlayerNum: 1 | 2 = state.winner === 'player1' ? 1 : 2;
+    finishGame(onlineGameId, winnerPlayerNum).catch(console.error);
+    updateGameState(onlineGameId, { current_phase: 'GUESS_RESULT' }).catch(console.error);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guessedCharacterId, phase]);
@@ -428,9 +418,8 @@ export function useOnlineGameSync(): Record<string, never> {
       }
 
       case 'GUESS_MADE': {
-        const { character_id, timestamp: opponentTimestamp } = event.payload as {
+        const { character_id } = event.payload as {
           character_id: string;
-          timestamp?: number;
         };
 
         const myPlayerKey: PlayerId = onlinePlayerNum === 1 ? 'player1' : 'player2';
@@ -438,16 +427,10 @@ export function useOnlineGameSync(): Record<string, never> {
         const isCorrect = character_id === mySecretId;
         const opponentPlayerNum = event.player_num as 1 | 2;
 
-        let winnerPlayerNum: 1 | 2 | null = isCorrect ? opponentPlayerNum : null;
-
-        // Simultaneous guess tiebreaker
-        if (isCorrect && state.phase === GamePhase.GUESS_RESULT && state.winner === myPlayerKey) {
-          const myTs = myGuessTimestampRef.current || 0;
-          const oppTs = opponentTimestamp || 0;
-          winnerPlayerNum = (myTs && oppTs)
-            ? (myTs <= oppTs ? (onlinePlayerNum as 1 | 2) : opponentPlayerNum)
-            : 1;
-        }
+        // One guess per game: correct → opponent wins, wrong → I win
+        const winnerPlayerNum: 1 | 2 = isCorrect
+          ? opponentPlayerNum
+          : (onlinePlayerNum as 1 | 2);
 
         // Send result back via event
         const idemKey = `gr_${state.onlineGameId}_${onlinePlayerNum}_${character_id}_t${event.turn_number}`;
@@ -456,9 +439,8 @@ export function useOnlineGameSync(): Record<string, never> {
           event.turn_number, { is_correct: isCorrect, winner_player_num: winnerPlayerNum }, idemKey
         ).catch(console.error);
 
-        if (isCorrect) {
-          finishGame(state.onlineGameId!, winnerPlayerNum!).catch(console.error);
-        }
+        // Game always ends on a guess
+        finishGame(state.onlineGameId!, winnerPlayerNum).catch(console.error);
 
         state.receiveOpponentGuess(character_id, isCorrect, winnerPlayerNum);
         break;
