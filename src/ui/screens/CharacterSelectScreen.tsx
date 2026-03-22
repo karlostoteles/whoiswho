@@ -51,22 +51,32 @@ export function CharacterSelectScreen() {
   // the exact same traits as its board counterpart (both derived from schizodio.json bitmap).
   const nftModeChars = useMemo(() => {
     if (!isNFTMode) return null;
-    if (ownedNFTs.length === 0) return null;
 
-    // Build a set of owned token IDs for fast lookup
-    const ownedIds = new Set(ownedNFTs.map(nft => `nft_${nft.tokenId}`));
     // Build a map of tokenId → imageUrl from owned NFTs
     const imageMap = new Map(ownedNFTs.map(nft => [`nft_${nft.tokenId}`, nft.imageUrl]));
 
-    // Filter board characters to only owned ones, enriching with imageUrl
-    return allCharacters
-      .filter(c => ownedIds.has(c.id))
-      .map(c => ({
+    if (ownedNFTs.length > 0) {
+      // Player owns NFTs — show only owned ones (enriched with real images)
+      const ownedIds = new Set(ownedNFTs.map(nft => `nft_${nft.tokenId}`));
+      return allCharacters
+        .filter(c => ownedIds.has(c.id))
+        .map(c => ({
+          ...c,
+          imageUrl: imageMap.get(c.id) || (c as any).imageUrl,
+          tokenId: c.id.replace('nft_', ''),
+        }));
+    }
+
+    // No owned NFTs — show full board for random pick (online/nft-free modes)
+    if (mode === 'online' || mode === 'nft-free') {
+      return allCharacters.map(c => ({
         ...c,
-        imageUrl: imageMap.get(c.id) || (c as any).imageUrl,
         tokenId: c.id.replace('nft_', ''),
       }));
-  }, [isNFTMode, ownedNFTs, allCharacters]);
+    }
+
+    return null;
+  }, [isNFTMode, ownedNFTs, allCharacters, mode]);
 
   // For free mode: use allCharacters (meme chars) with canvas previews
   const freeModeChars = !isNFTMode ? allCharacters : null;
@@ -192,6 +202,43 @@ export function CharacterSelectScreen() {
           </div>
         </div>
 
+        {/* Random Pick — prominent shortcut for online/nft-free */}
+        {(mode === 'online' || mode === 'nft-free') && (
+          <div style={{ flexShrink: 0, marginBottom: 8 }}>
+            <motion.button
+              onClick={() => {
+                const pool = displayChars;
+                if (pool.length === 0) return;
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                handleSelect(pick.id, (pick as any).tokenId);
+              }}
+              disabled={!!lockingIn}
+              whileHover={!lockingIn ? { scale: 1.02 } : {}}
+              whileTap={!lockingIn ? { scale: 0.98 } : {}}
+              style={{
+                width: '100%',
+                padding: '12px 20px',
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.25), rgba(91,33,182,0.2))',
+                border: '1px solid rgba(124,58,237,0.4)',
+                borderRadius: 10,
+                color: '#A78BFA',
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: lockingIn ? 'wait' : 'pointer',
+                outline: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                opacity: lockingIn ? 0.5 : 1,
+              }}
+            >
+              &#x1F3B2; Random Pick
+            </motion.button>
+          </div>
+        )}
+
         {/* Search (only for large collections) */}
         {isLarge && (
           <div style={{ marginBottom: 14, flexShrink: 0 }}>
@@ -254,10 +301,7 @@ export function CharacterSelectScreen() {
               textAlign: 'center', padding: '40px 0',
               color: 'rgba(255,255,254,0.3)', fontSize: 14,
             }}>
-              {isNFTMode && ownedNFTs.length === 0 && mode !== 'nft-free'
-                ? 'No SCHIZODIOs found in your wallet'
-                : `No tokens match "${search}"`
-              }
+              {search ? `No tokens match "${search}"` : 'No characters available'}
             </div>
           )}
         </div>

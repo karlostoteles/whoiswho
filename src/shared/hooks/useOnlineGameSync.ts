@@ -82,6 +82,20 @@ export function useOnlineGameSync(): { opponentDisconnected: boolean } {
     }
   }
 
+  // ─── Reset all refs when returning to menu (game ended/reset) ───────────
+  useEffect(() => {
+    if (phase === GamePhase.MENU) {
+      lastWrittenQuestionRef.current = null;
+      lastWrittenEliminationTurnRef.current = 0;
+      lastPushedTurnRef.current = 0;
+      lastAnsweredQuestionRef.current = null;
+      sentGuessRef.current = null;
+      myGuessTimestampRef.current = 0;
+      processedEventIds.current.clear();
+      recoveryAttemptedRef.current = false;
+    }
+  }, [phase]);
+
   // ─── Subscribe to DB changes + events ────────────────────────────────────
   useEffect(() => {
     if (mode !== 'online' || !onlineGameId || !onlinePlayerNum) return;

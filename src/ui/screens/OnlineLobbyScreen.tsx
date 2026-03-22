@@ -2,13 +2,14 @@
  * OnlineLobbyScreen
  *
  * Create or join an online game room.
- * Shown when user clicks "Play Online" from the main menu.
+ * Streamlined: wallet connect → Create Room / Join Room on one screen.
+ * No NFT gate — anyone with a Cartridge wallet can play (random pick available).
  */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import { useWalletAddress, useWalletStatus, useOwnedNFTs, useWalletStore } from '@/services/starknet/walletStore';
+import { useWalletAddress, useWalletStatus, useWalletStore } from '@/services/starknet/walletStore';
 import { useWalletConnection } from '@/services/starknet/hooks';
 import { createGame, joinGame } from '@/services/supabase/gameService';
 import { isSupabaseConfigured } from '@/services/supabase/client';
@@ -19,17 +20,13 @@ interface Props {
   onBack: () => void;
 }
 
-type LobbyView = 'home' | 'join';
-
 export function OnlineLobbyScreen({ onBack }: Props) {
-  const [view, setView] = useState<LobbyView>('home');
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<'create' | 'join' | null>(null);
 
   const walletAddress = useWalletAddress();
   const walletStatus = useWalletStatus();
-  const ownedNFTs = useOwnedNFTs();
   const { connectWallet } = useWalletConnection();
   const { setGameMode, setOnlineGame, startSetup } = useGameActions();
   const isConnecting = walletStatus === 'connecting' || walletStatus === 'loading_nfts';
@@ -38,7 +35,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
     return (
       <LobbyWrapper onBack={onBack}>
         <div style={{ textAlign: 'center', color: 'rgba(255,255,254,0.5)', fontSize: 14, padding: 32 }}>
-          <div style={{ fontSize: 32, marginBottom: 16 }}>⚙️</div>
+          <div style={{ fontSize: 32, marginBottom: 16 }}>&#x2699;&#xFE0F;</div>
           <div style={{ marginBottom: 8, color: '#FFFFFE' }}>Online mode not configured</div>
           <div>Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to your <code>.env</code> file.</div>
         </div>
@@ -46,12 +43,13 @@ export function OnlineLobbyScreen({ onBack }: Props) {
     );
   }
 
+  // Wallet not connected — show login prompt
   if (!walletAddress) {
     const walletError = useWalletStore.getState().error;
     return (
       <LobbyWrapper onBack={onBack}>
         <div style={{ textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🎮</div>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>&#x1F3AE;</div>
           <div style={{
             color: '#FFFFFE',
             fontFamily: "'Space Grotesk', sans-serif",
@@ -87,7 +85,7 @@ export function OnlineLobbyScreen({ onBack }: Props) {
               boxShadow: '0 0 30px rgba(124,58,237,0.35)',
             }}
           >
-            {isConnecting ? <><Spinner /> Logging in…</> : '🔐 Log in'}
+            {isConnecting ? <><Spinner /> Logging in&hellip;</> : '\uD83D\uDD10 Log in'}
           </motion.button>
           {walletError && (
             <div style={{
@@ -110,110 +108,34 @@ export function OnlineLobbyScreen({ onBack }: Props) {
     );
   }
 
-  // NFT loading — wallet connected but still checking ownership
-  if (walletStatus === 'loading_nfts') {
-    return (
-      <LobbyWrapper onBack={onBack}>
-        <div style={{ textAlign: 'center', padding: 40 }}>
-          <Spinner large />
-          <div style={{
-            marginTop: 20,
-            color: 'rgba(255,255,254,0.5)',
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontSize: 14,
-          }}>
-            Checking your SCHIZODIO collection…
-          </div>
-        </div>
-      </LobbyWrapper>
-    );
-  }
-
-  // NFT gate — logged in but holds no SCHIZODIO
-  if (walletStatus === 'ready' && ownedNFTs.length === 0) {
-    return (
-      <LobbyWrapper onBack={onBack}>
-        <div style={{ textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🪬</div>
-          <div style={{
-            color: '#FFFFFE',
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontWeight: 800,
-            fontSize: 22,
-            marginBottom: 12,
-          }}>
-            You need to be SCHIZO to play this
-          </div>
-          <div style={{
-            color: 'rgba(255,255,254,0.4)',
-            fontSize: 13,
-            lineHeight: 1.6,
-            maxWidth: 300,
-            margin: '0 auto 20px',
-          }}>
-            Online mode is exclusive to SCHIZODIO NFT holders.
-            Get your SCHIZODIO to join the game.
-          </div>
-          <div style={{
-            fontSize: 11, fontStyle: 'italic', color: 'rgba(232,164,68,0.6)',
-            marginBottom: 28, maxWidth: 280, margin: '0 auto 28px'
-          }}>
-            "rarer traits might be more expensive, but less provable to be found!"
-          </div>
-          <motion.a
-            href="https://schizodio.art/"
-            target="_blank"
-            rel="noopener noreferrer"
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              display: 'inline-block',
-              background: 'linear-gradient(135deg, #E8A444, #C47B1A)',
-              borderRadius: 12,
-              padding: '12px 28px',
-              color: '#0F0E17',
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
-              textDecoration: 'none',
-              boxShadow: '0 0 24px rgba(232,164,68,0.3)',
-            }}
-          >
-            Get SCHIZODIO →
-          </motion.a>
-        </div>
-      </LobbyWrapper>
-    );
-  }
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   const handleCreate = async () => {
     setError('');
-    setLoading(true);
+    setLoading('create');
     try {
       const characters = await generateAllCollectionCharacters();
       const { game, playerNum } = await createGame(walletAddress, characters);
       setGameMode('online', characters);
       setOnlineGame(game.id, game.room_code, playerNum, walletAddress);
-      // Both P1 and P2 go through character select immediately.
-      // Room code is prominently shown in OnlineWaitingScreen after selection.
       startSetup();
     } catch (err: any) {
       setError(err.message ?? 'Failed to create game');
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
   const handleJoin = async () => {
-    if (!roomCodeInput.trim()) {
-      setError('Enter a room code');
+    const code = roomCodeInput.trim();
+    if (!code || code.length < 4) {
+      setError('Enter a valid room code');
       return;
     }
     setError('');
-    setLoading(true);
+    setLoading('join');
     try {
-      const { game, playerNum } = await joinGame(roomCodeInput, walletAddress);
-      // Always use the deterministic 999-token collection (same as creator)
+      const { game, playerNum } = await joinGame(code, walletAddress);
       const characters = await generateAllCollectionCharacters();
       setGameMode('online', characters);
       setOnlineGame(game.id, game.room_code, playerNum, walletAddress);
@@ -221,118 +143,97 @@ export function OnlineLobbyScreen({ onBack }: Props) {
     } catch (err: any) {
       setError(err.message ?? 'Failed to join game');
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
-  const handleBack = () => {
-    if (view === 'home') return onBack();
-    setView('home');
-  };
+  // ── Render: single screen with Create + Join inline ────────────────────────
 
   return (
-    <LobbyWrapper onBack={handleBack} title="Play Online">
-      <AnimatePresence mode="wait">
+    <LobbyWrapper onBack={onBack}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 420, margin: '0 auto', width: '100%' }}>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,254,0.4)', textAlign: 'center', lineHeight: 1.6, marginBottom: 4 }}>
+          SCHIZODIO Collection &middot; 999 characters &middot; Classic 1v1
+        </div>
 
-        {view === 'home' && (
-          <motion.div
-            key="home"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 420, margin: '0 auto', width: '100%' }}
-          >
-            <div style={{ fontSize: 13, color: 'rgba(255,255,254,0.4)', textAlign: 'center', lineHeight: 1.6, marginBottom: 8 }}>
-              SCHIZODIO Collection · 999 characters · Classic 1v1
-            </div>
-
-            {error && <ErrorMsg>{error}</ErrorMsg>}
-
-            <Button variant="accent" size="lg" onClick={handleCreate} disabled={loading} style={{ width: '100%' }}>
-              {loading ? 'Creating…' : 'Create Room'}
-            </Button>
-
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              color: 'rgba(255,255,254,0.25)', fontSize: 12, fontWeight: 600,
-            }}>
-              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-              OR
-              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-            </div>
-
-            <button
-              onClick={() => setView('join')}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 12,
-                padding: '14px 24px',
-                color: '#FFFFFE',
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 16,
-                fontWeight: 600,
-                cursor: 'pointer',
-                width: '100%',
-              }}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
             >
-              Join Room
-            </button>
-          </motion.div>
-        )}
+              <ErrorMsg>{error}</ErrorMsg>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {view === 'join' && (
-          <motion.div
-            key="join"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', maxWidth: 420, margin: '0 auto', width: '100%' }}
+        {/* Create Room */}
+        <Button
+          variant="accent"
+          size="lg"
+          onClick={handleCreate}
+          disabled={!!loading}
+          style={{ width: '100%' }}
+        >
+          {loading === 'create' ? 'Creating\u2026' : 'Create Room'}
+        </Button>
+
+        {/* Divider */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          color: 'rgba(255,255,254,0.25)', fontSize: 12, fontWeight: 600,
+        }}>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+          OR
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+        </div>
+
+        {/* Join Room — inline, no extra click */}
+        <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+          <input
+            value={roomCodeInput}
+            onChange={(e) => {
+              setRoomCodeInput(e.target.value.toUpperCase());
+              if (error) setError('');
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+            maxLength={6}
+            placeholder="ROOM CODE"
+            style={{
+              flex: 1,
+              background: 'rgba(255,255,255,0.08)',
+              border: '2px solid rgba(255,255,255,0.15)',
+              borderRadius: 10,
+              padding: '12px 16px',
+              color: '#FFFFFE',
+              fontFamily: "'Space Grotesk', monospace",
+              fontSize: 18,
+              fontWeight: 700,
+              letterSpacing: '0.15em',
+              textAlign: 'center',
+              outline: 'none',
+              textTransform: 'uppercase',
+            }}
+          />
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={handleJoin}
+            disabled={!!loading || roomCodeInput.length < 4}
+            style={{ flexShrink: 0, minWidth: 100 }}
           >
-            <div style={{ fontSize: 14, color: 'rgba(255,255,254,0.5)', textAlign: 'center' }}>
-              Enter the 6-character room code from your opponent.
-            </div>
-            <input
-              value={roomCodeInput}
-              onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-              maxLength={6}
-              placeholder="XXXXXX"
-              autoFocus
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: '2px solid rgba(255,255,255,0.15)',
-                borderRadius: 10,
-                padding: '14px 20px',
-                color: '#FFFFFE',
-                fontFamily: "'Space Grotesk', monospace",
-                fontSize: 28,
-                fontWeight: 700,
-                letterSpacing: '0.2em',
-                textAlign: 'center',
-                width: '100%',
-                outline: 'none',
-                textTransform: 'uppercase',
-              }}
-            />
-            {error && <ErrorMsg>{error}</ErrorMsg>}
-            <Button
-              variant="accent"
-              size="lg"
-              onClick={handleJoin}
-              disabled={loading || roomCodeInput.length < 4}
-              style={{ width: '100%' }}
-            >
-              {loading ? 'Joining…' : 'Join Game'}
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {loading === 'join' ? 'Joining\u2026' : 'Join'}
+          </Button>
+        </div>
+      </div>
     </LobbyWrapper>
   );
 }
 
-function LobbyWrapper({ children, onBack, title = 'Play Online' }: { children: React.ReactNode; onBack: () => void; title?: string }) {
+// ── Shared layout wrapper ────────────────────────────────────────────────────
+
+function LobbyWrapper({ children, onBack }: { children: React.ReactNode; onBack: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -373,38 +274,36 @@ function LobbyWrapper({ children, onBack, title = 'Play Online' }: { children: R
               transition: 'all 0.2s ease',
             }}
           >
-            ← Back
+            &larr; Back
           </button>
-          <h2 style={{ 
-            fontFamily: "'Space Grotesk', sans-serif", 
-            fontSize: 32, 
-            fontWeight: 800, 
-            color: '#FFFFFE', 
+          <h2 style={{
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: 32,
+            fontWeight: 800,
+            color: '#FFFFFE',
             margin: 0,
             letterSpacing: '-0.02em'
           }}>
-            {title}
+            Play Online
           </h2>
         </div>
-        
+
         {children}
       </div>
     </motion.div>
   );
 }
 
-function Spinner({ large }: { large?: boolean }) {
-  const size = large ? 36 : 16;
+function Spinner() {
   return (
     <motion.div
       animate={{ rotate: 360 }}
       transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
       style={{
-        width: size, height: size,
-        border: `${large ? 3 : 2}px solid rgba(255,255,255,0.15)`,
-        borderTopColor: large ? '#E8A444' : 'rgba(255,255,255,0.8)',
+        width: 16, height: 16,
+        border: '2px solid rgba(255,255,255,0.15)',
+        borderTopColor: 'rgba(255,255,255,0.8)',
         borderRadius: '50%',
-        margin: large ? '0 auto' : undefined,
       }}
     />
   );
@@ -426,4 +325,3 @@ function ErrorMsg({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
