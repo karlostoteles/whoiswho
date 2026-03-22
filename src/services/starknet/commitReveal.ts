@@ -38,14 +38,17 @@ function generateSalt(): string {
   return '0x' + (raw % STARK_PRIME).toString(16);
 }
 
-/** Encode a string character ID as a felt252 (byte-fold mod Stark prime). */
-export function characterIdToFelt(characterId: string): string {
+/** Encode a string as a felt252 (byte-fold mod Stark prime). */
+export function stringToFelt(s: string): string {
   let val = BigInt(0);
-  for (let i = 0; i < characterId.length; i++) {
-    val = (val * BigInt(256) + BigInt(characterId.charCodeAt(i))) % STARK_PRIME;
+  for (let i = 0; i < s.length; i++) {
+    val = (val * BigInt(256) + BigInt(s.charCodeAt(i))) % STARK_PRIME;
   }
   return '0x' + val.toString(16);
 }
+
+/** @deprecated Use stringToFelt instead */
+export const characterIdToFelt = stringToFelt;
 
 function computeCommitment(characterIdFelt: string, salt: string): string {
   return hash.computePedersenHash(characterIdFelt, salt);
@@ -136,10 +139,11 @@ export async function submitCommitmentOnChain(
   gameId: string
 ): Promise<string> {
   const account = getAccount();
+  const gameIdFelt = stringToFelt(gameId);
   const tx = await account.execute([{
     contractAddress: GAME_CONTRACT,
     entrypoint: 'commit',
-    calldata: [gameId, commitment],
+    calldata: [gameIdFelt, commitment],
   }]);
   return (tx as any).transaction_hash || String(tx);
 }
@@ -154,11 +158,12 @@ export async function revealCharacterOnChain(
   gameId: string
 ): Promise<string> {
   const account = getAccount();
-  const characterIdFelt = characterIdToFelt(characterId);
+  const gameIdFelt = stringToFelt(gameId);
+  const characterIdFelt = stringToFelt(characterId);
   const tx = await account.execute([{
     contractAddress: GAME_CONTRACT,
     entrypoint: 'reveal',
-    calldata: [gameId, characterIdFelt, salt],
+    calldata: [gameIdFelt, characterIdFelt, salt],
   }]);
   return (tx as any).transaction_hash || String(tx);
 }

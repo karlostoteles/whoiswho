@@ -111,7 +111,25 @@ export async function submitCommitment(
   await sendEvent(gameId, 'CHARACTER_COMMITTED', playerNum, playerAddress, turnNumber, {
     commitment,
   });
-  // Status transition to 'in_progress' handled by DB trigger when both commitments are set
+
+  // Check if both commitments are now set → transition to 'in_progress'
+  const { data: game } = await supabase
+    .from('games')
+    .select('player1_commitment, player2_commitment, status')
+    .eq('id', gameId)
+    .single();
+
+  if (game && game.player1_commitment && game.player2_commitment && game.status === 'ready') {
+    const { error: statusErr } = await supabase
+      .from('games')
+      .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+      .eq('id', gameId)
+      .eq('status', 'ready');
+
+    if (statusErr) {
+      console.error('[gameService] Failed to transition to in_progress:', statusErr.message);
+    }
+  }
 }
 
 export async function updateTurn(
