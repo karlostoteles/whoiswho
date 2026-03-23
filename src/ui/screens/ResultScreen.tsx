@@ -61,16 +61,7 @@ export function ResultScreen() {
           else setP2Verified(verified);
         }
       }
-    } else {
-      // NFT local mode: verify both players
-      if (p1State.secretCharacterId) {
-        const c = getCommitment('player1', gameSessionId);
-        if (c) setP1Verified(verifyReveal('player1', p1State.secretCharacterId, c.salt, gameSessionId));
-      }
-      if (p2State.secretCharacterId) {
-        const c = getCommitment('player2', gameSessionId);
-        if (c) setP2Verified(verifyReveal('player2', p2State.secretCharacterId, c.salt, gameSessionId));
-      }
+      return; // Online reveal is handled in GuessPanel now
     }
 
     // On-chain reveal for local player
@@ -80,23 +71,12 @@ export function ResultScreen() {
     const stored = getCommitment(myPlayer, gameSessionId);
     if (!stored) return;
 
-    // Also reveal to Supabase so opponent can verify
-    if (mode === 'online' && onlineGameId && playerNum) {
-      revealCharacterSupabase(
-        onlineGameId, playerNum, stored.characterId, stored.salt,
-        'local', // playerAddress not critical for reveal
-        0, // turnNumber not critical for reveal
-      ).catch((err) => console.error('[reveal] Supabase reveal failed:', err));
-    }
-
     // Fire on-chain reveal (non-blocking — game result shows immediately)
-    // Use the shared onlineGameId for on-chain reveal so it matches the commit.
-    const onChainGameId = (mode === 'online' && onlineGameId) ? onlineGameId : gameSessionId;
     setRevealing(true);
-    revealCharacterOnChain(stored.characterId, stored.salt, onChainGameId)
+    revealCharacterOnChain(stored.characterId, stored.salt, gameSessionId)
       .then((txHash) => {
         setRevealTxHash(txHash);
-        console.log('[commitReveal] On-chain reveal tx:', txHash);
+        console.log('[commitReveal] Local NFT reveal tx:', txHash);
       })
       .catch((err) => {
         console.error('[commitReveal] On-chain reveal failed:', err);

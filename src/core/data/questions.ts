@@ -114,14 +114,40 @@ export const NFT_QUESTIONS: Question[] = [
     matchFn: (c) => { const h = nftHair(c); return h.includes('black') || h.includes('dark'); },
   },
   {
-    id: 'nq_hair_colorful', zone: 'hair', category: 'hair', icon: '🌈',
-    text: 'Does your character have colorful hair? (red, green, pink, orange…)',
-    traitKey: 'nft_hair', traitValue: 'colorful',
-    matchFn: (c) => {
-      const h = nftHair(c);
-      return h.includes('red') || h.includes('green') || h.includes('pink')
-        || h.includes('orange') || h.includes('blue') || h.includes('purple');
-    },
+    id: 'nq_hair_red', zone: 'hair', category: 'hair', icon: '🔴',
+    text: 'Does your character have red hair?',
+    traitKey: 'nft_hair', traitValue: 'red',
+    matchFn: (c) => nftHair(c).includes('red'),
+  },
+  {
+    id: 'nq_hair_green', zone: 'hair', category: 'hair', icon: '🟢',
+    text: 'Does your character have green hair?',
+    traitKey: 'nft_hair', traitValue: 'green',
+    matchFn: (c) => nftHair(c).includes('green'),
+  },
+  {
+    id: 'nq_hair_pink', zone: 'hair', category: 'hair', icon: '🌸',
+    text: 'Does your character have pink hair?',
+    traitKey: 'nft_hair', traitValue: 'pink',
+    matchFn: (c) => nftHair(c).includes('pink'),
+  },
+  {
+    id: 'nq_hair_orange', zone: 'hair', category: 'hair', icon: '🟠',
+    text: 'Does your character have orange hair?',
+    traitKey: 'nft_hair', traitValue: 'orange',
+    matchFn: (c) => nftHair(c).includes('orange'),
+  },
+  {
+    id: 'nq_hair_blue', zone: 'hair', category: 'hair', icon: '🔵',
+    text: 'Does your character have blue hair?',
+    traitKey: 'nft_hair', traitValue: 'blue',
+    matchFn: (c) => nftHair(c).includes('blue'),
+  },
+  {
+    id: 'nq_hair_purple', zone: 'hair', category: 'hair', icon: '🟣',
+    text: 'Does your character have purple hair?',
+    traitKey: 'nft_hair', traitValue: 'purple',
+    matchFn: (c) => nftHair(c).includes('purple'),
   },
   {
     id: 'nq_hair_light', zone: 'hair', category: 'hair', icon: '💫',
@@ -192,16 +218,46 @@ export const NFT_QUESTIONS: Question[] = [
     matchFn: (c) => nftEyes(c).includes('confusion'),
   },
   {
-    // Covers: Fire Devil, Stoned Red, Bionic, Ekubo, Whirlpool, Hazelnut — rare/weird eyes
-    id: 'nq_eyes_special', zone: 'face', category: 'face', icon: '🤖',
-    text: 'Does your character have special or demonic eyes? (fire, stoned, bionic...)',
-    traitKey: 'nft_eyes', traitValue: 'special',
-    matchFn: (c) => {
-      const e = nftEyes(c);
-      return e.includes('fire') || e.includes('devil') || e.includes('stoned')
-        || e.includes('bionic') || e.includes('ekubo')
-        || e.includes('whirlpool') || e.includes('hazelnut');
-    },
+    id: 'nq_eyes_fire', zone: 'face', category: 'face', icon: '🔥',
+    text: 'Does your character have fire eyes?',
+    traitKey: 'nft_eyes', traitValue: 'fire',
+    matchFn: (c) => nftEyes(c).includes('fire'),
+  },
+  {
+    id: 'nq_eyes_devil', zone: 'face', category: 'face', icon: '😈',
+    text: 'Does your character have devil eyes?',
+    traitKey: 'nft_eyes', traitValue: 'devil',
+    matchFn: (c) => nftEyes(c).includes('devil'),
+  },
+  {
+    id: 'nq_eyes_stoned', zone: 'face', category: 'face', icon: '🍃',
+    text: 'Does your character have stoned eyes?',
+    traitKey: 'nft_eyes', traitValue: 'stoned',
+    matchFn: (c) => nftEyes(c).includes('stoned'),
+  },
+  {
+    id: 'nq_eyes_bionic', zone: 'face', category: 'face', icon: '🦾',
+    text: 'Does your character have bionic eyes?',
+    traitKey: 'nft_eyes', traitValue: 'bionic',
+    matchFn: (c) => nftEyes(c).includes('bionic'),
+  },
+  {
+    id: 'nq_eyes_ekubo', zone: 'face', category: 'face', icon: '🧿',
+    text: 'Does your character have ekubo eyes?',
+    traitKey: 'nft_eyes', traitValue: 'ekubo',
+    matchFn: (c) => nftEyes(c).includes('ekubo'),
+  },
+  {
+    id: 'nq_eyes_whirlpool', zone: 'face', category: 'face', icon: '🌀',
+    text: 'Does your character have whirlpool eyes?',
+    traitKey: 'nft_eyes', traitValue: 'whirlpool',
+    matchFn: (c) => nftEyes(c).includes('whirlpool'),
+  },
+  {
+    id: 'nq_eyes_hazelnut', zone: 'face', category: 'face', icon: '🌰',
+    text: 'Does your character have hazelnut eyes?',
+    traitKey: 'nft_eyes', traitValue: 'hazelnut',
+    matchFn: (c) => nftEyes(c).includes('hazelnut'),
   },
   {
     id: 'nq_mouth_u', zone: 'face', category: 'face', icon: '🙂',
@@ -222,14 +278,28 @@ export const NFT_QUESTIONS: Question[] = [
     matchFn: (c) => nftMouth(c).includes('squig'),
   },
   {
-    // Covers: Neutral, Happy, Rectangle, V — anything that's not U/W/squiggle
-    id: 'nq_mouth_other', zone: 'face', category: 'face', icon: '😐',
-    text: 'Does your character have a neutral, happy, or rectangular mouth?',
-    traitKey: 'nft_mouth', traitValue: 'neutral_happy_rect',
-    matchFn: (c) => {
-      const m = nftMouth(c);
-      return m === 'neutral' || m === 'happy' || m === 'rectangle' || m === 'v';
-    },
+    id: 'nq_mouth_neutral', zone: 'face', category: 'face', icon: '😐',
+    text: 'Does your character have a neutral mouth?',
+    traitKey: 'nft_mouth', traitValue: 'neutral',
+    matchFn: (c) => nftMouth(c) === 'neutral',
+  },
+  {
+    id: 'nq_mouth_happy', zone: 'face', category: 'face', icon: '😊',
+    text: 'Does your character have a happy mouth?',
+    traitKey: 'nft_mouth', traitValue: 'happy',
+    matchFn: (c) => nftMouth(c) === 'happy',
+  },
+  {
+    id: 'nq_mouth_rectangle', zone: 'face', category: 'face', icon: '⬜',
+    text: 'Does your character have a rectangular mouth?',
+    traitKey: 'nft_mouth', traitValue: 'rectangle',
+    matchFn: (c) => nftMouth(c) === 'rectangle',
+  },
+  {
+    id: 'nq_mouth_v', zone: 'face', category: 'face', icon: '∨',
+    text: 'Does your character have a V-shaped mouth?',
+    traitKey: 'nft_mouth', traitValue: 'v',
+    matchFn: (c) => nftMouth(c) === 'v',
   },
   {
     id: 'nq_brows_sad', zone: 'face', category: 'face', icon: '😢',
@@ -238,11 +308,22 @@ export const NFT_QUESTIONS: Question[] = [
     matchFn: (c) => nftBrows(c).includes('sad'),
   },
   {
-    // Covers: Notched Slits, Camo, Funky — non-standard brow shapes
+    id: 'nq_brows_notched', zone: 'face', category: 'face', icon: '➖',
+    text: 'Does your character have notched eyebrows?',
+    traitKey: 'nft_eyebrows', traitValue: 'notched',
+    matchFn: (c) => nftBrows(c).includes('notch'),
+  },
+  {
+    id: 'nq_brows_camo', zone: 'face', category: 'face', icon: '🛶',
+    text: 'Does your character have camo eyebrows?',
+    traitKey: 'nft_eyebrows', traitValue: 'camo',
+    matchFn: (c) => nftBrows(c).includes('camo'),
+  },
+  {
     id: 'nq_brows_funky', zone: 'face', category: 'face', icon: '🤨',
-    text: 'Does your character have funky, notched, or camo eyebrows?',
+    text: 'Does your character have funky eyebrows?',
     traitKey: 'nft_eyebrows', traitValue: 'funky',
-    matchFn: (c) => { const b = nftBrows(c); return b.includes('funky') || b.includes('notch') || b.includes('camo'); },
+    matchFn: (c) => nftBrows(c).includes('funky'),
   },
   {
     id: 'nq_brows_red', zone: 'face', category: 'face', icon: '🔴',
@@ -292,14 +373,22 @@ export const NFT_QUESTIONS: Question[] = [
     matchFn: (c) => nftBody(c).includes('lobster'),
   },
   {
-    // Covers: Brother, Boy Who Cried Wolf, Gora — human/organic body types
-    id: 'nq_body_human', zone: 'body', category: 'body', icon: '🧍',
-    text: 'Is your character a human body type? (Brother, Boy Who Cried Wolf, Gora…)',
-    traitKey: 'nft_body', traitValue: 'human',
-    matchFn: (c) => {
-      const b = nftBody(c);
-      return b.includes('brother') || b.includes('wolf') || b === 'gora';
-    },
+    id: 'nq_body_brother', zone: 'body', category: 'body', icon: '🏠',
+    text: 'Is your character a Brother body type?',
+    traitKey: 'nft_body', traitValue: 'brother',
+    matchFn: (c) => nftBody(c).includes('brother'),
+  },
+  {
+    id: 'nq_body_wolf', zone: 'body', category: 'body', icon: '🐺',
+    text: 'Is your character a Boy Who Cried Wolf body type?',
+    traitKey: 'nft_body', traitValue: 'wolf',
+    matchFn: (c) => nftBody(c).includes('wolf'),
+  },
+  {
+    id: 'nq_body_gora', zone: 'body', category: 'body', icon: '🪨',
+    text: 'Is your character a Gora body type?',
+    traitKey: 'nft_body', traitValue: 'gora',
+    matchFn: (c) => nftBody(c) === 'gora',
   },
   {
     id: 'nq_clothing_tshirt', zone: 'body', category: 'body', icon: '👕',

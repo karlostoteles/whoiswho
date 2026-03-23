@@ -478,18 +478,10 @@ export const useGameStore = create<GameState & GameActions>()(
         state.guessedCharacterId = characterId;
 
         if (state.mode === 'online') {
-          // Online: one guess per game. Wrong guess = you lose.
-          const opponent = state.activePlayer === 'player1' ? 'player2' : 'player1';
-          const opponentSecretId = state.players[opponent].secretCharacterId;
-          const isCorrect = characterId === opponentSecretId;
-
-          if (isCorrect) {
-            state.winner = state.activePlayer;
-          } else {
-            // Wrong guess → guesser loses, opponent wins
-            state.winner = opponent;
-          }
-          state.phase = GamePhase.GUESS_RESULT;
+          // Online: Guess is submitted to Supabase. Game waits for opponent to reveal.
+          // We do NOT set the winner locally yet, because we don't know the opponent's
+          // secret ID for sure until they reveal (and we want to avoid exposure in state).
+          state.phase = GamePhase.GUESS_SUBMITTED;
           return;
         }
 

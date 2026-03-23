@@ -316,8 +316,8 @@ export function useOnlineGameSync(): Record<string, never> {
   // ─── Send GUESS_MADE when I make a guess ────────────────────────────────
   useEffect(() => {
     if (mode !== 'online' || !onlineGameId || !onlinePlayerNum) return;
-    // Online: every guess ends the game (GUESS_RESULT only, no GUESS_WRONG)
-    if (phase !== GamePhase.GUESS_RESULT) return;
+    // Online: Transition to GUESS_SUBMITTED triggers the push to Supabase
+    if (phase !== GamePhase.GUESS_SUBMITTED) return;
     if (!guessedCharacterId) return;
     if (sentGuessRef.current === guessedCharacterId) return;
 
@@ -329,11 +329,8 @@ export function useOnlineGameSync(): Record<string, never> {
       { character_id: guessedCharacterId }, idemKey
     ).catch(console.error);
 
-    // Game always ends on a guess — write result to DB
-    const state = useGameStore.getState();
-    const winnerPlayerNum: 1 | 2 = state.winner === 'player1' ? 1 : 2;
-    finishGame(onlineGameId, winnerPlayerNum).catch(console.error);
-    updateGameState(onlineGameId, { current_phase: 'GUESS_RESULT' }).catch(console.error);
+    // Update game row to signal "waiting for reveal" to opponent
+    updateGameState(onlineGameId, { current_phase: 'GUESS_SUBMITTED' }).catch(console.error);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guessedCharacterId, phase]);
@@ -432,39 +429,49 @@ export function useOnlineGameSync(): Record<string, never> {
           character_id: string;
         };
 
-        const myPlayerKey: PlayerId = onlinePlayerNum === 1 ? 'player1' : 'player2';
-        const mySecretId = state.players[myPlayerKey].secretCharacterId;
-        const isCorrect = character_id === mySecretId;
-        const opponentPlayerNum = event.player_num as 1 | 2;
+        // I am the opponent (revealee)
+        // Record their guess and prompt me to REVEAL
+        useGameStore.setState({
+          guessedCharacterId: character_id,
+          phase: GamePhase.REVEAL_PENDING
+        });
+        break;
+      }
 
-        // One guess per game: correct → opponent wins, wrong → I win
-        const winnerPlayerNum: 1 | 2 = isCorrect
-          ? opponentPlayerNum
-          : (onlinePlayerNum as 1 | 2);
+      case 'CHARACTER_REVEALED': {
+        const { character_id, salt } = event.payload as {
+          character_id: string;
+          salt: string;
+        };
 
-        // Send result back via event
-        const idemKey = `gr_${state.onlineGameId}_${onlinePlayerNum}_${character_id}_t${event.turn_number}`;
-        sendEvent(
-          state.onlineGameId!, 'GUESS_RESULT', onlinePlayerNum!, myAddress(),
-          event.turn_number, { is_correct: isCorrect, winner_player_num: winnerPlayerNum }, idemKey
-        ).catch(console.error);
+        const guesserNum = event.player_num === 1 ? 2 : 1; // The person who revealed is proving their identity to the guesser
+        const state = useGameStore.getState();
+        const opponentPlayerNum = event.player_num === 1 ? 1 : 2;
 
-        // Game always ends on a guess
-        finishGame(state.onlineGameId!, winnerPlayerNum).catch(console.error);
+        // If I was the guesser and am waiting for this reveal
+        if (state.phase === GamePhase.GUESS_SUBMITTED && state.guessedCharacterId) {
+          const isCorrect = state.guessedCharacterId === character_id;
+          
+          // One guess per game: correct -> I win, wrong -> opponent wins
+          const winnerPlayerNum: 1 | 2 = isCorrect
+            ? (onlinePlayerNum as 1 | 2)
+            : opponentPlayerNum;
 
-        state.receiveOpponentGuess(character_id, isCorrect, winnerPlayerNum);
+          // Game always ends on a guess — Guesser pushes final authoritative result
+          finishGame(state.onlineGameId!, winnerPlayerNum).catch(console.error);
+          updateGameState(state.onlineGameId!, { 
+            current_phase: 'GUESS_RESULT',
+            winner_player_num: winnerPlayerNum 
+          }).catch(console.error);
+
+          const winner: PlayerId = winnerPlayerNum === 1 ? 'player1' : 'player2';
+          state.applyGuessResult(isCorrect, winner);
+        }
         break;
       }
 
       case 'GUESS_RESULT': {
-        const { is_correct, winner_player_num } = event.payload as {
-          is_correct: boolean;
-          winner_player_num: 1 | 2 | null;
-        };
-        const winner: PlayerId | null =
-          winner_player_num === 1 ? 'player1' :
-            winner_player_num === 2 ? 'player2' : null;
-        state.applyGuessResult(is_correct, winner);
+        // Handled via handleGameUpdate (status === 'finished')
         break;
       }
 

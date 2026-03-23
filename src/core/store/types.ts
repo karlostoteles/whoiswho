@@ -18,6 +18,8 @@ export enum GamePhase {
   ELIMINATION = 'ELIMINATION',
   TURN_TRANSITION = 'TURN_TRANSITION',
   GUESS_SELECT = 'GUESS_SELECT',
+  GUESS_SUBMITTED = 'GUESS_SUBMITTED', // Online: waiting for opponent to reveal
+  REVEAL_PENDING = 'REVEAL_PENDING',   // Online: opponent made a guess, I must reveal
   GUESS_WRONG = 'GUESS_WRONG',   // Wrong Risk It — brief reveal, turn ends, game continues
   GUESS_RESULT = 'GUESS_RESULT', // Correct guess — winner declared
   GAME_OVER = 'GAME_OVER',
