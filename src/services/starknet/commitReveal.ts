@@ -161,7 +161,8 @@ export async function revealCharacterOnChain(
 ): Promise<string> {
   const account = getAccount();
   const gameIdFelt = stringToFelt(gameId);
-  const characterIdFelt = stringToFelt(characterId);
+  const characterIdFelt = characterIdToFelt(characterId);
+
   const tx = await account.execute([{
     contractAddress: GAME_CONTRACT,
     entrypoint: 'reveal',
