@@ -15,6 +15,7 @@ export const GAME_CONTRACT = '0x077cbfa4dab07b9bd3e167b37ec2066683caeb9a267f72ec
 // Phase 1: empty — read-only operations don't need sessions
 // Phase 2: will include game contract methods (commit, reveal, ask, guess)
 export const SESSION_POLICIES: Array<{ target: string; method: string }> = [
-  { target: GAME_CONTRACT, method: 'commit' },
-  { target: GAME_CONTRACT, method: 'reveal' },
+  // Emptying policies so Cartridge forces a manual UI popup for `commit` and `reveal`
+  // { target: GAME_CONTRACT, method: 'commit' },
+  // { target: GAME_CONTRACT, method: 'reveal' },
 ];

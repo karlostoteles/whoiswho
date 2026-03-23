@@ -46,14 +46,10 @@ export function useWalletConnection() {
         state.setUsername(walletInfo.username);
       }
 
-      // Fetch NFTs — timeout after 8s so login isn't blocked by slow RPC
+      // Fetch NFTs — wait as long as needed so user can pick their actual NFT
       state.setStatus('loading_nfts');
       try {
-        const nfts = await withTimeout(
-          fetchAllOwnedNFTs(walletInfo.address),
-          NFT_FETCH_TIMEOUT_MS,
-          'NFT fetch',
-        );
+        const nfts = await fetchAllOwnedNFTs(walletInfo.address);
         state.setOwnedNFTs(nfts);
         state.setStatus('ready');
       } catch (err) {
@@ -80,11 +76,7 @@ export function useWalletConnection() {
 
     state.setStatus('loading_nfts');
     try {
-      const nfts = await withTimeout(
-        fetchAllOwnedNFTs(address),
-        NFT_FETCH_TIMEOUT_MS,
-        'NFT refresh',
-      );
+      const nfts = await fetchAllOwnedNFTs(address);
       state.setOwnedNFTs(nfts);
     } catch (err) {
       console.warn('[wallet] NFT refresh failed:', err);
