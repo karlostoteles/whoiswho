@@ -3,8 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { useCharacterPreviews } from '@/shared/hooks/useCharacterPreviews';
-import { useActivePlayer, useEliminatedIds, useCurrentQuestion, useGameActions, useGameCharacters } from '@/core/store/selectors';
+import { useActivePlayer, useEliminatedIds, useCurrentQuestion, useGameActions, useGameCharacters, usePhase } from '@/core/store/selectors';
 import { sfx } from '@/shared/audio/sfx';
+import { GamePhase } from '@/core/store/types';
+import { useGameStore } from '@/core/store/gameStore';
+import { revealCharacterOnChain, getCommitment } from '@/services/starknet/commitReveal';
+import { revealCharacter } from '@/services/supabase/gameService';
+import { useWalletStore } from '@/services/starknet/walletStore';
 
 export function GuessPanel() {
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
@@ -27,11 +32,60 @@ export function GuessPanel() {
     setSelectedCharId(prev => prev === charId ? null : charId);
   };
 
+  const phase = usePhase();
+  const guessedCharacterId = useGameStore(s => s.guessedCharacterId);
+  const onlineGameId = useGameStore(s => s.onlineGameId);
+  const onlinePlayerNum = useGameStore(s => s.onlinePlayerNum);
+  const gameSessionId = useGameStore(s => s.gameSessionId);
+  const players = useGameStore(s => s.players);
+  const walletAddress = useWalletStore(s => s.address);
+
+  const [isRevealing, setIsRevealing] = useState(false);
+
   const handleConfirmGuess = () => {
     if (!selectedCharId) return;
     sfx.riskIt();
     makeGuess(selectedCharId);
   };
+
+  const handleReveal = async () => {
+    if (!onlineGameId || !onlinePlayerNum || isRevealing) return;
+    
+    setIsRevealing(true);
+    try {
+      const myPlayerKey = onlinePlayerNum === 1 ? 'player1' : 'player2';
+      const mySecretId = players[myPlayerKey].secretCharacterId;
+      if (!mySecretId) throw new Error('Secret ID not found');
+
+      const commitment = getCommitment(myPlayerKey, gameSessionId);
+      if (!commitment) throw new Error('Commitment not found in local storage');
+
+      console.log('[GuessPanel] Revealing on-chain...', { mySecretId, salt: commitment.salt });
+      
+      // 1. On-chain reveal
+      await revealCharacterOnChain(mySecretId, commitment.salt, onlineGameId);
+      
+      // 2. Supabase update
+      await revealCharacter(
+        onlineGameId,
+        onlinePlayerNum as 1 | 2,
+        mySecretId,
+        commitment.salt,
+        walletAddress ?? 'anonymous',
+        1 // turn number (reveal usually happens at the end)
+      );
+
+      sfx.click();
+    } catch (err) {
+      console.error('[GuessPanel] Reveal failed:', err);
+      alert('Reveal failed! Please try again.');
+    } finally {
+      setIsRevealing(false);
+    }
+  };
+
+  // Determine which character we are waiting for or revealing
+  const guessedChar = characters.find(c => c.id === guessedCharacterId);
 
   return (
     <motion.div
@@ -60,7 +114,62 @@ export function GuessPanel() {
       }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <AnimatePresence mode="wait">
-            {!selectedCharId ? (
+            {phase === GamePhase.GUESS_SUBMITTED ? (
+              <motion.div
+                key="submitted-header"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+              >
+                <div style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontSize: 28,
+                  fontWeight: 800,
+                  color: '#FFFFFE',
+                  letterSpacing: '-0.02em',
+                  marginBottom: 6,
+                }}>
+                  ⏳ Waiting for Reveal
+                </div>
+                <div style={{
+                  fontSize: 14,
+                  color: 'rgba(255,255,254,0.4)',
+                  marginBottom: 16,
+                }}>
+                  You guessed <strong>{guessedChar?.name || '...'}</strong>. 
+                  Now wait for your opponent to reveal their character on-chain.
+                </div>
+              </motion.div>
+            ) : phase === GamePhase.REVEAL_PENDING ? (
+              <motion.div
+                key="reveal-header"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+              >
+                <div style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontSize: 28,
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #FF6B6B, #E05555)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  letterSpacing: '-0.02em',
+                  marginBottom: 6,
+                }}>
+                  🚨 Opponent is Guessing!
+                </div>
+                <div style={{
+                  fontSize: 14,
+                  color: '#FF6B6B',
+                  fontWeight: 600,
+                  marginBottom: 16,
+                }}>
+                  Your opponent thinks you are <strong>{guessedChar?.name || '...'}</strong>.<br/>
+                  Reveal your character to end the game.
+                </div>
+              </motion.div>
+            ) : !selectedCharId ? (
               <motion.div
                 key="board-header"
                 initial={{ opacity: 0, y: -10 }}
@@ -137,9 +246,24 @@ export function GuessPanel() {
           </div>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <Button variant="secondary" size="md" onClick={cancelGuess}>
+            <Button variant="secondary" size="md" onClick={cancelGuess} disabled={phase !== GamePhase.GUESS_SELECT}>
               {midTurn ? 'End Turn' : 'Close Board'}
             </Button>
+
+            {phase === GamePhase.REVEAL_PENDING && (
+              <Button
+                variant="yes"
+                size="md"
+                onClick={handleReveal}
+                disabled={isRevealing}
+                style={{
+                  background: 'linear-gradient(135deg, #E8A444, #C68930)',
+                  boxShadow: '0 0 20px rgba(232,164,68,0.3)',
+                }}
+              >
+                {isRevealing ? 'Revealing...' : '🔐 REVEAL MY CHARACTER'}
+              </Button>
+            )}
 
             <AnimatePresence>
               {selectedCharId && (
@@ -168,14 +292,15 @@ export function GuessPanel() {
           </div>
         </div>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(min(80px, calc(50% - 8px)), 1fr))',
-          gap: 8,
-          padding: 8,
-          maxHeight: 'min(360px, 45vh)',
-          overflowY: 'auto',
-        }}>
+        {phase === GamePhase.GUESS_SELECT && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(80px, calc(50% - 8px)), 1fr))',
+            gap: 8,
+            padding: 8,
+            maxHeight: 'min(360px, 45vh)',
+            overflowY: 'auto',
+          }}>
           {activeCharacters.map((char) => {
             const isEliminated = false; // All shown are active
             const isSelected = selectedCharId === char.id;
@@ -267,6 +392,7 @@ export function GuessPanel() {
             );
           })}
         </div>
+      )}
       </Card>
     </motion.div>
   );

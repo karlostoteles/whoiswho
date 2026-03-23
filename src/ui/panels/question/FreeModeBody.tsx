@@ -21,26 +21,28 @@ type FreeCategory = typeof FREE_CATEGORIES[number]['key'];
 
 interface FreeModeBodyProps {
   askedIds: Set<string>;
+  answeredYesTraitKeys: Set<string>;
   remaining: Character[];
   questionImpact: Record<string, { yes: number; no: number }>;
   onAsk: (q: Question) => void;
 }
 
-export function FreeModeBody({ askedIds, remaining, questionImpact, onAsk }: FreeModeBodyProps) {
+export function FreeModeBody({ askedIds, answeredYesTraitKeys, remaining, questionImpact, onAsk }: FreeModeBodyProps) {
   const [freeCategory, setFreeCategory] = useState<FreeCategory | null>(null);
   const isMobile = useIsMobile();
 
-  // Info-gain filtered question IDs
+  // Info-gain filtered question IDs, excluding same-trait siblings ONLY IF answer was YES
   const usefulIds = useMemo(() => {
     const ids = new Set<string>();
     for (const q of FREE_QUESTIONS) {
       if (askedIds.has(q.id)) { ids.add(q.id); continue; }
+      if (answeredYesTraitKeys.has(q.traitKey)) continue;
       const yesCount = remaining.filter((c) => evaluateQuestion(q, c)).length;
       if (yesCount > 0 && yesCount < remaining.length) ids.add(q.id);
     }
     if (ids.size === askedIds.size) FREE_QUESTIONS.forEach((q) => ids.add(q.id));
     return ids;
-  }, [remaining, askedIds]);
+  }, [remaining, askedIds, answeredYesTraitKeys]);
 
   // Category stats
   const categoryStats = useMemo(() => {

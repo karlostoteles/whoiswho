@@ -79,7 +79,9 @@ export function UIOverlay() {
 
         {phase === GamePhase.ELIMINATION && <EliminationPrompt key="elimination" />}
 
-        {phase === GamePhase.GUESS_SELECT && <GuessPanel key="guess" />}
+        {(phase === GamePhase.GUESS_SELECT || 
+          phase === GamePhase.GUESS_SUBMITTED || 
+          phase === GamePhase.REVEAL_PENDING) && <GuessPanel key="guess" />}
 
         {phase === GamePhase.GUESS_WRONG && <GuessWrongOverlay key="guess-wrong" />}
 

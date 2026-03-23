@@ -11,6 +11,18 @@ import {
 } from './starkzapService';
 import { fetchAllOwnedNFTs } from './nftService';
 
+/** Race a promise against a timeout. Rejects if timeout fires first. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+const NFT_FETCH_TIMEOUT_MS = 8_000;
+
 /**
  * Hook for connecting/disconnecting wallet via starkzap.
  */
@@ -34,7 +46,7 @@ export function useWalletConnection() {
         state.setUsername(walletInfo.username);
       }
 
-      // Fetch NFTs
+      // Fetch NFTs — wait as long as needed so user can pick their actual NFT
       state.setStatus('loading_nfts');
       try {
         const nfts = await fetchAllOwnedNFTs(walletInfo.address);
