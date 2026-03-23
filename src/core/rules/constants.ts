@@ -70,7 +70,8 @@ export function computeAdaptiveCamera(activeCount: number): {
   const view = Math.max(gridW, gridD * 0.9);
   // Pull back enough to see the whole board; clamp to a comfortable min distance
   const z = Math.max(9, view * 0.88 + 3.5);
-  const y = Math.max(6, view * 0.58 + 2.5);
+  // Lowered perspective by ~15 degrees (reduced y multiplier and base)
+  const y = Math.max(3.5, view * 0.35 + 1.5);
   return {
     position: [0, y, z],
     lookAt: [0, 0, 0],

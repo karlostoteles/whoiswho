@@ -21,6 +21,7 @@ interface NFTModeBodyProps {
   setActiveZone: (z: string | null) => void;
   setHoveredZone: (z: string | null) => void;
   askedIds: Set<string>;
+  answeredYesTraitKeys: Set<string>;
   remaining: Character[];
   questionImpact: Record<string, { yes: number; no: number }>;
   onAsk: (q: Question) => void;
@@ -29,33 +30,25 @@ interface NFTModeBodyProps {
 export function NFTModeBody({
   activeZone,
   setActiveZone,
-  askedIds, remaining, questionImpact, onAsk,
+  askedIds, answeredYesTraitKeys, remaining, questionImpact, onAsk,
 }: NFTModeBodyProps) {
 
-  // Trait keys that have already been asked — hide other questions with the same traitKey
-  const askedTraitKeys = useMemo(() => {
-    const keys = new Set<string>();
-    for (const q of NFT_QUESTIONS) {
-      if (askedIds.has(q.id)) keys.add(q.traitKey);
-    }
-    return keys;
-  }, [askedIds]);
-
   // Info-gain filtered question IDs, excluding questions in already-asked trait categories
+  // (We only hide other questions in the same trait category if the answer was YES)
   const usefulIds = useMemo(() => {
     const ids = new Set<string>();
     for (const q of NFT_QUESTIONS) {
       // Already asked — keep it visible (greyed out)
       if (askedIds.has(q.id)) { ids.add(q.id); continue; }
-      // Same traitKey already asked — hide (no point asking another variant)
-      if (askedTraitKeys.has(q.traitKey)) continue;
+      // Same traitKey already asked AND the answer was YES — hide (no point asking another variant)
+      if (answeredYesTraitKeys.has(q.traitKey)) continue;
       // Only show if it provides info gain
       const yesCount = remaining.filter((c) => evaluateQuestion(q, c)).length;
       if (yesCount > 0 && yesCount < remaining.length) ids.add(q.id);
     }
     if (ids.size === askedIds.size) NFT_QUESTIONS.forEach((q) => ids.add(q.id));
     return ids;
-  }, [remaining, askedIds, askedTraitKeys]);
+  }, [remaining, askedIds, answeredYesTraitKeys]);
 
   // Group questions by data-driven category
   const categoryQuestions = useMemo(() => {

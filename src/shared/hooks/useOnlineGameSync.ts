@@ -353,8 +353,11 @@ export function useOnlineGameSync(): Record<string, never> {
 
     // Game finished
     if (game.status === 'finished') {
-      if (state.phase !== GamePhase.GAME_OVER && state.phase !== GamePhase.GUESS_RESULT) {
+      if (state.phase !== GamePhase.GAME_OVER) {
         const winnerKey = game.winner_player_num === 1 ? 'player1' : game.winner_player_num === 2 ? 'player2' : null;
+        // Even if we are already in GUESS_RESULT, we MUST overwrite winnerKey here
+        // because updateGameState(current_phase: GUESS_RESULT) might have raced ahead
+        // of finishGame() and skipped setting the winner locally.
         useGameStore.setState({ winner: winnerKey, phase: GamePhase.GUESS_RESULT });
       }
       return;

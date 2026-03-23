@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePhase, useTurnNumber, useGameMode, useEliminatedIds, useGameCharacters, useActivePlayer } from '@/core/store/selectors';
+import { usePhase, useTurnNumber, useGameMode, useEliminatedIds, useGameCharacters, useActivePlayer, useOnlinePlayerNum } from '@/core/store/selectors';
 import { GamePhase } from '@/core/store/types';
 
 /**
@@ -11,7 +11,13 @@ export function TurnIndicator() {
   const activePlayer = useActivePlayer();
   const turnNumber = useTurnNumber();
   const characters = useGameCharacters();
-  const eliminatedIds = useEliminatedIds(activePlayer);
+  const mode = useGameMode();
+  const onlinePlayerNum = useOnlinePlayerNum();
+
+  const myPlayerKey = (mode === 'online' && onlinePlayerNum)
+    ? (onlinePlayerNum === 1 ? 'player1' : 'player2')
+    : activePlayer;
+  const eliminatedIds = useEliminatedIds(myPlayerKey);
 
   const remaining = characters.length - eliminatedIds.length;
   const total = characters.length;

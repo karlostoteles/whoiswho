@@ -145,7 +145,9 @@ export async function submitCommitmentOnChain(
     entrypoint: 'commit',
     calldata: [gameIdFelt, commitment],
   }]);
-  return (tx as any).transaction_hash || String(tx);
+  const txHash = (tx as any).transaction_hash || String(tx);
+  if (txHash) await account.waitForTransaction(txHash);
+  return txHash;
 }
 
 /**
@@ -165,5 +167,7 @@ export async function revealCharacterOnChain(
     entrypoint: 'reveal',
     calldata: [gameIdFelt, characterIdFelt, salt],
   }]);
-  return (tx as any).transaction_hash || String(tx);
+  const txHash = (tx as any).transaction_hash || String(tx);
+  if (txHash) await account.waitForTransaction(txHash);
+  return txHash;
 }

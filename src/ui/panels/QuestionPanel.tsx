@@ -56,6 +56,13 @@ export function QuestionPanel() {
     [history, activePlayer],
   );
 
+  const answeredYesTraitKeys = useMemo(
+    () => new Set(
+      history.filter((q) => q.askedBy === activePlayer && q.answer === true).map((q) => q.traitKey)
+    ),
+    [history, activePlayer],
+  );
+
   // Characters still on the board (not eliminated by this player)
   const remaining = useMemo(() => {
     const elimSet = new Set(playerState.eliminatedCharacterIds);
@@ -267,6 +274,7 @@ export function QuestionPanel() {
                 setActiveZone={setActiveZone}
                 setHoveredZone={setHoveredZone}
                 askedIds={askedIds}
+                answeredYesTraitKeys={answeredYesTraitKeys}
                 remaining={remaining}
                 questionImpact={questionImpact}
                 onAsk={handleAsk}
@@ -274,6 +282,7 @@ export function QuestionPanel() {
             ) : (
               <FreeModeBody
                 askedIds={askedIds}
+                answeredYesTraitKeys={answeredYesTraitKeys}
                 remaining={remaining}
                 questionImpact={questionImpact}
                 onAsk={handleAsk}
